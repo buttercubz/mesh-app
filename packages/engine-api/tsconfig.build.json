@@ -1,0 +1,16 @@
+// Emits the library: src/**/*.ts (generated/ included) → dist/*.js + .d.ts (ESM).
+// No DOM lib: the client only needs the plugin object it is given.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

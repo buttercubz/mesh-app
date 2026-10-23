@@ -1,0 +1,25 @@
+# mesh-lab (owned by WP-05, DESIGN §12, contracts C7 and C8).
+# Stub created by WP-01 (DESIGN §3.1, §16.2 stub hand-off).
+[package]
+name = "mesh-lab"
+description = "Field bench generators, stats, clock-offset estimator, loopback correlator, labrun/1 records."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mesh-wire = { path = "../mesh-wire" }
+# ridelog/1 ride key: SHA-256 (already in the graph through mesh-wire).
+sha2.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+# JSON Schema (draft 2020-12) validator for the labrun/1 contract test (C7). Not in
+# [workspace.dependencies]: exact pin local to this crate's tests (reported as a
+# deviation by WP-05).
+boon = "=0.6.1"

@@ -1,0 +1,89 @@
+# cargo-fuzz targets for the wire codecs (owned by WP-04, DESIGN §13.1). Built and run
+# only by the nightly job: `cd fuzz && cargo +nightly fuzz build`, then each target for
+# 300 s. Not a member of the root workspace (root Cargo.toml excludes `fuzz`).
+#
+# Invite URL and Noise handshake-input targets belong next to mesh-crypto's API (WP-07);
+# they are added here once that API exists (see docs/protocol/WIRE.md §Fuzzing).
+
+[package]
+name = "mesh-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+mesh-wire = { path = "../crates/mesh-wire" }
+
+# Its own workspace root, so the parent workspace never tries to adopt it.
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "stream_deframer"
+path = "fuzz_targets/stream_deframer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "gatt_reassembly"
+path = "fuzz_targets/gatt_reassembly.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "link_frame"
+path = "fuzz_targets/link_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "records"
+path = "fuzz_targets/records.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mesh_header"
+path = "fuzz_targets/mesh_header.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mesh_ptypes"
+path = "fuzz_targets/mesh_ptypes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "segmentation"
+path = "fuzz_targets/segmentation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "control_bodies"
+path = "fuzz_targets/control_bodies.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "hello_adv"
+path = "fuzz_targets/hello_adv.rs"
+test = false
+doc = false
+bench = false

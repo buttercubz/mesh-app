@@ -1,0 +1,315 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convlink.voice/schema/labrun-1.schema.json",
+  "title": "labrun/1 line",
+  "description": "One line of a labrun/1 JSON Lines file (DESIGN §12.3, contract C7, owned by WP-05). One file per device per run; the first line is the run line, the last line of a finished run is the summary line. Times `ts` are seconds since the run started on this device.",
+  "oneOf": [
+    { "$ref": "#/$defs/run" },
+    { "$ref": "#/$defs/sample" },
+    { "$ref": "#/$defs/event" },
+    { "$ref": "#/$defs/mark" },
+    { "$ref": "#/$defs/raw" },
+    { "$ref": "#/$defs/summary" }
+  ],
+  "$defs": {
+    "ts": { "type": "number", "minimum": 0 },
+    "msOrNull": { "type": ["number", "null"], "minimum": 0 },
+    "boolOrNull": { "type": ["boolean", "null"] },
+    "u16": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "u32": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "count": { "type": "integer", "minimum": 0 },
+    "ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+    "bench": {
+      "enum": ["T0", "T0b", "T0c", "T1", "T2", "T3", "T4", "T5a", "T5b", "T6", "T8", "voxCal", "ride"]
+    },
+    "audio": { "description": "Audio path of the run (mandatory, §12.1).", "enum": ["off", "renderOnly", "full"] },
+    "anchor": { "description": "Keep-alive anchor of the run (mandatory, §12.1).", "enum": ["none", "audio", "audioLocation"] },
+    "verdict": { "enum": ["go", "noGo", "inconclusive"] },
+    "pcts": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["p50", "p95", "p99"],
+          "properties": {
+            "p50": { "type": "number" },
+            "p95": { "type": "number" },
+            "p99": { "type": "number" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "run": {
+      "type": "object",
+      "required": ["t", "v", "runId", "bench", "variant", "audio", "anchor", "startedAt", "device", "labNode", "role", "peers", "params"],
+      "properties": {
+        "t": { "const": "run" },
+        "v": { "const": 1 },
+        "runId": { "type": "string", "pattern": "^r-[0-9]{8}-[0-9]{4}-[0-9a-z]{4}$" },
+        "bench": { "$ref": "#/$defs/bench" },
+        "variant": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        },
+        "audio": { "$ref": "#/$defs/audio" },
+        "anchor": { "$ref": "#/$defs/anchor" },
+        "startedAt": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+        },
+        "device": {
+          "type": "object",
+          "required": ["model", "os", "app", "platform"],
+          "properties": {
+            "model": { "type": "string", "minLength": 1 },
+            "os": { "type": "string", "minLength": 1 },
+            "app": { "type": "string", "minLength": 1 },
+            "platform": { "enum": ["ios", "android", "web", "sim"] }
+          },
+          "additionalProperties": false
+        },
+        "labNode": { "$ref": "#/$defs/u16" },
+        "role": { "enum": ["controller", "follower"] },
+        "peers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["labNode"],
+            "properties": {
+              "labNode": { "$ref": "#/$defs/u16" },
+              "model": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "durationS": { "$ref": "#/$defs/count" },
+            "pattern": { "enum": ["saturate", "voiceLike", "ping", "pingUnderLoad", "idle"] },
+            "streams": { "type": "integer", "minimum": 0, "maximum": 4 },
+            "payloadB": { "$ref": "#/$defs/u16" },
+            "intervalMs": { "$ref": "#/$defs/u16" },
+            "pingHz": { "type": "number", "minimum": 0, "maximum": 50 },
+            "transport": { "enum": ["l2cap", "gattNotify", "gattWrite", "aware"] },
+            "linkRole": { "enum": ["central", "peripheral"] },
+            "headset": { "type": "boolean" },
+            "mixable": { "type": "boolean" },
+            "gps": { "type": "boolean" },
+            "label": { "type": "string", "maxLength": 64 }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "link": {
+      "type": "object",
+      "required": ["id", "kind", "txKbps", "rxKbps", "loss", "rttP50", "rttP95", "owdP95", "stalls", "maxWrite"],
+      "properties": {
+        "id": { "$ref": "#/$defs/u32" },
+        "kind": { "enum": ["ble-l2cap", "ble-gatt", "aware", "tunnel", "sim"] },
+        "role": { "enum": ["central", "peripheral", null] },
+        "peer": { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 },
+        "rssi": { "type": ["integer", "null"], "minimum": -127, "maximum": 20 },
+        "txKbps": { "type": "number", "minimum": 0 },
+        "rxKbps": { "type": "number", "minimum": 0 },
+        "loss": { "$ref": "#/$defs/ratio" },
+        "reorder": { "$ref": "#/$defs/count" },
+        "rttP50": { "$ref": "#/$defs/msOrNull" },
+        "rttP95": { "$ref": "#/$defs/msOrNull" },
+        "owdP95": { "type": ["number", "null"] },
+        "stalls": { "$ref": "#/$defs/count" },
+        "maxWrite": { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 }
+      },
+      "additionalProperties": false
+    },
+    "gps": {
+      "type": "object",
+      "required": ["lat", "lon"],
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "spd": { "type": ["number", "null"], "minimum": 0 },
+        "acc": { "type": ["number", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "sample": {
+      "type": "object",
+      "description": "1 Hz sample. `anchor` (keep-alive anchor state) and `bt` (Bluetooth radio state) are mandatory (§12.1).",
+      "required": ["t", "ts", "links", "audio", "dev", "anchor", "bt"],
+      "properties": {
+        "t": { "const": "s" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+        "gps": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/gps" }] },
+        "peerGps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["labNode", "lat", "lon"],
+            "properties": {
+              "labNode": { "$ref": "#/$defs/u16" },
+              "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+              "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "distM": { "type": ["number", "null"], "minimum": 0 },
+        "audio": {
+          "type": "object",
+          "required": ["running", "route", "ladder", "xruns"],
+          "properties": {
+            "capFps": { "type": ["number", "null"], "minimum": 0 },
+            "renFps": { "type": ["number", "null"], "minimum": 0 },
+            "running": { "type": "boolean" },
+            "route": { "type": "string", "minLength": 1 },
+            "ladder": { "enum": ["L0", "L1", "L2", "L3"] },
+            "xruns": { "$ref": "#/$defs/count" }
+          },
+          "additionalProperties": false
+        },
+        "dev": {
+          "type": "object",
+          "required": ["bat", "chg", "therm", "app", "locked"],
+          "properties": {
+            "bat": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/ratio" }] },
+            "chg": { "$ref": "#/$defs/boolOrNull" },
+            "therm": {
+              "enum": ["nominal", "fair", "serious", "critical", "none", "light", "moderate", "severe", "emergency", "shutdown", "unknown"]
+            },
+            "app": { "enum": ["foreground", "background", "inactive"] },
+            "locked": { "$ref": "#/$defs/boolOrNull" }
+          },
+          "additionalProperties": false
+        },
+        "anchor": {
+          "type": "object",
+          "description": "Keep-alive anchor state: `ok` = the run's anchor holds (null = not reported this second; analysis treats only true as valid), plus session, location session and Live Activity.",
+          "required": ["ok", "session", "location", "liveActivity"],
+          "properties": {
+            "ok": { "$ref": "#/$defs/boolOrNull" },
+            "session": { "$ref": "#/$defs/boolOrNull" },
+            "location": { "$ref": "#/$defs/boolOrNull" },
+            "liveActivity": { "$ref": "#/$defs/boolOrNull" }
+          },
+          "additionalProperties": false
+        },
+        "bt": { "enum": ["on", "off", "unauthorized", "resetting", "unsupported", "unknown"] }
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": ["t", "ts", "ev"],
+      "properties": {
+        "t": { "const": "e" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "ev": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]*$" }
+      },
+      "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+    },
+    "mark": {
+      "type": "object",
+      "required": ["t", "ts", "label"],
+      "properties": {
+        "t": { "const": "mark" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "label": { "type": "string", "maxLength": 64 }
+      },
+      "additionalProperties": false
+    },
+    "raw": {
+      "type": "object",
+      "required": ["t", "ts"],
+      "anyOf": [{ "required": ["pings"] }, { "required": ["meshProbes"] }, { "required": ["loopback"] }],
+      "properties": {
+        "t": { "const": "raw" },
+        "ts": { "$ref": "#/$defs/ts" },
+        "link": { "$ref": "#/$defs/u32" },
+        "pings": {
+          "description": "[probeId, t1 (s, run clock), t4 (s, run clock), hold (s), t3 (s, the peer's raw clock; absent without the reply probe)]",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              { "$ref": "#/$defs/u32" },
+              { "type": "number", "minimum": 0 },
+              { "type": "number", "minimum": 0 },
+              { "type": "number", "minimum": 0 },
+              { "type": "number", "minimum": 0 }
+            ],
+            "minItems": 4,
+            "maxItems": 5
+          }
+        },
+        "meshProbes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["origin", "id", "tOrigin", "tRx", "hops", "ageMs", "trace"],
+            "properties": {
+              "origin": { "$ref": "#/$defs/u16" },
+              "id": { "$ref": "#/$defs/u32" },
+              "tOrigin": { "type": "number", "minimum": 0 },
+              "tRx": { "type": "number", "minimum": 0 },
+              "hops": { "type": "integer", "minimum": 0, "maximum": 15 },
+              "ageMs": { "type": "number", "minimum": 0 },
+              "trace": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/u16" } }
+            },
+            "additionalProperties": false
+          }
+        },
+        "loopback": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rep", "delayMs", "ncc", "erlDb"],
+            "properties": {
+              "rep": { "$ref": "#/$defs/count" },
+              "delayMs": { "$ref": "#/$defs/msOrNull" },
+              "ncc": { "type": ["number", "null"], "minimum": 0 },
+              "erlDb": { "type": ["number", "null"] }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "summary": {
+      "type": "object",
+      "required": ["t", "durationS", "txKbps", "loss", "owdMs", "stalls", "verdict"],
+      "properties": {
+        "t": { "const": "summary" },
+        "durationS": { "type": "number", "minimum": 0 },
+        "txKbps": {
+          "type": "object",
+          "required": ["mean"],
+          "properties": { "mean": { "type": "number", "minimum": 0 } },
+          "additionalProperties": false
+        },
+        "rxKbps": {
+          "type": "object",
+          "required": ["mean"],
+          "properties": { "mean": { "type": "number", "minimum": 0 } },
+          "additionalProperties": false
+        },
+        "loss": { "$ref": "#/$defs/ratio" },
+        "owdMs": { "$ref": "#/$defs/pcts" },
+        "rttMs": { "$ref": "#/$defs/pcts" },
+        "stalls": { "$ref": "#/$defs/count" },
+        "reorder": { "$ref": "#/$defs/count" },
+        "connIntervalMs": { "$ref": "#/$defs/msOrNull" },
+        "anchorDrops": { "$ref": "#/$defs/count" },
+        "loopbackMs": { "$ref": "#/$defs/pcts" },
+        "perLegMs": { "$ref": "#/$defs/msOrNull" },
+        "verdict": { "$ref": "#/$defs/verdict" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

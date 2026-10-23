@@ -1,0 +1,36 @@
+# mesh-ffi (owned by WP-12, DESIGN §2.3, §3.4-§3.6, contracts C4 and C5).
+# Stub created by WP-01 (DESIGN §3.1, §16.2 stub hand-off).
+[package]
+name = "mesh-ffi"
+description = "Runtime (engine thread, MPSC, RT rings), UniFFI control plane, real-time C ABI."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+# staticlib for iOS, cdylib for Android and the host dylib used by uniffi-bindgen and
+# the Kotlin JNA tests, lib for Rust tests (DESIGN §2.3).
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[dependencies]
+mesh-core = { path = "../mesh-core" }
+mesh-sim = { path = "../mesh-sim" }
+# Workspace edges used by the FFI conversions: the UI JSON contract (C1) and the BLE
+# constants / protocol version (C2). Both are already in mesh-core's graph.
+mesh-api = { path = "../mesh-api" }
+mesh-wire = { path = "../mesh-wire" }
+# ridelog/1 diagnostics recorder (sans-IO, already in mesh-core's graph).
+mesh-lab = { path = "../mesh-lab" }
+uniffi.workspace = true
+rtrb.workspace = true
+crossbeam-channel.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+# Checks the hand-written include/mesh_rt.h against src/rt/abi.rs (DESIGN §2.3).
+cbindgen.workspace = true

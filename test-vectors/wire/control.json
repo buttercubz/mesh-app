@@ -1,0 +1,74 @@
+{
+  "description": "Control bodies (DESIGN §4.7), logical form before segmentation. ROSTER: ver=1 || group_id[16] || epoch u32 || roster_version u32 || invite_sig[64] || n u8 || n x (node_id u16 || id_hash[16] || ed_pk[32] || role u8 || name_len u8 || name) || sig[64]. JOIN_REQ: ver=1 || ed_pk[32] || x_pk[32] || platform u8 || name_len u8 || name || sig[64]. REKEY: new_epoch u32 || roster_version u32 || leader_eph_pk[32] || n u8 || n x (node_id u16 || sealed[48]) || sig[64]. `*/signed-message` = the exact bytes signed. Signatures and sealed boxes are filler.",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "01102f4e6d8cabcae90827466584a3c2e1030000000c00000051708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2040001001f3e5d7c9bbad9f81736557493b2d1809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e40322410105416e612030010101203f5e7d9cbbdaf91837567594b3d281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e5042342ff094dc3b36e696361203102010221405f7e9dbcdbfa1938577695b4d382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524430008ce96cf89ceae20320301032241607f9ebddcfb1a39587796b5d483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e706254400184a75616e204361726c6f73206465206c61204675656e7465527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f3",
+      "inputs": {
+        "epoch": 3,
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "n": 4,
+        "names": [
+          "Ana 0",
+          "Mónica 1",
+          "Ζωή 2",
+          "Juan Carlos de la Fuente Ruiz 3"
+        ],
+        "note": "entry 3's name is truncated to 24 B at a grapheme boundary",
+        "roles": [
+          1,
+          255,
+          0,
+          0
+        ],
+        "roster_version": 12
+      },
+      "name": "roster/4-entries-leader-denied"
+    },
+    {
+      "expected": "637669632f76312f726f7374657201102f4e6d8cabcae90827466584a3c2e1030000000c00000051708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2040001001f3e5d7c9bbad9f81736557493b2d1809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e40322410105416e612030010101203f5e7d9cbbdaf91837567594b3d281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e5042342ff094dc3b36e696361203102010221405f7e9dbcdbfa1938577695b4d382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524430008ce96cf89ceae20320301032241607f9ebddcfb1a39587796b5d483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e706254400184a75616e204361726c6f73206465206c61204675656e7465",
+      "inputs": {
+        "of": "roster/4-entries-leader-denied",
+        "rule": "\"cvic/v1/roster\" || preceding bytes"
+      },
+      "name": "roster/signed-message"
+    },
+    {
+      "expected": "0161809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e403226281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e50423010f4dc3b36e69636120f09f8f8defb88f6382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504",
+      "inputs": {
+        "ed_pk": "61809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e40322",
+        "name": "Mónica 🏍️",
+        "platform": 1,
+        "x_pk": "6281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e50423"
+      },
+      "name": "join_req/android"
+    },
+    {
+      "expected": "637669632f76312f6a6f696e102f4e6d8cabcae90827466584a3c2e10161809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e403226281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e50423010f4dc3b36e69636120f09f8f8defb88f",
+      "inputs": {
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "rule": "\"cvic/v1/join\" || group_id || preceding bytes"
+      },
+      "name": "join_req/signed-message"
+    },
+    {
+      "expected": "040000000d0000007190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133203010190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241020191b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e5042342030192b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524437291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f413",
+      "inputs": {
+        "leader_eph_pk": "7190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f41332",
+        "n": 3,
+        "new_epoch": 4,
+        "roster_version": 13
+      },
+      "name": "rekey/3-entries"
+    },
+    {
+      "expected": "637669632f76312f72656b6579102f4e6d8cabcae90827466584a3c2e1040000000d0000007190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133203010190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241020191b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e5042342030192b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e6052443",
+      "inputs": {
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "rule": "\"cvic/v1/rekey\" || group_id || preceding bytes"
+      },
+      "name": "rekey/signed-message"
+    }
+  ]
+}

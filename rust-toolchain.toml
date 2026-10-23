@@ -1,0 +1,15 @@
+# Owned by WP-00 (DESIGN §2.1, §2.6). The channel is the pin validated by
+# scripts/msrv-probe.sh; scripts/msrv-probe/Cargo.toml `rust-version` must match it.
+# A pinned name is a separate rustup toolchain from "stable", even at the same version.
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]
+targets = [
+  "aarch64-apple-darwin",
+  "aarch64-apple-ios",
+  "aarch64-apple-ios-sim",
+  "aarch64-linux-android",
+  "x86_64-linux-android",
+  "wasm32-unknown-unknown",
+]

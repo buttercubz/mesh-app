@@ -1,0 +1,52 @@
+{
+  "$comment": "Go / no-go thresholds of the field benches (DESIGN §12.2, research §9). Owned by WP-05. crates/mesh-lab/src/verdict.rs mirrors these numbers for the on-device verdict; its test keeps both equal. T1.convoyGapM is a placeholder until the user answers DESIGN Appendix E #1 (typical convoy gap).",
+  "version": 1,
+  "T0": {
+    "maxLoss": 0.05,
+    "owdP95Ms": 60,
+    "minStreams": 2,
+    "bleFastKbps": 150
+  },
+  "T0b": {
+    "maxLoss": 0.05,
+    "hopP95Ms": 40
+  },
+  "T0c": {
+    "maxLoss": 0.05,
+    "owdP95Ms": 60,
+    "maxXruns": 0
+  },
+  "T1": {
+    "maxLoss": 0.05,
+    "windowOkShare": 0.95,
+    "minWindows": 60,
+    "convoyGapM": 50,
+    "distanceBinM": 10
+  },
+  "T2": {
+    "maxSilentMutes": 0,
+    "minDurationS": 60
+  },
+  "T3": {
+    "rejoinS": 10
+  },
+  "T4": {
+    "streams": 4,
+    "maxLoss": 0.02
+  },
+  "T5a": {
+    "legMs": 25
+  },
+  "T6": {
+    "batteryPctPerH": 5,
+    "minDurationS": 1800
+  },
+  "T8": {
+    "touchToFlagP95Ms": 50,
+    "maxFrameMs": 50
+  },
+  "voxCal": {
+    "falseTriggersPerMin": 1,
+    "onsetMs": 150
+  }
+}

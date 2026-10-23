@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ cloud backup and device transfer (WP-18, DESIGN §10.2.4). The engine's
+  secure store (Keystore-wrapped per-group identities and epoch secrets, WP-16) must never
+  leave the device: restoring it elsewhere would clone a rider's identity. It lives in
+  SharedPreferences or files/meshengine/, both excluded. UI settings and group metadata
+  (WebView storage) may be restored.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="meshengine/" />
+        <exclude domain="database" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="meshengine/" />
+        <exclude domain="database" path="." />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,6 @@
+/*
+ * @meshapp/ui-kit: tokens + component styles, for consumers that do not use Tailwind.
+ * Tailwind v4 apps import theme.css instead (it includes this file).
+ */
+@import "./tokens.css";
+@import "./components.css";

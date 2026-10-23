@@ -1,0 +1,1 @@
+../../../MeshIntercomPlugin.swift

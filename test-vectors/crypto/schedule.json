@@ -1,0 +1,71 @@
+{
+  "description": "HKDF-SHA256 key schedule (DESIGN §8.3): PRK = Extract(salt = group_id, IKM = epoch_secret); psk = Expand(PRK, \"cvic/v1/noise-psk\", 32); disc_key = Expand(PRK, \"cvic/v1/discovery\", 32); group_tag = HMAC(disc_key, \"gt\" ‖ u32 t10)[0..4]; node_token = HMAC(disc_key, \"nt\" ‖ u32 t10 ‖ id_hash)[0..4]; aware_pmk = Expand(PRK, \"cvic/v1/aware-pmk\" ‖ handshake_hash, 32); tunnel_rdv = Expand(PRK, \"cvic/v1/tunnel-rendezvous\", 16); lab_tag = SHA-256(\"cvic/lab\" ‖ u16 lab_code)[0..2] (u16 LE).",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": {
+        "disc_key": "f35f7bdd3eac09d048116af16e3969bd72ed1b3ebe67810c01c876ab2ec863b3",
+        "prk": "0d1b16cb451b69bafdc64a618c267b651377659c7cda8f9d0d573dcd616f7cc7",
+        "psk": "240cbcc3071a1d172e07733448bfeb3c1fd7d1dd3df97990b6a6d0af914560fe",
+        "tunnel_rdv": "049b90ef6b18d639979716d582873e3b"
+      },
+      "inputs": {
+        "epoch": 7,
+        "epoch_secret": "203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1",
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1"
+      },
+      "name": "epoch"
+    },
+    {
+      "expected": {
+        "group_tag": "015de21b",
+        "group_tag_next": "95c3a3ae",
+        "group_tag_prev": "853ac810",
+        "node_token": "0a27e200",
+        "t10": 2935000
+      },
+      "inputs": {
+        "id_hash": "4a0a18b8beb9ede159206eb9fc4cb4e8",
+        "unix_seconds": 1761000123
+      },
+      "name": "discovery"
+    },
+    {
+      "expected": {
+        "aware_pmk": "93bf0bd0a2e7f1b1b1961c663cf3d48ff0e35491ffd4038d0ba6bf4ead987d63"
+      },
+      "inputs": {
+        "ble_handshake_hash": "607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221"
+      },
+      "name": "aware_pmk"
+    },
+    {
+      "expected": {
+        "lab_tag": 65259
+      },
+      "inputs": {
+        "lab_code": 0
+      },
+      "name": "lab_tag/0"
+    },
+    {
+      "expected": {
+        "lab_tag": 48050
+      },
+      "inputs": {
+        "lab_code": 1234
+      },
+      "name": "lab_tag/1234"
+    },
+    {
+      "expected": {
+        "lab_tag": 22388
+      },
+      "inputs": {
+        "lab_code": 9999
+      },
+      "name": "lab_tag/9999"
+    }
+  ]
+}

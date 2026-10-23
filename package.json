@@ -1,0 +1,27 @@
+{
+  "name": "mesh-app",
+  "private": true,
+  "version": "0.0.0",
+  "description": "convLink Voice: phone-only group intercom monorepo (DESIGN.md).",
+  "type": "module",
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node scripts/tasks.mjs dev",
+    "build": "node scripts/tasks.mjs build",
+    "test": "node scripts/tasks.mjs test",
+    "lint": "node scripts/tasks.mjs lint",
+    "ci": "node scripts/tasks.mjs ci",
+    "help": "node scripts/tasks.mjs help"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^24.13.3",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.63.0"
+  }
+}

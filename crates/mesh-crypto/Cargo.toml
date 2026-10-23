@@ -1,0 +1,48 @@
+# mesh-crypto (owned by WP-07, DESIGN §4.3, §4.7, §8, contract C8).
+# Stub created by WP-01 (DESIGN §3.1, §16.2 stub hand-off).
+#
+# No OS randomness anywhere: every crypto crate is built without default features and
+# without its rand_core/getrandom features; randomness is the engine's injected
+# ChaCha20Rng. `cargo tree -p mesh-crypto -i getrandom` must stay empty, which is also
+# why this crate has no proptest dev-dependency (proptest pulls getrandom); its
+# property tests are seeded ChaCha20Rng loops instead.
+[package]
+name = "mesh-crypto"
+description = "Identities, invite codec, key schedule, Noise wrapper, link AEAD, roster and rekey."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# `vectors::generate()` and the `gen_vectors` example used by `cargo xtask vectors`.
+vectors = ["dep:serde_json"]
+
+[dependencies]
+mesh-wire = { path = "../mesh-wire" }
+# `risky-raw-split` exposes HandshakeState::dangerously_get_raw_split() (DESIGN §4.3);
+# no `std` (it would enable getrandom/std) and no default resolver.
+snow = { workspace = true, features = ["risky-raw-split"] }
+chacha20poly1305 = { workspace = true }
+x25519-dalek = { workspace = true, features = ["zeroize"] }
+ed25519-dalek = { workspace = true, features = ["fast", "zeroize"] }
+sha2 = { workspace = true }
+hkdf = { workspace = true }
+hmac = { workspace = true }
+zeroize = { workspace = true }
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+# The vectors module is also compiled for unit tests (drift check in `cargo test`).
+serde_json.workspace = true
+
+[[example]]
+name = "gen_vectors"
+required-features = ["vectors"]

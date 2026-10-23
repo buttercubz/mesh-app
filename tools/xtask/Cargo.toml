@@ -1,0 +1,22 @@
+# cargo xtask (owned by WP-01, DESIGN §2.3, §2.5). Subcommand modules other than
+# main.rs, util.rs, check.rs and size.rs are stubs handed off to their WPs (§16.2).
+[package]
+name = "xtask"
+description = "Workspace task runner: fetch-opus, builds, bindings, vectors, check, size."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true
+# Used by WP-12 to check include/mesh_rt.h (cbindgen as a library, DESIGN §2.3).
+cbindgen.workspace = true

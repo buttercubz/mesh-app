@@ -1,0 +1,25 @@
+# Owned by WP-08 (DESIGN §3.1, §6.4-§6.5, §7). Created as a stub by WP-01.
+[package]
+name = "mesh-voice"
+description = "Voice pipeline: codec trait, HPF, VAD, talk FSM, jitter buffer, mixer, earcons."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# libopus is optional and NOT a default feature (DESIGN §3.1): the wasm32 graph never
+# sees opus-sys. mesh-core turns it on through its own default `opus` feature.
+default = []
+opus = ["dep:opus-sys"]
+
+[dependencies]
+opus-sys = { path = "../opus-sys", optional = true }
+nnnoiseless.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

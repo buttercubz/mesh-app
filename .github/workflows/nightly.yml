@@ -1,0 +1,61 @@
+# Nightly (owned by WP-01, DESIGN §2.5, §13.3): fuzzing and the random-seed simulator
+# suite. Separate from ci.yml and never folded into a "|| skipped" step: every command
+# fails the job loudly, including when its owner has not landed yet.
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz:
+    name: cargo-fuzz (nightly toolchain)
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Nightly toolchain and cargo-fuzz
+        run: |
+          rustup toolchain install nightly --profile minimal
+          cargo +nightly install cargo-fuzz --locked
+
+      - name: Build fuzz targets
+        run: cd fuzz && cargo +nightly fuzz build
+
+      - name: Run every fuzz target for 300 s
+        run: |
+          set -euo pipefail
+          cd fuzz
+          targets="$(cargo +nightly fuzz list)"
+          test -n "$targets" # an empty target list is a failure, not a pass
+          for t in $targets; do
+            cargo +nightly fuzz run "$t" -- -max_total_time=300
+          done
+
+  sim-suite:
+    name: mesh-sim nightly suite (random seeds)
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain (rust-toolchain.toml)
+        run: rustup show active-toolchain
+
+      - name: libopus sources
+        run: |
+          source scripts/env.sh
+          cargo xtask fetch-opus
+
+      - name: Simulator suite
+        run: |
+          source scripts/env.sh
+          cargo run -p mesh-sim --release -- suite nightly --seeds 64

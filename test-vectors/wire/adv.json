@@ -1,0 +1,105 @@
+{
+  "description": "Advertising payloads (DESIGN §9.4) and GATT UUIDs (§9.3). AD structures are len || type || data; 128-bit UUIDs inside AD are little-endian. iPhone local name: 6 RFC 4648 base32 chars (A-Z2-7, MSB first) of group_tag[0] || group_tag[1] || top 14 bits of node_token (30 bits).",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "31b8cd859d3a4622a4653cdca2c32dc5",
+      "inputs": {
+        "byte_order": "canonical (big-endian)",
+        "uuid": "31B8CD85-9D3A-4622-A465-3CDCA2C32DC5"
+      },
+      "name": "uuid/mesh_svc"
+    },
+    {
+      "expected": "86841842a7c3484484d25b281a3f616c",
+      "inputs": {
+        "byte_order": "canonical (big-endian)",
+        "uuid": "86841842-A7C3-4844-84D2-5B281A3F616C"
+      },
+      "name": "uuid/hello"
+    },
+    {
+      "expected": "14e919437673440a979af85b4dbd4dbf",
+      "inputs": {
+        "byte_order": "canonical (big-endian)",
+        "uuid": "14E91943-7673-440A-979A-F85B4DBD4DBF"
+      },
+      "name": "uuid/rx"
+    },
+    {
+      "expected": "a76e3168b4f64be1825235ab8af17302",
+      "inputs": {
+        "byte_order": "canonical (big-endian)",
+        "uuid": "A76E3168-B4F6-4BE1-8252-35AB8AF17302"
+      },
+      "name": "uuid/tx"
+    },
+    {
+      "expected": "c52dc3a2dc3c65a422463a9d85cdb831",
+      "inputs": {
+        "byte_order": "AD/ATT little-endian",
+        "uuid": "31B8CD85-9D3A-4622-A465-3CDCA2C32DC5"
+      },
+      "name": "uuid/mesh_svc-le"
+    },
+    {
+      "expected": "0201061107c52dc3a2dc3c65a422463a9d85cdb831",
+      "inputs": {
+        "flags": 6,
+        "service": "31B8CD85-9D3A-4622-A465-3CDCA2C32DC5"
+      },
+      "name": "android/adv-data-21"
+    },
+    {
+      "expected": "1a21c52dc3a2dc3c65a422463a9d85cdb83101a1b2c3d41f2e3d4c",
+      "inputs": {
+        "flags": 1,
+        "group_tag": "a1b2c3d4",
+        "node_token": "1f2e3d4c",
+        "service_data": "01a1b2c3d41f2e3d4c"
+      },
+      "name": "android/scan-response-group"
+    },
+    {
+      "expected": "1a21c52dc3a2dc3c65a422463a9d85cdb83103a1b2c3d41f2e3d4c",
+      "inputs": {
+        "flags": 3,
+        "group_tag": "a1b2c3d4",
+        "node_token": "1f2e3d4c",
+        "service_data": "03a1b2c3d41f2e3d4c"
+      },
+      "name": "android/scan-response-lab"
+    },
+    {
+      "expected": "070955475a42364c",
+      "inputs": {
+        "group_tag": "a1b2c3d4",
+        "local_name": "UGZB6L",
+        "node_token": "1f2e3d4c",
+        "token_prefix14": 1995
+      },
+      "name": "ios/local-name-UGZB6L"
+    },
+    {
+      "expected": "0709414141414141",
+      "inputs": {
+        "group_tag": "00000000",
+        "local_name": "AAAAAA",
+        "node_token": "00030000",
+        "token_prefix14": 0
+      },
+      "name": "ios/local-name-AAAAAA"
+    },
+    {
+      "expected": "0709373737373737",
+      "inputs": {
+        "group_tag": "ffffffff",
+        "local_name": "777777",
+        "node_token": "ffffffff",
+        "token_prefix14": 16383
+      },
+      "name": "ios/local-name-777777"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "description": "Invite v1 (DESIGN §8.3): ver · flags · group_id · epoch · epoch_secret · leader_ed_pk · policy · [expires_at] · name_len · name · invite_sig; invite_sig = Ed25519(leader, \"cvic/v1/invite\" ‖ group_id ‖ epoch ‖ policy ‖ name_len ‖ name ‖ leader_ed_pk ‖ SHA-256(epoch_secret)); URL convlinkvoice://join?v=1#<base64url, unpadded>.",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": {
+        "invite": "0100102f4e6d8cabcae90827466584a3c2e107000000203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1832292f559492b6909c155c98d490a7fc95dd2c8f43fa12b2682745b0762d77c680b53756e6461792072696465109393136cd1a970cb65e0dc754c7fba467281de9dbbc645abcb33f1dd04272d320abdde32a47ef709dafa9bf7ec0b49a36997f81bf097ae7ab0e34cf79a9100",
+        "invite_sig": "109393136cd1a970cb65e0dc754c7fba467281de9dbbc645abcb33f1dd04272d320abdde32a47ef709dafa9bf7ec0b49a36997f81bf097ae7ab0e34cf79a9100",
+        "name_on_wire": "Sunday ride",
+        "signed_message": "637669632f76312f696e76697465102f4e6d8cabcae90827466584a3c2e107000000680b53756e6461792072696465832292f559492b6909c155c98d490a7fc95dd2c8f43fa12b2682745b0762d77c2fd527b5788cf0f24ada804cc4da8bfbbcdebcb6df6948bc34365208c620f175",
+        "url": "convlinkvoice://join?v=1#AQAQL05tjKvK6QgnRmWEo8LhBwAAACA_Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhgyKS9VlJK2kJwVXJjUkKf8ld0sj0P6ErJoJ0Wwdi13xoC1N1bmRheSByaWRlEJOTE2zRqXDLZeDcdUx_ukZygd6du8ZFq8sz8d0EJy0yCr3eMqR-9wna-pv37AtJo2mX-Bvwl656sONM95qRAA"
+      },
+      "inputs": {
+        "aware_pairing": false,
+        "epoch": 7,
+        "epoch_secret": "203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1",
+        "expires_at": null,
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "leader_ed_seed": "304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1",
+        "name": "Sunday ride",
+        "policy": 104
+      },
+      "name": "default"
+    },
+    {
+      "expected": {
+        "invite": "0103102f4e6d8cabcae90827466584a3c2e107000000203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1832292f559492b6909c155c98d490a7fc95dd2c8f43fa12b2682745b0762d77cb070d8bf0120526f6461646120f09f8f8defb88f20536965727261204d61647265204f726965dfc2b618ccd319af70f820e72994cd3a250bc9e76027db741a35f3995aad03cdfc3e159650e44451a0a1f3b7701b1f257b7b7cabf8f7b50bb1352bbc54c18904",
+        "invite_sig": "dfc2b618ccd319af70f820e72994cd3a250bc9e76027db741a35f3995aad03cdfc3e159650e44451a0a1f3b7701b1f257b7b7cabf8f7b50bb1352bbc54c18904",
+        "name_on_wire": "Rodada 🏍️ Sierra Madre Orie",
+        "signed_message": "637669632f76312f696e76697465102f4e6d8cabcae90827466584a3c2e107000000b020526f6461646120f09f8f8defb88f20536965727261204d61647265204f726965832292f559492b6909c155c98d490a7fc95dd2c8f43fa12b2682745b0762d77c2fd527b5788cf0f24ada804cc4da8bfbbcdebcb6df6948bc34365208c620f175",
+        "url": "convlinkvoice://join?v=1#AQMQL05tjKvK6QgnRmWEo8LhBwAAACA_Xn2cu9r5GDdWdZSz0vEQL05tjKvK6QgnRmWEo8LhgyKS9VlJK2kJwVXJjUkKf8ld0sj0P6ErJoJ0Wwdi13ywcNi_ASBSb2RhZGEg8J-Pje-4jyBTaWVycmEgTWFkcmUgT3JpZd_CthjM0xmvcPgg5ymUzTolC8nnYCfbdBo185larQPN_D4VllDkRFGgofO3cBsfJXt7fKv497ULsTUrvFTBiQQ"
+      },
+      "inputs": {
+        "aware_pairing": true,
+        "epoch": 7,
+        "epoch_secret": "203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1",
+        "expires_at": 29350000,
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "leader_ed_seed": "304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1",
+        "name": "Rodada 🏍️ Sierra Madre Oriental",
+        "policy": 176
+      },
+      "name": "expiry-aware-utf8"
+    }
+  ]
+}

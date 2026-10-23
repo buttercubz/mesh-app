@@ -1,0 +1,68 @@
+# MSRV probe (owned by WP-00, DESIGN §2.2 / §2.6).
+#
+# A scratch crate OUTSIDE the Cargo workspace (it is its own workspace root, see the
+# empty [workspace] table below) that depends on every externally pinned crate of
+# DESIGN §2.6 (+ the explicit edges of §3.1/§2.3: crossbeam-channel, cc, getrandom).
+# `scripts/msrv-probe.sh` runs `cargo +<pin> check --locked` on it with the toolchain
+# pinned in ../../rust-toolchain.toml and reports the highest declared `rust-version`
+# in the resolved graph plus the crates that declare none.
+#
+# CONTRACT: the [dependencies] table below IS the pin list. WP-01 copies the same
+# `name = "=x.y.z"` pins into the root [workspace.dependencies], and
+# `cargo xtask check` asserts both lists are equal (name + exact version). Features
+# listed here are the union the workspace is expected to enable, so that the probe
+# covers the whole graph; member crates choose their own features.
+#
+# Changing a pin: edit it here, run `bash scripts/msrv-probe.sh`, then let WP-01
+# mirror it. `rust-version` below must equal the channel of rust-toolchain.toml.
+
+[package]
+name = "msrv-probe"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99.1"
+publish = false
+description = "Builds every pinned dependency with the pinned toolchain (not part of the workspace)."
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# --- control plane / runtime (mesh-ffi, tools/uniffi-bindgen) ---
+uniffi = { version = "=0.32.2", features = ["cli"] }
+rtrb = "=0.4.0"
+crossbeam-channel = "=0.5.17"
+
+# --- crypto (mesh-crypto). snow: no default features (its `std` feature would pull
+#     getrandom); our own CryptoResolver supplies DH/cipher/hash and the injected RNG.
+#     dalek crates: no rand_core/getrandom features (keys come from engine RNG bytes).
+snow = { version = "=0.10.0", default-features = false }
+chacha20poly1305 = { version = "=0.10.1", default-features = false, features = ["alloc"] }
+x25519-dalek = { version = "=2.0.1", default-features = false, features = ["static_secrets", "zeroize"] }
+ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["alloc", "zeroize"] }
+sha2 = { version = "=0.10.9", default-features = false }
+hkdf = "=0.12.4"
+hmac = "=0.12.1"
+zeroize = { version = "=1.9.1", features = ["derive"] }
+rand_chacha = { version = "=0.9.0", default-features = false }
+rand_core = { version = "=0.9.5", default-features = false }
+
+# --- voice (mesh-voice) ---
+nnnoiseless = { version = "=0.5.2", default-features = false }
+
+# --- UI contract (mesh-api) ---
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+ts-rs = "=12.0.1"
+
+# --- build / tooling (opus-sys build.rs, xtask) ---
+cc = "=1.9.0"
+cbindgen = { version = "=0.29.4", default-features = false }
+
+# --- wasm32 guard (mesh-wasm; only meaningful on wasm32, harmless on the host) ---
+getrandom = { version = "=0.3.4", features = ["wasm_js"] }
+
+# --- tests (dev-dependency in the workspace) ---
+proptest = "=1.12.0"

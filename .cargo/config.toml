@@ -1,0 +1,20 @@
+# Owned by WP-00 (DESIGN §2.3).
+
+[alias]
+# Workspace task runner (tools/xtask, created by WP-01).
+xtask = "run -p xtask --"
+
+# No OS randomness in the wasm32 graph (§2.3). This cfg is a guard for any
+# remaining transitive getrandom 0.3; mesh-wasm also enables its `wasm_js` feature.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", 'getrandom_backend="wasm_js"']
+
+# NDK linker fallbacks (API 31, NDK 27.1.12297006). Bare program names resolve
+# through PATH: `source scripts/env.sh` appends the NDK llvm bin directory to the
+# END of PATH (so Apple's unprefixed clang keeps priority). cargo-ndk and the
+# CARGO_TARGET_*_LINKER variables exported by scripts/env.sh take precedence.
+[target.aarch64-linux-android]
+linker = "aarch64-linux-android31-clang"
+
+[target.x86_64-linux-android]
+linker = "x86_64-linux-android31-clang"

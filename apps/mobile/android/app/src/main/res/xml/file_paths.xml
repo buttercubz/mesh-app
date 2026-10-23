@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files shareable through the FileProvider: Lab exports only (labrun/1 JSONL, §12.3). -->
+<paths>
+    <files-path name="lab" path="lab/" />
+    <cache-path name="lab_cache" path="lab/" />
+</paths>

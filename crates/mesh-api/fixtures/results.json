@@ -1,0 +1,176 @@
+[
+  {
+    "name": "done",
+    "for": "setTalkMode",
+    "result": {
+      "ok": true
+    }
+  },
+  {
+    "name": "groupId createGroup",
+    "for": "createGroup",
+    "result": {
+      "ok": true,
+      "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e"
+    }
+  },
+  {
+    "name": "groupId joinGroup",
+    "for": "joinGroup",
+    "result": {
+      "ok": true,
+      "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e"
+    }
+  },
+  {
+    "name": "inviteInfo valid",
+    "for": "parseInvite",
+    "result": {
+      "ok": true,
+      "valid": true,
+      "groupName": "Sunday ride",
+      "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e",
+      "epoch": 0,
+      "expired": false,
+      "alreadyMember": false,
+      "leaderSigOk": true
+    }
+  },
+  {
+    "name": "inviteInfo invalid",
+    "for": "parseInvite",
+    "result": {
+      "ok": true,
+      "valid": false,
+      "groupName": null,
+      "groupId": null,
+      "epoch": null,
+      "expired": false,
+      "alreadyMember": false,
+      "leaderSigOk": false
+    }
+  },
+  {
+    "name": "groups",
+    "for": "listGroups",
+    "result": {
+      "ok": true,
+      "groups": [
+        {
+          "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e",
+          "name": "Sunday ride",
+          "role": "leader",
+          "vehicle": "moto",
+          "members": 5,
+          "epoch": 2,
+          "closed": false
+        },
+        {
+          "groupId": "00112233445566778899aabbccddeeff",
+          "name": "Trip",
+          "role": "member",
+          "vehicle": "car",
+          "members": 3,
+          "epoch": 0,
+          "closed": true
+        }
+      ]
+    }
+  },
+  {
+    "name": "groups empty",
+    "for": "listGroups",
+    "result": {
+      "ok": true,
+      "groups": []
+    }
+  },
+  {
+    "name": "invite",
+    "for": "getInvite",
+    "result": {
+      "ok": true,
+      "qrPng": "data:image/png;base64,iVBORw0KGgo=",
+      "hideAfterMs": 60000
+    }
+  },
+  {
+    "name": "accessLoss",
+    "for": "previewAccessLoss",
+    "result": {
+      "ok": true,
+      "unconfirmed": [
+        {
+          "nodeId": 9,
+          "name": "Luis"
+        }
+      ]
+    }
+  },
+  {
+    "name": "labRun",
+    "for": "labStart",
+    "result": {
+      "ok": true,
+      "runId": "r-20261023-0912-ab12"
+    }
+  },
+  {
+    "name": "labRuns",
+    "for": "labListRuns",
+    "result": {
+      "ok": true,
+      "runs": [
+        {
+          "runId": "r-20261023-0912-ab12",
+          "bench": "T0",
+          "audio": "full",
+          "anchor": "audio",
+          "startedAt": "2026-10-23T09:12:03.120Z",
+          "durationS": 60.0,
+          "verdict": "go",
+          "files": [
+            "lab/r-20261023-0912-ab12-4711.jsonl",
+            "lab/r-20261023-0912-ab12-summary.csv"
+          ]
+        },
+        {
+          "runId": "r-20261023-1001-cd34",
+          "bench": "T2",
+          "audio": "full",
+          "anchor": "none",
+          "startedAt": "2026-10-23T10:01:00.000Z",
+          "durationS": null,
+          "verdict": null,
+          "files": [
+            "lab/r-20261023-1001-cd34-4711.jsonl"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "error useGestureCommand",
+    "for": "goLive",
+    "result": {
+      "ok": false,
+      "code": "useGestureCommand"
+    }
+  },
+  {
+    "name": "error notForeground",
+    "for": "labStart",
+    "result": {
+      "ok": false,
+      "code": "notForeground"
+    }
+  },
+  {
+    "name": "error inviteExpired",
+    "for": "joinGroup",
+    "result": {
+      "ok": false,
+      "code": "inviteExpired"
+    }
+  }
+]

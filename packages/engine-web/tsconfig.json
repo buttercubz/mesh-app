@@ -1,0 +1,11 @@
+// Type-check everything in the package (sources, tests, configs); no emit.
+// The build uses tsconfig.build.json, which emits src/ into dist/.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src", "test", "scripts", "vitest.config.ts"]
+}

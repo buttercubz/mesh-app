@@ -1,0 +1,77 @@
+# mesh-app Cargo workspace (owned by WP-01, DESIGN §2.1, §2.3, §2.6, §3.1).
+#
+# Member crates are stubs created by WP-01; each crate's manifest belongs to its own
+# work package (stub hand-off, DESIGN §16.2). `fuzz/` is NOT a member (cargo-fuzz,
+# nightly only), and neither is `scripts/msrv-probe/` (its own workspace root).
+
+[workspace]
+resolver = "3"
+members = ["crates/*", "tools/xtask", "tools/uniffi-bindgen"]
+exclude = ["fuzz", "scripts/msrv-probe"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99.1"
+license = "UNLICENSED"
+publish = false
+repository = "https://github.com/convlink/mesh-app"
+
+# Exact pins. CONTRACT: every external entry below must equal the [dependencies]
+# table of scripts/msrv-probe/Cargo.toml (name, `=x.y.z` version and
+# `default-features`); `cargo xtask check` asserts it. Features are chosen by each
+# member crate (`dep = { workspace = true, features = [...] }`) so that, for example,
+# only tools/uniffi-bindgen enables uniffi's `cli` feature and only mesh-wasm enables
+# getrandom's `wasm_js` guard. To change a pin: edit the probe, run
+# `bash scripts/msrv-probe.sh`, then mirror it here.
+[workspace.dependencies]
+# --- control plane / runtime (mesh-ffi, tools/uniffi-bindgen) ---
+uniffi = "=0.32.2"
+rtrb = "=0.4.0"
+crossbeam-channel = "=0.5.17"
+
+# --- crypto (mesh-crypto): never pull OS randomness (DESIGN §2.3, §8) ---
+snow = { version = "=0.10.0", default-features = false }
+chacha20poly1305 = { version = "=0.10.1", default-features = false }
+x25519-dalek = { version = "=2.0.1", default-features = false }
+ed25519-dalek = { version = "=2.2.0", default-features = false }
+sha2 = { version = "=0.10.9", default-features = false }
+hkdf = "=0.12.4"
+hmac = "=0.12.1"
+zeroize = "=1.9.1"
+rand_chacha = { version = "=0.9.0", default-features = false }
+rand_core = { version = "=0.9.5", default-features = false }
+
+# --- voice (mesh-voice) ---
+nnnoiseless = { version = "=0.5.2", default-features = false }
+
+# --- UI contract (mesh-api) and tooling JSON ---
+serde = "=1.0.229"
+serde_json = "=1.0.154"
+ts-rs = "=12.0.1"
+
+# --- build / tooling (opus-sys build.rs, xtask) ---
+cc = "=1.9.0"
+cbindgen = { version = "=0.29.4", default-features = false }
+
+# --- wasm32 guard (mesh-wasm only) ---
+getrandom = "=0.3.4"
+
+# --- tests ---
+proptest = "=1.12.0"
+
+# Determinism lints (DESIGN §3.1): clippy.toml lists the disallowed methods and types,
+# the workspace allows them, and only the seven sans-IO crates deny them with
+# `#![deny(clippy::disallowed_methods, clippy::disallowed_types)]` in lib.rs.
+[workspace.lints.clippy]
+disallowed_methods = "allow"
+disallowed_types = "allow"
+
+# DESIGN §2.3 release profile. panic = "unwind": UniFFI turns panics into foreign
+# errors and the mesh-ffi runtime catches engine-thread panics.
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+debug = "line-tables-only"
+panic = "unwind"

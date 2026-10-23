@@ -1,0 +1,36 @@
+# mesh-wasm (owned by WP-13, DESIGN §2.3, §3.1, §11.2).
+#
+# The browser simulator: a cdylib exporting the raw `extern "C"` JSON ABI of §11.2
+# (`mw_alloc`, `mw_free`, `mw_world_new`, `mw_command`, `mw_step`, `mw_poll_events`,
+# `mw_poll_lab`, `mw_world_free`) over a mesh-sim World of real mesh-core engines.
+# No wasm-bindgen. `cargo xtask build-wasm` builds it and copies the .wasm into
+# packages/engine-web/wasm/.
+[package]
+name = "mesh-wasm"
+description = "Raw extern C JSON ABI over mesh-core + mesh-sim for the browser simulator."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Both without default features: the `opus` feature (and opus-sys) never unifies into
+# the wasm32 graph; SimCodec is used instead (DESIGN §2.3, §3.1).
+mesh-core = { path = "../mesh-core", default-features = false }
+mesh-sim = { path = "../mesh-sim", default-features = false }
+# UI contract (C1): commands are parsed and results/events serialized with it.
+mesh-api = { path = "../mesh-api" }
+serde_json = { workspace = true }
+
+# Guard for any transitive getrandom 0.3 (DESIGN §2.3). `cargo xtask build-wasm` (and
+# `cargo xtask check`) fail if `cargo tree -p mesh-wasm --target wasm32-unknown-unknown
+# -i getrandom` shows any other path to getrandom.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true, features = ["wasm_js"] }

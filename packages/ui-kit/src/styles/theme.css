@@ -1,0 +1,86 @@
+/*
+ * @meshapp/ui-kit Tailwind v4 theme (WP-20, DESIGN §11.5).
+ *
+ * Usage in the app's stylesheet:
+ *
+ *   @import "tailwindcss";
+ *   @import "@meshapp/ui-kit/theme.css";
+ *
+ * It brings the tokens and component styles, a class-based `dark:` variant (`.dark` on
+ * <html>, set by applyTheme()), and maps the tokens to utilities: `bg-talk-active`,
+ * `text-muted-foreground`, `border-separator`, `rounded-capsule`, `min-h-target`,
+ * `size-ptt`, `shadow-chrome`, `font-sans`, `animate-talk-pulse`, `duration-ui`...
+ * `inline` makes every utility reference the runtime variable, so the light/dark
+ * switch needs no rebuild.
+ */
+@import "./styles.css";
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+@custom-variant android (&:where(.android, .android *));
+@custom-variant reduce-motion (&:where(.reduce-motion, .reduce-motion *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-separator: var(--separator);
+  --color-surface-grouped: var(--surface-grouped);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-inset: var(--surface-inset);
+  --color-chrome: var(--chrome-solid);
+  --color-control-fill: var(--control-fill);
+  --color-control-selected: var(--control-selected);
+  --color-scrim: var(--scrim);
+
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-talk-active: var(--talk-active);
+  --color-talk-active-foreground: var(--talk-active-foreground);
+  --color-talk-blocked: var(--talk-blocked);
+  --color-talk-blocked-foreground: var(--talk-blocked-foreground);
+  --color-status-relayed: var(--status-relayed);
+  --color-status-relayed-foreground: var(--status-relayed-foreground);
+  --color-status-out: var(--status-out);
+  --color-status-out-foreground: var(--status-out-foreground);
+  --color-ladder-warn: var(--ladder-warn);
+  --color-ladder-warn-foreground: var(--ladder-warn-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+
+  --font-sans: var(--font-family-ui);
+  --font-mono: var(--font-family-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-section: var(--radius-section-size);
+  --radius-capsule: var(--capsule);
+
+  --spacing-target: var(--target-min);
+  --spacing-ptt: var(--ptt-size);
+
+  --shadow-surface: var(--elevation-surface);
+  --shadow-chrome: var(--elevation-chrome);
+  --shadow-panel: var(--elevation-panel);
+
+  --animate-talk-pulse: mk-talk-pulse var(--duration-pulse) var(--ease-ui) infinite;
+}
+
+/* `duration-ui` follows the token, so reduced motion shortens it too. */
+@utility duration-ui {
+  transition-duration: var(--duration-ui);
+}
+@utility ease-ui {
+  transition-timing-function: var(--ease-ui);
+}
+@utility ease-ui-spring {
+  transition-timing-function: var(--ease-ui-spring);
+}

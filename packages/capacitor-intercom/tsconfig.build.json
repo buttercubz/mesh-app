@@ -1,0 +1,17 @@
+// Emits the plugin: src/**/*.ts → dist/*.js + .d.ts (ESM). DOM lib: web.ts runs in the
+// WebView/browser (visibility, wake lock, permissions, share).
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [],
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

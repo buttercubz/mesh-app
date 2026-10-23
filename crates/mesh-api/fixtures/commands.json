@@ -1,0 +1,357 @@
+[
+  {
+    "name": "createGroup",
+    "requiresGesture": false,
+    "command": {
+      "type": "createGroup",
+      "name": "Sunday ride",
+      "vehicle": "moto"
+    }
+  },
+  {
+    "name": "parseInvite",
+    "requiresGesture": false,
+    "command": {
+      "type": "parseInvite",
+      "url": "convlinkvoice://join?v=1#AAEC"
+    }
+  },
+  {
+    "name": "joinGroup",
+    "requiresGesture": false,
+    "command": {
+      "type": "joinGroup",
+      "url": "convlinkvoice://join?v=1#AAEC",
+      "displayName": "Ana"
+    }
+  },
+  {
+    "name": "listGroups",
+    "requiresGesture": false,
+    "command": {
+      "type": "listGroups"
+    }
+  },
+  {
+    "name": "forgetGroup",
+    "requiresGesture": false,
+    "command": {
+      "type": "forgetGroup",
+      "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e"
+    }
+  },
+  {
+    "name": "getInvite",
+    "requiresGesture": false,
+    "command": {
+      "type": "getInvite",
+      "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e"
+    }
+  },
+  {
+    "name": "goLive",
+    "requiresGesture": true,
+    "command": {
+      "type": "goLive"
+    }
+  },
+  {
+    "name": "resumeMic",
+    "requiresGesture": true,
+    "command": {
+      "type": "resumeMic"
+    }
+  },
+  {
+    "name": "audioCheck start tone",
+    "requiresGesture": true,
+    "command": {
+      "type": "audioCheck",
+      "op": "start",
+      "mode": "tone"
+    }
+  },
+  {
+    "name": "audioCheck start echo",
+    "requiresGesture": true,
+    "command": {
+      "type": "audioCheck",
+      "op": "start",
+      "mode": "echo"
+    }
+  },
+  {
+    "name": "audioCheck start voxMeter",
+    "requiresGesture": true,
+    "command": {
+      "type": "audioCheck",
+      "op": "start",
+      "mode": "voxMeter"
+    }
+  },
+  {
+    "name": "audioCheck stop",
+    "requiresGesture": false,
+    "command": {
+      "type": "audioCheck",
+      "op": "stop"
+    }
+  },
+  {
+    "name": "setTalkMode",
+    "requiresGesture": false,
+    "command": {
+      "type": "setTalkMode",
+      "mode": "ptt"
+    }
+  },
+  {
+    "name": "ptt down",
+    "requiresGesture": false,
+    "command": {
+      "type": "ptt",
+      "down": true
+    }
+  },
+  {
+    "name": "setPttStyle",
+    "requiresGesture": false,
+    "command": {
+      "type": "setPttStyle",
+      "style": "latch"
+    }
+  },
+  {
+    "name": "setVoxSensitivity",
+    "requiresGesture": false,
+    "command": {
+      "type": "setVoxSensitivity",
+      "level": "medium"
+    }
+  },
+  {
+    "name": "rideControl start",
+    "requiresGesture": false,
+    "command": {
+      "type": "rideControl",
+      "op": "start"
+    }
+  },
+  {
+    "name": "rideControl end",
+    "requiresGesture": false,
+    "command": {
+      "type": "rideControl",
+      "op": "end"
+    }
+  },
+  {
+    "name": "setDisplayName",
+    "requiresGesture": false,
+    "command": {
+      "type": "setDisplayName",
+      "name": "Ana"
+    }
+  },
+  {
+    "name": "setVehicle",
+    "requiresGesture": false,
+    "command": {
+      "type": "setVehicle",
+      "vehicle": "car"
+    }
+  },
+  {
+    "name": "setRoutePreference",
+    "requiresGesture": false,
+    "command": {
+      "type": "setRoutePreference",
+      "pref": "headset"
+    }
+  },
+  {
+    "name": "setShareDistance",
+    "requiresGesture": false,
+    "command": {
+      "type": "setShareDistance",
+      "enabled": true
+    }
+  },
+  {
+    "name": "setPrompts",
+    "requiresGesture": false,
+    "command": {
+      "type": "setPrompts",
+      "lang": "es",
+      "enabled": true,
+      "templates": {
+        "intercomLive": "Intercom activo, {{n}} motoristas",
+        "memberJoined": "{{name}} se unió",
+        "demo.line1": "[placeholder] demo line 1"
+      }
+    }
+  },
+  {
+    "name": "setBuiltinMicTx",
+    "requiresGesture": false,
+    "command": {
+      "type": "setBuiltinMicTx",
+      "allowed": false
+    }
+  },
+  {
+    "name": "removeMember",
+    "requiresGesture": false,
+    "command": {
+      "type": "removeMember",
+      "nodeId": 7
+    }
+  },
+  {
+    "name": "lockGroup",
+    "requiresGesture": false,
+    "command": {
+      "type": "lockGroup"
+    }
+  },
+  {
+    "name": "closeGroup",
+    "requiresGesture": false,
+    "command": {
+      "type": "closeGroup"
+    }
+  },
+  {
+    "name": "previewAccessLoss",
+    "requiresGesture": false,
+    "command": {
+      "type": "previewAccessLoss"
+    }
+  },
+  {
+    "name": "transferLeader",
+    "requiresGesture": false,
+    "command": {
+      "type": "transferLeader",
+      "nodeId": 3
+    }
+  },
+  {
+    "name": "setInviteExpiry hours",
+    "requiresGesture": false,
+    "command": {
+      "type": "setInviteExpiry",
+      "hours": 24
+    }
+  },
+  {
+    "name": "setInviteExpiry never",
+    "requiresGesture": false,
+    "command": {
+      "type": "setInviteExpiry",
+      "hours": null
+    }
+  },
+  {
+    "name": "requestSnapshot",
+    "requiresGesture": false,
+    "command": {
+      "type": "requestSnapshot"
+    }
+  },
+  {
+    "name": "labStart audio off",
+    "requiresGesture": false,
+    "command": {
+      "type": "labStart",
+      "bench": "T0",
+      "params": {
+        "audio": "off",
+        "anchor": "audio",
+        "gps": false
+      }
+    }
+  },
+  {
+    "name": "labStart audio renderOnly",
+    "requiresGesture": true,
+    "command": {
+      "type": "labStart",
+      "bench": "T1",
+      "params": {
+        "audio": "renderOnly",
+        "anchor": "audioLocation",
+        "gps": true,
+        "durationS": 3600,
+        "pingHz": 5,
+        "streams": 2
+      }
+    }
+  },
+  {
+    "name": "labStart audio full",
+    "requiresGesture": true,
+    "command": {
+      "type": "labStart",
+      "bench": "T0",
+      "params": {
+        "audio": "full",
+        "anchor": "audio",
+        "gps": true,
+        "durationS": 60,
+        "pattern": "voiceLike",
+        "streams": 4,
+        "payloadB": 118,
+        "intervalMs": 40,
+        "transport": "l2cap",
+        "role": "central",
+        "headset": true,
+        "variant": "hfp-wb"
+      }
+    }
+  },
+  {
+    "name": "labStart T2 control",
+    "requiresGesture": true,
+    "command": {
+      "type": "labStart",
+      "bench": "T2",
+      "params": {
+        "audio": "full",
+        "anchor": "none",
+        "gps": false,
+        "mixable": true
+      }
+    }
+  },
+  {
+    "name": "labStop",
+    "requiresGesture": false,
+    "command": {
+      "type": "labStop"
+    }
+  },
+  {
+    "name": "labMark",
+    "requiresGesture": false,
+    "command": {
+      "type": "labMark",
+      "label": "pocket"
+    }
+  },
+  {
+    "name": "labListRuns",
+    "requiresGesture": false,
+    "command": {
+      "type": "labListRuns"
+    }
+  },
+  {
+    "name": "labDeleteRun",
+    "requiresGesture": false,
+    "command": {
+      "type": "labDeleteRun",
+      "runId": "r-20261023-0912-ab12"
+    }
+  }
+]

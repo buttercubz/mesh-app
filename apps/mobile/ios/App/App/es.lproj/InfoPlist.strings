@@ -1,0 +1,6 @@
+/* Descripciones de uso y nombre visible (WP-18, DESIGN §10.1.5). */
+"CFBundleDisplayName" = "convLink Voice";
+"NSMicrophoneUsageDescription" = "Su voz se envía a los motoristas de su grupo.";
+"NSBluetoothAlwaysUsageDescription" = "Se conecta directamente con los teléfonos de los motoristas cercanos para el intercomunicador, sin internet.";
+"NSCameraUsageDescription" = "Escanee el código QR de invitación de su grupo.";
+"NSLocationWhenInUseUsageDescription" = "Muestra a qué distancia está cada motorista y mantiene el intercomunicador activo con la pantalla bloqueada.";

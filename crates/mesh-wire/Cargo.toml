@@ -1,0 +1,36 @@
+# mesh-wire (owned by WP-04, DESIGN §4, §9.3, §9.4, contract C2).
+# Stub created by WP-01 (DESIGN §3.1, §16.2 stub hand-off).
+[package]
+name = "mesh-wire"
+description = "Link framing, records, mesh header, packet codecs, BLE constants, golden vectors."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# `vectors::generate()` and the `gen_vectors` example used by `cargo xtask vectors`.
+vectors = ["dep:serde_json"]
+
+[dependencies]
+# lab_tag = SHA-256("cvic/lab" ‖ u16 lab_code)[0..2] (DESIGN §4.3, §8.3): mesh-lab depends
+# only on mesh-wire, so the Lab tag is computed here.
+sha2.workspace = true
+# Grapheme-cluster boundaries for name truncation (DESIGN §4.6.1). Not in
+# [workspace.dependencies]: exact pin local to this crate (reported as a deviation).
+unicode-segmentation = "=1.13.3"
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest.workspace = true
+# The vectors module is also compiled for unit tests (drift check in `cargo test`).
+serde_json.workspace = true
+
+[[example]]
+name = "gen_vectors"
+required-features = ["vectors"]

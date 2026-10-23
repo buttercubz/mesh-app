@@ -1,0 +1,1015 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convlink.voice/schema/ridelog-1.schema.json",
+  "title": "ridelog/1 — diagnostics flight recorder line",
+  "description": "One JSON object per line (JSONL). Discriminator `t`: hdr (first line of every segment), s (1 Hz sample, counters are per-second deltas), e (event), mark (user marker), end (last line of a cleanly closed segment), f (verbose per-frame line). `ts` = seconds since the session start on this device. Shapes shared with labrun/1 (link kind/role, therm, ts) are copied, not referenced, so each schema stays self-contained. No keys, names, MAC addresses, audio or exact GPS are ever recorded (§5 of the diagnostics spec).",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/hdr"
+    },
+    {
+      "$ref": "#/$defs/sample"
+    },
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/mark"
+    },
+    {
+      "$ref": "#/$defs/end"
+    },
+    {
+      "$ref": "#/$defs/frame"
+    }
+  ],
+  "$defs": {
+    "ts": {
+      "type": "number",
+      "minimum": 0
+    },
+    "u16": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "u16OrNull": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "numOrNull": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "boolOrNull": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "codeOrNull": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "ident": {
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9]*$",
+      "maxLength": 40
+    },
+    "scalarMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ],
+        "maxLength": 64
+      }
+    },
+    "linkKind": {
+      "enum": [
+        "ble-l2cap",
+        "ble-gatt",
+        "aware",
+        "tunnel",
+        "sim"
+      ]
+    },
+    "linkRole": {
+      "enum": [
+        "central",
+        "peripheral",
+        null
+      ]
+    },
+    "fieldValue": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 64
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "number"
+          }
+        }
+      ]
+    },
+    "hdr": {
+      "type": "object",
+      "required": [
+        "t",
+        "v",
+        "schema",
+        "seg",
+        "sessionId",
+        "rideKey",
+        "startedAt",
+        "monoUs",
+        "device",
+        "node",
+        "role"
+      ],
+      "properties": {
+        "t": {
+          "const": "hdr"
+        },
+        "v": {
+          "const": 1
+        },
+        "schema": {
+          "const": "ridelog/1"
+        },
+        "seg": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^d-[0-9]{8}-[0-9]{4}-[0-9a-z]{4}$"
+        },
+        "rideKey": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([0-9a-f]{8}|lab-[0-9a-f]{4}|demo)$"
+        },
+        "startedAt": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"
+        },
+        "monoUs": {
+          "$ref": "#/$defs/count"
+        },
+        "device": {
+          "type": "object",
+          "required": [
+            "platform",
+            "model",
+            "os",
+            "app",
+            "build",
+            "engine"
+          ],
+          "properties": {
+            "platform": {
+              "enum": [
+                "ios",
+                "android",
+                "web",
+                "sim"
+              ]
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "os": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "app": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "build": {
+              "enum": [
+                "debug",
+                "release"
+              ]
+            },
+            "engine": {
+              "enum": [
+                "ffi",
+                "wasm",
+                "sim",
+                "platform-only"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "node": {
+          "$ref": "#/$defs/u16OrNull"
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "caps": {
+          "$ref": "#/$defs/scalarMap"
+        },
+        "settings": {
+          "$ref": "#/$defs/scalarMap"
+        },
+        "privacy": {
+          "type": "object",
+          "required": [
+            "gps",
+            "names"
+          ],
+          "properties": {
+            "gps": {
+              "const": "off"
+            },
+            "names": {
+              "enum": [
+                "none",
+                "initials"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "verbose": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dir": {
+      "type": "object",
+      "required": [
+        "frames",
+        "bytes",
+        "byType"
+      ],
+      "properties": {
+        "frames": {
+          "$ref": "#/$defs/count"
+        },
+        "bytes": {
+          "$ref": "#/$defs/count"
+        },
+        "bad": {
+          "$ref": "#/$defs/count"
+        },
+        "byType": {
+          "$ref": "#/$defs/frameTypeMap"
+        },
+        "byTypeB": {
+          "$ref": "#/$defs/frameTypeMap"
+        }
+      },
+      "additionalProperties": false
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "tx",
+        "rx"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "peer": {
+          "$ref": "#/$defs/u16OrNull"
+        },
+        "kind": {
+          "$ref": "#/$defs/linkKind"
+        },
+        "role": {
+          "$ref": "#/$defs/linkRole"
+        },
+        "state": {
+          "$ref": "#/$defs/code"
+        },
+        "rssi": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": -127,
+          "maximum": 20
+        },
+        "mtu": {
+          "$ref": "#/$defs/u16OrNull"
+        },
+        "rttP50": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "rttP95": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "loss": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "grantKbps": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "q": {
+          "type": "object",
+          "properties": {
+            "voice": {
+              "$ref": "#/$defs/count"
+            },
+            "ctrl": {
+              "$ref": "#/$defs/count"
+            },
+            "bulk": {
+              "$ref": "#/$defs/count"
+            },
+            "units": {
+              "$ref": "#/$defs/count"
+            }
+          },
+          "additionalProperties": false
+        },
+        "wb": {
+          "$ref": "#/$defs/count"
+        },
+        "tx": {
+          "$ref": "#/$defs/dir"
+        },
+        "rx": {
+          "$ref": "#/$defs/dir"
+        }
+      },
+      "additionalProperties": false
+    },
+    "jbTotal": {
+      "type": "object",
+      "required": [
+        "recv",
+        "late",
+        "plc",
+        "expanded",
+        "dropped"
+      ],
+      "properties": {
+        "recv": {
+          "$ref": "#/$defs/count"
+        },
+        "late": {
+          "$ref": "#/$defs/count"
+        },
+        "dup": {
+          "$ref": "#/$defs/count"
+        },
+        "fec": {
+          "$ref": "#/$defs/count"
+        },
+        "plc": {
+          "$ref": "#/$defs/count"
+        },
+        "expanded": {
+          "$ref": "#/$defs/count"
+        },
+        "dropped": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "additionalProperties": false
+    },
+    "jb": {
+      "type": "object",
+      "required": [
+        "origin",
+        "recv",
+        "late",
+        "plc"
+      ],
+      "properties": {
+        "origin": {
+          "$ref": "#/$defs/u16"
+        },
+        "targetMs": {
+          "$ref": "#/$defs/count"
+        },
+        "depthMs": {
+          "$ref": "#/$defs/count"
+        },
+        "recv": {
+          "$ref": "#/$defs/count"
+        },
+        "late": {
+          "$ref": "#/$defs/count"
+        },
+        "dup": {
+          "$ref": "#/$defs/count"
+        },
+        "fec": {
+          "$ref": "#/$defs/count"
+        },
+        "plc": {
+          "$ref": "#/$defs/count"
+        },
+        "expanded": {
+          "$ref": "#/$defs/count"
+        },
+        "dropped": {
+          "$ref": "#/$defs/count"
+        },
+        "owdP95": {
+          "$ref": "#/$defs/numOrNull"
+        }
+      },
+      "additionalProperties": false
+    },
+    "cbRange": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "prefixItems": [
+            {
+              "$ref": "#/$defs/count"
+            },
+            {
+              "$ref": "#/$defs/count"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      ]
+    },
+    "audio": {
+      "type": "object",
+      "required": [
+        "running"
+      ],
+      "properties": {
+        "running": {
+          "type": "boolean"
+        },
+        "route": {
+          "$ref": "#/$defs/codeOrNull"
+        },
+        "ladder": {
+          "$ref": "#/$defs/codeOrNull"
+        },
+        "capFps": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "renFps": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cbCapFrames": {
+          "$ref": "#/$defs/cbRange"
+        },
+        "cbRenFrames": {
+          "$ref": "#/$defs/cbRange"
+        },
+        "cbRenMax": {
+          "$ref": "#/$defs/count"
+        },
+        "renTarget": {
+          "$ref": "#/$defs/count"
+        },
+        "over": {
+          "$ref": "#/$defs/count"
+        },
+        "under": {
+          "$ref": "#/$defs/count"
+        },
+        "overSamples": {
+          "$ref": "#/$defs/count"
+        },
+        "underSamples": {
+          "$ref": "#/$defs/count"
+        },
+        "capDbfs": {
+          "$ref": "#/$defs/numOrNull"
+        },
+        "renDbfs": {
+          "$ref": "#/$defs/numOrNull"
+        },
+        "vad": {
+          "$ref": "#/$defs/boolOrNull"
+        },
+        "ptt": {
+          "$ref": "#/$defs/boolOrNull"
+        },
+        "muted": {
+          "$ref": "#/$defs/boolOrNull"
+        },
+        "txFrames": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "sample": {
+      "type": "object",
+      "required": [
+        "t",
+        "ts",
+        "links",
+        "audio",
+        "jb",
+        "fx"
+      ],
+      "properties": {
+        "t": {
+          "const": "s"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/link"
+          }
+        },
+        "mesh": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "nbrs",
+                "reach",
+                "islands"
+              ],
+              "properties": {
+                "nbrs": {
+                  "$ref": "#/$defs/count"
+                },
+                "reach": {
+                  "$ref": "#/$defs/count"
+                },
+                "islands": {
+                  "$ref": "#/$defs/count"
+                },
+                "fwd": {
+                  "$ref": "#/$defs/count"
+                },
+                "dup": {
+                  "$ref": "#/$defs/count"
+                },
+                "suppressed": {
+                  "$ref": "#/$defs/count"
+                },
+                "tooOld": {
+                  "$ref": "#/$defs/count"
+                },
+                "pruned": {
+                  "$ref": "#/$defs/count"
+                },
+                "floorRefused": {
+                  "$ref": "#/$defs/count"
+                },
+                "voiceDropped": {
+                  "$ref": "#/$defs/count"
+                },
+                "burstsShed": {
+                  "$ref": "#/$defs/count"
+                },
+                "ownRefused": {
+                  "$ref": "#/$defs/count"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "floor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "talkers",
+                "me"
+              ],
+              "properties": {
+                "talkers": {
+                  "$ref": "#/$defs/count"
+                },
+                "me": {
+                  "$ref": "#/$defs/code"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "audio": {
+          "$ref": "#/$defs/audio"
+        },
+        "jb": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jb"
+          }
+        },
+        "jbTotal": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/jbTotal"
+            }
+          ]
+        },
+        "dev": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "bat": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "chg": {
+                  "$ref": "#/$defs/boolOrNull"
+                },
+                "therm": {
+                  "enum": [
+                    "nominal",
+                    "fair",
+                    "serious",
+                    "critical",
+                    "none",
+                    "light",
+                    "moderate",
+                    "severe",
+                    "emergency",
+                    "shutdown",
+                    "unknown",
+                    null
+                  ]
+                },
+                "app": {
+                  "enum": [
+                    "foreground",
+                    "background",
+                    "inactive",
+                    "terminating",
+                    null
+                  ]
+                },
+                "locked": {
+                  "$ref": "#/$defs/boolOrNull"
+                },
+                "call": {
+                  "$ref": "#/$defs/boolOrNull"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "anchor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "$ref": "#/$defs/boolOrNull"
+                },
+                "location": {
+                  "$ref": "#/$defs/boolOrNull"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "bt": {
+          "enum": [
+            "on",
+            "off",
+            "unauthorized",
+            "resetting",
+            "unsupported",
+            "unknown",
+            null
+          ]
+        },
+        "aware": {
+          "enum": [
+            "on",
+            "off",
+            "unauthorized",
+            "resetting",
+            "unsupported",
+            "unknown",
+            null
+          ]
+        },
+        "distM": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cpuMs": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "engine": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "fx": {
+          "type": "object",
+          "properties": {
+            "droppedDiag": {
+              "$ref": "#/$defs/count"
+            },
+            "suppressed": {
+              "$ref": "#/$defs/count"
+            },
+            "redacted": {
+              "$ref": "#/$defs/count"
+            },
+            "droppedLines": {
+              "$ref": "#/$defs/count"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": [
+        "t",
+        "ts",
+        "src",
+        "ev"
+      ],
+      "properties": {
+        "t": {
+          "const": "e"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "src": {
+          "enum": [
+            "core",
+            "rt",
+            "plat",
+            "ui"
+          ]
+        },
+        "ev": {
+          "$ref": "#/$defs/ident"
+        }
+      },
+      "propertyNames": {
+        "pattern": "^[a-z][A-Za-z0-9]*$",
+        "maxLength": 40
+      },
+      "maxProperties": 28,
+      "additionalProperties": {
+        "$ref": "#/$defs/fieldValue"
+      }
+    },
+    "mark": {
+      "type": "object",
+      "required": [
+        "t",
+        "ts",
+        "label"
+      ],
+      "properties": {
+        "t": {
+          "const": "mark"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "src": {
+          "enum": [
+            "rt",
+            "plat",
+            "ui"
+          ]
+        },
+        "label": {
+          "enum": [
+            "crackle",
+            "cantHear",
+            "notHeard",
+            "lag",
+            "dropped",
+            "other"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "end": {
+      "type": "object",
+      "required": [
+        "t",
+        "ts",
+        "reason"
+      ],
+      "properties": {
+        "t": {
+          "const": "end"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "reason": {
+          "enum": [
+            "rotate",
+            "sessionEnd",
+            "appTerminate"
+          ]
+        },
+        "lines": {
+          "$ref": "#/$defs/count"
+        },
+        "suppressed": {
+          "$ref": "#/$defs/count"
+        },
+        "redacted": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "required": [
+        "t",
+        "ts",
+        "link",
+        "dir",
+        "type",
+        "len"
+      ],
+      "properties": {
+        "t": {
+          "const": "f"
+        },
+        "ts": {
+          "$ref": "#/$defs/ts"
+        },
+        "link": {
+          "$ref": "#/$defs/u32"
+        },
+        "dir": {
+          "enum": [
+            "tx",
+            "rx"
+          ]
+        },
+        "type": {
+          "enum": [
+            "voice",
+            "nbr",
+            "lstat",
+            "ping",
+            "pong",
+            "presence",
+            "ctrl",
+            "rekey",
+            "sync",
+            "bulk",
+            "hs",
+            "lab",
+            "other"
+          ]
+        },
+        "len": {
+          "$ref": "#/$defs/count"
+        },
+        "seq": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "ageMs": {
+          "$ref": "#/$defs/numOrNull"
+        }
+      },
+      "additionalProperties": false
+    },
+    "frameTypeMap": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "voice",
+          "nbr",
+          "lstat",
+          "ping",
+          "pong",
+          "presence",
+          "ctrl",
+          "rekey",
+          "sync",
+          "bulk",
+          "hs",
+          "lab",
+          "other"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/count"
+      }
+    }
+  }
+}

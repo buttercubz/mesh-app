@@ -1,0 +1,160 @@
+# mesh-app — convLink Voice
+
+A phone-only group intercom for motorcycle and car convoys. Riders talk over their
+Bluetooth helmet headsets (or the car's hands-free), and the voice travels directly
+between the riders' phones over Bluetooth LE, relayed hop by hop through the other
+phones in the group. No internet, no cellular, no extra hardware.
+
+Working product name **convLink Voice**, bundle id / applicationId
+`com.convlink.voice`, URL scheme `convlinkvoice` (renameable; see
+[DESIGN Appendix E](docs/DESIGN.md#appendix-e--open-questions-for-the-user-none-block-phase-0)).
+
+## Honest range promise
+
+> "A compact group intercom that uses only your phones. Riders reach each other
+> directly over tens of metres, and the voice is relayed through the other riders'
+> phones. It is not a 1.6 km dedicated mesh headset."
+
+This sentence is shown in onboarding and in the store listing
+([DESIGN §0.2](docs/DESIGN.md#02-honest-product-promise-shown-in-onboarding-and-in-the-store-listing)).
+Store metadata never uses Cardo or Sena trademarks. The ride screen has no text input,
+riders must not operate the phone while moving, and there is no text chat.
+
+What v1 does ([DESIGN §1.1](docs/DESIGN.md#11-in-scope-v1)):
+
+- Private groups of 2-15 riders, created by a leader and joined by scanning a QR in a
+  pre-ride lobby with phones unlocked.
+- VOX (motorcycle default) and PTT (car default). Relays enforce a hard simultaneous
+  talker cap: 2 on Bluetooth paths, 4 on Wi-Fi paths; extra talkers hear a busy tone.
+- Multi-hop managed flooding. The 300 ms p95 mouth-to-ear target holds at up to 2 BLE
+  hops; 3-4 hops are relayed best effort and labelled so in the UI.
+- Honest reachability: "heard by k of n", relayed / one-way / lost members, islands,
+  "You are alone" cue, optional distance list.
+- A visible **Field test** (Lab) section to measure throughput, range, background
+  survival and rediscovery on real phones, plus a single-device **Demo ride**.
+
+## Architecture in one paragraph
+
+A sans-IO, deterministic **Rust core** (`crates/mesh-*`) owns all protocol, crypto,
+routing, floor control, voice pipeline and Lab logic. It is driven by thin native
+platform layers: a Swift package pair for iOS (`native/ios/MeshPlatformKit`, no Rust;
+`native/ios/MeshEngineKit`, the Rust bridge) and a Kotlin library for Android
+(`native/android/meshengine`). UniFFI is the control plane; a plain C ABI with
+wait-free SPSC rings is the real-time audio plane. The UI is a Capacitor 8 + React 19
+app (`apps/mobile`) that is a thin client over the engine; a WASM build of the core
+plus a deterministic simulator backs the browser implementation, so the whole UI runs
+against a simulated convoy on a laptop. Full picture:
+[DESIGN §0.3](docs/DESIGN.md#03-architecture-overview).
+
+## Repository map
+
+| Path | What lives there |
+|---|---|
+| `crates/mesh-api` | UI command/event/snapshot JSON contract (C1), exported to TypeScript with ts-rs |
+| `crates/mesh-wire` | link framing, records, mesh header, packet codecs, BLE constants, golden vectors (C2) |
+| `crates/mesh-crypto` | per-group identities, invites, Noise XXpsk1 per link, link AEAD, roster/rekey signing |
+| `crates/mesh-lab` | Lab benches, stats, clock estimator, `labrun/1` records (C7) |
+| `crates/opus-sys` | libopus 1.6.1 built with the `cc` crate + fixed-arity ctl shim |
+| `crates/mesh-voice` | codec trait, VAD, talk FSM, jitter buffer, mixer, earcons, prompt bank |
+| `crates/mesh-routing` | neighbor table, flooding, pacing, airtime budget, floor table, presence |
+| `crates/mesh-core` | the sans-IO `Engine` (C3): links, group, session, media, mesh, lab, ui |
+| `crates/mesh-sim` | deterministic N-node simulator, scenarios S1-S13, Demo-ride world |
+| `crates/mesh-ffi` | runtime thread, UniFFI surface (C4), real-time C ABI `mesh_rt.h` (C5) |
+| `crates/mesh-wasm` | raw `extern "C"` JSON ABI over core + sim for the browser |
+| `tools/xtask` | `cargo xtask` build/generate/check commands |
+| `tools/uniffi-bindgen` | workspace-local UniFFI bindgen binary (no global install) |
+| `tools/lab-analyze` | Node CLI: merge per-device Lab files, verdicts against thresholds |
+| `native/ios/MeshPlatformKit` | Swift: BLE drivers, VPIO audio (CMeshAudio), keep-alive, Lab store, Live Activity attributes |
+| `native/ios/MeshEngineKit` | Swift: xcframework binary target, committed bindings, `EngineHost` |
+| `native/android/` | Gradle build of the `:meshengine` Android library (Kotlin + Oboe C++ shim) |
+| `packages/engine-api` | `@meshapp/engine-api`: generated TS types + typed client + guards |
+| `packages/engine-web` | `@meshapp/engine-web`: WASM loader + simulator driver |
+| `packages/capacitor-intercom` | `@meshapp/capacitor-intercom`: TS-only Capacitor plugin (C6) |
+| `packages/ui-kit` | `@meshapp/ui-kit`: design tokens and primitives |
+| `apps/mobile` | `@meshapp/mobile`: the Capacitor app (React 19, Vite, Tailwind 4, Zustand, i18next ES/EN) |
+| `test-vectors/` | committed golden wire/crypto vectors (generated by `cargo xtask vectors`) |
+| `third_party/opus/` | `SHA256SUMS` (committed); sources fetched by `cargo xtask fetch-opus` |
+| `fuzz/` | cargo-fuzz targets (nightly toolchain, outside the workspace) |
+| `scripts/` | `bootstrap.sh`, `doctor.sh`, `env.sh`, `pick-sim.sh`, `msrv-probe.sh`, `tasks.mjs` |
+| `docs/` | `DESIGN.md` (authoritative), `WORKPLAN.json`, `BITACORA.md`, `conventions/`, `protocol/`, `lab/`, `field/results/` |
+
+Directory layout in detail: [DESIGN §2.1](docs/DESIGN.md#21-repository).
+
+## Quick start
+
+Everything runs from the repository root. Tooling is pnpm only (never npm, yarn, bun
+or `npx`). Rust is pinned by `rust-toolchain.toml` (channel `1.99.1`).
+
+### 1. Bootstrap the toolchain (idempotent)
+
+```bash
+bash scripts/bootstrap.sh     # Rust targets, cargo-ndk check, env, libopus fetch, pnpm install, Playwright Chromium
+bash scripts/doctor.sh        # prints anything still missing with a fix-it line; never installs
+```
+
+Needs Xcode 27.1 (iOS 26/27 simulators), the Android SDK with NDK
+`27.1.12297006` and SDK cmake `3.22.1`, JDK 21, Node ≥ 22.18 and pnpm 11. No system
+cmake, wasm-pack, wasm-bindgen-cli or uniffi-bindgen is needed
+([DESIGN §2.2](docs/DESIGN.md#22-toolchain-bootstrap-scriptsbootstrapsh-idempotent-first-work-package)).
+Every later shell that builds native code first runs `source scripts/env.sh`.
+
+### 2. Run the full local CI
+
+```bash
+pnpm run ci                   # exactly the DESIGN §2.5 sequence (Rust, TS, Swift, Kotlin, app builds)
+node scripts/tasks.mjs ci --dry-run   # print the sequence without running it
+node scripts/tasks.mjs help           # every task group and action
+```
+
+`pnpm run ci` starts with `cargo xtask fetch-opus`, because `mesh-core` enables the
+`opus` feature by default and every Rust build needs the verified libopus sources.
+
+### 3. Develop the UI against the simulated convoy (browser)
+
+```bash
+pnpm run dev                  # Vite dev server for @meshapp/mobile backed by the WASM core + simulator
+```
+
+Open the printed URL. Query parameters tune the scenario, e.g. `?sim=chain5&loss=0.1`
+([DESIGN §11.2](docs/DESIGN.md#112-web-implementation-browser-simulator)). The web
+implementation mirrors native gating: capture-starting commands only work through
+`gestureCommand`, so code that fails on a phone also fails in the browser.
+
+### 4. Build and run on an iPhone
+
+```bash
+source scripts/env.sh
+cargo xtask fetch-opus
+cargo xtask build-ios                 # Rust → MeshCoreFFI.xcframework (device + simulator slices)
+node scripts/tasks.mjs cap sync       # pnpm exec cap sync (never npx)
+node scripts/tasks.mjs ios build      # unsigned device build check
+node scripts/tasks.mjs ios open       # opens apps/mobile/ios/App in Xcode
+```
+
+In Xcode select your development team for the `App` and `IntercomWidget` targets,
+pick the connected iPhone (iOS 26.0+, iPhone 12 or newer) and press Run. Field
+benches are under Settings → Field test; the procedures are in `docs/lab/LAB_PROTOCOL.md`.
+
+Android builds and passes unit tests on this Mac (`node scripts/tasks.mjs android build`
+and `android test`), but no Android phone has been field-validated yet; Android is not
+labelled "supported" until the Phase 3 device gate passes.
+
+## Status and roadmap
+
+Delivery is phased ([DESIGN §14](docs/DESIGN.md#14-phased-roadmap)): Phase 0 field
+benches on iPhones (go / no-go), Phase 1 two-iPhone intercom, Phase 2 iPhone multi-hop,
+Phase 3 Android parity, Phase 4 Wi-Fi Aware upgrade, Phase 5 hardening and store
+readiness. What has actually landed, and what is still **pending physical
+validation**, is recorded newest-first in [`docs/BITACORA.md`](docs/BITACORA.md).
+Nothing that needs a real phone, helmet or road is ever reported as verified until it
+was run on devices.
+
+## Working on this repository
+
+- Read [`AGENTS.md`](AGENTS.md) first (humans too): ownership, contracts, verify rules.
+- Design source of truth: [`docs/DESIGN.md`](docs/DESIGN.md). Work packages:
+  [`docs/WORKPLAN.json`](docs/WORKPLAN.json).
+- Coding conventions: [`docs/conventions/`](docs/conventions/) (Rust, Swift, Kotlin,
+  TypeScript, commits).
+- Code, comments and docs are in English; the UI ships Spanish (`es`) and English.
+- The sibling `../comvoy-app` (convLink) is a read-only reference. Never modify it.

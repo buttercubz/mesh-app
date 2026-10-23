@@ -1,0 +1,61 @@
+{
+  "description": "HELLO characteristic value (DESIGN §9.3), 16 B: magic 0xc1 || proto_min || proto_max || flags (b0 android, b1 lab, b2 accepting, b3 aware, b4 leader) || psm u16 LE (0 = GATT only) || group_tag[4] (Lab: lab_tag u16 LE || 0000) || node_token[4] || epoch_lo u16 LE (epoch mod 2^16).",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "c10101048100a1b2c3d41f2e3d4c0700",
+      "inputs": {
+        "epoch": 7,
+        "epoch_lo": 7,
+        "flags": 4,
+        "group_tag": "a1b2c3d4",
+        "node_token": "1f2e3d4c",
+        "proto_max": 1,
+        "proto_min": 1,
+        "psm": 129
+      },
+      "name": "group/ios-accepting-l2cap"
+    },
+    {
+      "expected": "c101011d0000a1b2c3d41f2e3d4c0200",
+      "inputs": {
+        "epoch": 65538,
+        "epoch_lo": 2,
+        "flags": 29,
+        "group_tag": "a1b2c3d4",
+        "node_token": "1f2e3d4c",
+        "proto_max": 1,
+        "proto_min": 1,
+        "psm": 0
+      },
+      "name": "group/android-leader-aware-gatt-only"
+    },
+    {
+      "expected": "c1010100c100a1b2c3d41f2e3d4cffff",
+      "inputs": {
+        "epoch": 196607,
+        "epoch_lo": 65535,
+        "flags": 0,
+        "group_tag": "a1b2c3d4",
+        "node_token": "1f2e3d4c",
+        "proto_max": 1,
+        "proto_min": 1,
+        "psm": 193
+      },
+      "name": "group/not-accepting-epoch-wraps"
+    },
+    {
+      "expected": "c10101068100b2bb0000090807060000",
+      "inputs": {
+        "epoch_lo": 0,
+        "flags": 6,
+        "lab_code": 1234,
+        "lab_tag": 48050,
+        "node_token": "09080706",
+        "psm": 129
+      },
+      "name": "lab/code-1234"
+    }
+  ]
+}

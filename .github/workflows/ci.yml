@@ -1,0 +1,84 @@
+# CI (owned by WP-01, DESIGN §2.5): mirrors `pnpm run ci` on a macOS arm64 runner.
+# Best effort: the hosted image must provide an Xcode with the iOS 26 SDK; the job
+# selects the newest installed Xcode and fails loudly if the build needs a newer one.
+# The step list itself lives in scripts/tasks.mjs (`ci`), so local and CI runs are the
+# same sequence; this file only provisions the machine.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  ANDROID_NDK_VERSION: "27.1.12297006"
+  ANDROID_CMAKE_VERSION: "3.22.1"
+
+jobs:
+  ci:
+    name: pnpm run ci (macOS arm64)
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode
+        run: |
+          xcode="$(ls -d /Applications/Xcode*.app | sort -V | tail -n1)"
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable pnpm (packageManager pin)
+        run: |
+          corepack enable
+          pnpm --version
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Android SDK packages (NDK + SDK cmake)
+        run: |
+          sdkmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null || true # license prompts only; failures surface below
+          "$sdkmanager" "ndk;${ANDROID_NDK_VERSION}" "cmake;${ANDROID_CMAKE_VERSION}" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Rust toolchain (rust-toolchain.toml) and cargo-ndk
+        run: |
+          rustup show active-toolchain || rustup toolchain install "$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
+          command -v cargo-ndk >/dev/null || cargo install cargo-ndk --version ^4 --locked
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            third_party/opus/opus-1.6.1
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Bootstrap (idempotent; installs targets, libopus, pnpm deps, Playwright)
+        run: bash scripts/bootstrap.sh
+
+      - name: Doctor
+        run: node scripts/tasks.mjs doctor
+
+      # Owners that have not landed yet are skipped explicitly and listed at the end;
+      # drop --allow-missing once every work package of the current phase exists.
+      - name: pnpm run ci
+        run: pnpm run ci --allow-missing

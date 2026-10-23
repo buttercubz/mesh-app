@@ -1,0 +1,47 @@
+# mesh-sim (owned by WP-11, DESIGN §13.2, research bench T9).
+# Stub created by WP-01 (DESIGN §3.1, §16.2 stub hand-off); owned by WP-11 from creation.
+#
+# Deterministic discrete-event world of N real mesh-core Engines with the radio,
+# discovery, role, mobility and audio models of §13.2, global assertions and the
+# scenario suite (`cargo run -p mesh-sim --release -- suite ci --seeds 8`).
+[package]
+name = "mesh-sim"
+description = "Deterministic discrete-event N-node simulator, radio/mobility models, demo world."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+# The command line is the crate's IO edge (arguments, a clock-derived nightly seed);
+# it lives outside `src/` so the sans-IO determinism scan (`cargo xtask check`) covers
+# exactly the library.
+[[bin]]
+name = "mesh-sim"
+path = "cli/main.rs"
+
+[features]
+default = ["opus"]
+opus = ["mesh-core/opus", "mesh-voice/opus"]
+
+[dependencies]
+mesh-core = { path = "../mesh-core", default-features = false }
+mesh-api = { path = "../mesh-api" }
+mesh-wire = { path = "../mesh-wire" }
+mesh-lab = { path = "../mesh-lab" }
+# Demo bots encode the rendered lines once with the session codec (DESIGN §3.4).
+mesh-voice = { path = "../mesh-voice", default-features = false }
+# The world's only RNG: ChaCha20Rng seeded from the scenario seed (DESIGN §3.1, §13.2).
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
+# labrun/1 lines are parsed and checked against the schema shipped by mesh-lab.
+serde_json = { workspace = true }
+
+[dev-dependencies]
+# Reference JSON Schema validator (draft 2020-12): the tests check that the built-in
+# labrun/1 checker agrees with it. Not in [workspace.dependencies]; same exact pin as
+# mesh-lab and mesh-core dev-dependencies (reported as a deviation).
+boon = "=0.6.1"

@@ -1,0 +1,59 @@
+# mesh-app ignores (owned by WP-01, DESIGN §2.1)
+
+# Rust
+target/
+**/*.rs.bk
+
+# Build outputs
+build/
+dist/
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+
+# libopus sources fetched by `cargo xtask fetch-opus` (SHA256SUMS stays committed)
+third_party/opus/opus-1.6.1/
+third_party/opus/*.tar.gz
+third_party/opus/.ok
+
+# Native artifacts produced by xtask (never committed)
+native/ios/MeshEngineKit/Frameworks/
+jniLibs/
+
+# fuzz (cargo-fuzz, nightly)
+fuzz/target/
+fuzz/corpus/
+fuzz/artifacts/
+fuzz/coverage/
+
+# Xcode / SwiftPM
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+
+# Gradle / Android
+.gradle/
+.kotlin/
+local.properties
+.cxx/
+.externalNativeBuild/
+captures/
+*.keystore
+!debug.keystore
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Environment and secrets
+.env
+.env.*
+!.env.example

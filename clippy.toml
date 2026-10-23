@@ -1,0 +1,56 @@
+# Determinism list (owned by WP-01, DESIGN §3.1).
+#
+# The workspace sets `disallowed_methods = "allow"` and `disallowed_types = "allow"`
+# ([workspace.lints.clippy] in Cargo.toml). Only the seven sans-IO crates (mesh-wire,
+# mesh-crypto, mesh-lab, mesh-voice, mesh-routing, mesh-core, mesh-sim) deny them with
+# `#![deny(clippy::disallowed_methods, clippy::disallowed_types)]` in lib.rs, so
+# mesh-ffi, mesh-wasm, xtask, uniffi-bindgen, opus-sys and integration tests may use
+# threads and clocks. `cargo xtask check` greps the seven crates as a second line of
+# defence.
+#
+# Rules: time is a caller-supplied `Instant(u64 µs)`, randomness an injected
+# `rand_chacha::ChaCha20Rng`, maps are `BTreeMap`/`Vec`/fixed arrays (no hash-order
+# iteration), no environment reads. Paths of crates that are not in a given crate's
+# graph (getrandom, rand, rand_core::OsRng) use `allow-invalid = true`.
+
+disallowed-methods = [
+  # --- wall and monotonic clocks ---
+  { path = "std::time::Instant::now", reason = "sans-IO: time is the caller-supplied Instant(u64 µs) (DESIGN §3.1)" },
+  { path = "std::time::Instant::elapsed", reason = "sans-IO: time is the caller-supplied Instant(u64 µs) (DESIGN §3.1)" },
+  { path = "std::time::SystemTime::now", reason = "sans-IO: no wall clock (DESIGN §3.1)" },
+  { path = "std::time::SystemTime::elapsed", reason = "sans-IO: no wall clock (DESIGN §3.1)" },
+  # --- threads ---
+  { path = "std::thread::spawn", reason = "sans-IO: no threads; the mesh-ffi runtime owns threading (DESIGN §3.4)" },
+  { path = "std::thread::scope", reason = "sans-IO: no threads (DESIGN §3.1)" },
+  { path = "std::thread::sleep", reason = "sans-IO: no blocking; time is injected (DESIGN §3.1)" },
+  { path = "std::thread::Builder::spawn", reason = "sans-IO: no threads (DESIGN §3.1)" },
+  { path = "std::thread::Builder::spawn_scoped", reason = "sans-IO: no threads (DESIGN §3.1)" },
+  # --- environment ---
+  { path = "std::env::var", reason = "sans-IO: no environment reads; configuration is passed in (DESIGN §3.1)" },
+  { path = "std::env::var_os", reason = "sans-IO: no environment reads (DESIGN §3.1)" },
+  { path = "std::env::vars", reason = "sans-IO: no environment reads (DESIGN §3.1)" },
+  { path = "std::env::vars_os", reason = "sans-IO: no environment reads (DESIGN §3.1)" },
+  # --- OS randomness ---
+  { path = "getrandom::fill", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "getrandom::fill_uninit", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "getrandom::u32", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "getrandom::u64", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "getrandom::getrandom", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "rand::thread_rng", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "rand::rng", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "rand::random", reason = "sans-IO: randomness is the injected ChaCha20Rng (DESIGN §3.1)", allow-invalid = true },
+  { path = "rand_core::SeedableRng::from_os_rng", reason = "sans-IO: seed the ChaCha20Rng from injected bytes (DESIGN §3.1)", allow-invalid = true },
+  { path = "rand_core::SeedableRng::try_from_os_rng", reason = "sans-IO: seed the ChaCha20Rng from injected bytes (DESIGN §3.1)", allow-invalid = true },
+]
+
+disallowed-types = [
+  { path = "std::time::Instant", reason = "sans-IO: use the engine's Instant(u64 µs) (DESIGN §3.1)" },
+  { path = "std::time::SystemTime", reason = "sans-IO: no wall clock (DESIGN §3.1)" },
+  { path = "std::thread::JoinHandle", reason = "sans-IO: no threads (DESIGN §3.1)" },
+  { path = "std::collections::HashMap", reason = "sans-IO: hash-order iteration is nondeterministic; use BTreeMap, a sorted Vec or a fixed array (DESIGN §3.1)" },
+  { path = "std::collections::HashSet", reason = "sans-IO: hash-order iteration is nondeterministic; use BTreeSet, a sorted Vec or a fixed array (DESIGN §3.1)" },
+  { path = "std::hash::RandomState", reason = "sans-IO: per-process random hashing is nondeterministic (DESIGN §3.1)" },
+  { path = "rand_core::OsRng", reason = "sans-IO: no OS randomness (DESIGN §3.1)", allow-invalid = true },
+  { path = "rand::rngs::OsRng", reason = "sans-IO: no OS randomness (DESIGN §3.1)", allow-invalid = true },
+  { path = "rand::rngs::ThreadRng", reason = "sans-IO: no OS randomness (DESIGN §3.1)", allow-invalid = true },
+]

@@ -1,0 +1,46 @@
+{
+  "description": "Per-group identities (DESIGN §8.2): Ed25519 public key of `ed_seed`, X25519 public key of `x_sk`, id_hash = SHA-256(ed_pk ‖ x_pk)[0..16], node_id = u16 LE of id_hash[0..2].",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": {
+        "ed_pk": "832292f559492b6909c155c98d490a7fc95dd2c8f43fa12b2682745b0762d77c",
+        "id_hash": "36d73e10e99acb65b97c56c846cbc0d0",
+        "node_id": 55094,
+        "x_pk": "57f5984dbe1a3284a17df26f10b73b918fd25e5f1423a82fed0be9b26eef1152"
+      },
+      "inputs": {
+        "ed_seed": "304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1",
+        "x_sk": "31506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2"
+      },
+      "name": "leader"
+    },
+    {
+      "expected": {
+        "ed_pk": "b9842517baac4e1ea8dfe5452e47f6754c7a37a4602626fa2d7fdf574b036f8e",
+        "id_hash": "4a0a18b8beb9ede159206eb9fc4cb4e8",
+        "node_id": 2634,
+        "x_pk": "524b7b0e079f70db89e45066e5b234a086a2406e50b2e69efa1a4f45e8068077"
+      },
+      "inputs": {
+        "ed_seed": "405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201",
+        "x_sk": "41607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e302"
+      },
+      "name": "member"
+    },
+    {
+      "expected": {
+        "ed_pk": "50ec263027e7a5acdb09b89b234205e3b28243f5aa8ad61d69621ef0d63f08c3",
+        "id_hash": "4bf8f699d5dc6f9d244dec9834ee687b",
+        "node_id": 63563,
+        "x_pk": "06c27295b90687abc9de183032d58ed7b637f136f2f3b67616608c7b9a9ecc6b"
+      },
+      "inputs": {
+        "ed_seed": "486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea09",
+        "x_sk": "496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a"
+      },
+      "name": "member2"
+    }
+  ]
+}

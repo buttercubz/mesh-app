@@ -1,0 +1,614 @@
+{
+  "commands": [
+    {
+      "name": "labStart without audio",
+      "json": {
+        "type": "labStart",
+        "bench": "T0",
+        "params": {
+          "anchor": "audio",
+          "gps": false
+        }
+      }
+    },
+    {
+      "name": "labStart without anchor",
+      "json": {
+        "type": "labStart",
+        "bench": "T0",
+        "params": {
+          "audio": "off",
+          "gps": false
+        }
+      }
+    },
+    {
+      "name": "labStart without gps",
+      "json": {
+        "type": "labStart",
+        "bench": "T0",
+        "params": {
+          "audio": "off",
+          "anchor": "audio"
+        }
+      }
+    },
+    {
+      "name": "labStart unknown audio",
+      "json": {
+        "type": "labStart",
+        "bench": "T0",
+        "params": {
+          "audio": "loud",
+          "anchor": "audio",
+          "gps": false
+        }
+      }
+    },
+    {
+      "name": "labStart unknown param",
+      "json": {
+        "type": "labStart",
+        "bench": "T0",
+        "params": {
+          "audio": "off",
+          "anchor": "audio",
+          "gps": false,
+          "Audio": "full"
+        }
+      }
+    },
+    {
+      "name": "labStart unknown bench",
+      "json": {
+        "type": "labStart",
+        "bench": "T9",
+        "params": {
+          "audio": "off",
+          "anchor": "audio",
+          "gps": false
+        }
+      }
+    },
+    {
+      "name": "unknown type",
+      "json": {
+        "type": "sendText",
+        "text": "hello"
+      }
+    },
+    {
+      "name": "missing type",
+      "json": {
+        "name": "x",
+        "vehicle": "moto"
+      }
+    },
+    {
+      "name": "audioCheck without op",
+      "json": {
+        "type": "audioCheck",
+        "mode": "tone"
+      }
+    },
+    {
+      "name": "audioCheck start without mode",
+      "json": {
+        "type": "audioCheck",
+        "op": "start"
+      }
+    },
+    {
+      "name": "createGroup bad vehicle",
+      "json": {
+        "type": "createGroup",
+        "name": "x",
+        "vehicle": "truck"
+      }
+    },
+    {
+      "name": "ptt down not boolean",
+      "json": {
+        "type": "ptt",
+        "down": "yes"
+      }
+    },
+    {
+      "name": "setPrompts unknown key",
+      "json": {
+        "type": "setPrompts",
+        "lang": "en",
+        "enabled": true,
+        "templates": {
+          "hello": "Hello"
+        }
+      }
+    },
+    {
+      "name": "goLive with unknown field",
+      "json": {
+        "type": "goLive",
+        "force": true
+      }
+    },
+    {
+      "name": "audioCheck stop with mode",
+      "json": {
+        "type": "audioCheck",
+        "op": "stop",
+        "mode": "tone"
+      }
+    },
+    {
+      "name": "ptt with unknown field",
+      "json": {
+        "type": "ptt",
+        "down": true,
+        "tUiMs": 12
+      }
+    },
+    {
+      "name": "removeMember nodeId out of range",
+      "json": {
+        "type": "removeMember",
+        "nodeId": 70000
+      }
+    },
+    {
+      "name": "removeMember nodeId not integer",
+      "json": {
+        "type": "removeMember",
+        "nodeId": 1.5
+      }
+    },
+    {
+      "name": "setInviteExpiry negative",
+      "json": {
+        "type": "setInviteExpiry",
+        "hours": -1
+      }
+    },
+    {
+      "name": "setInviteExpiry without hours (null is required for never)",
+      "json": {
+        "type": "setInviteExpiry"
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "unknown type",
+      "json": {
+        "type": "toast",
+        "message": "Hello"
+      }
+    },
+    {
+      "name": "notice unknown key",
+      "json": {
+        "type": "notice",
+        "key": "Member joined!",
+        "params": {}
+      }
+    },
+    {
+      "name": "notice without params",
+      "json": {
+        "type": "notice",
+        "key": "alone"
+      }
+    },
+    {
+      "name": "snapshot missing device",
+      "json": {
+        "type": "snapshot",
+        "s": {
+          "engine": "starting",
+          "session": null,
+          "audio": {
+            "route": "none",
+            "captureOk": false,
+            "renderOk": false,
+            "inputLevel": 0.0,
+            "txMutedNoHeadset": false
+          },
+          "talkers": [],
+          "members": [],
+          "mesh": {
+            "links": 0,
+            "neighbors": 0,
+            "islands": 0,
+            "reachable": 0,
+            "total": 0,
+            "capBle": 2,
+            "capWifi": 4,
+            "profile": "bleDegraded"
+          },
+          "latency": null
+        }
+      }
+    },
+    {
+      "name": "snapshot bad voice",
+      "json": {
+        "type": "snapshot",
+        "s": {
+          "engine": "running",
+          "session": {
+            "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e",
+            "groupName": "Sunday ride",
+            "role": "leader",
+            "myNodeId": 1,
+            "live": true,
+            "mode": "vox",
+            "talk": "talking",
+            "ride": "riding",
+            "ladder": "L0",
+            "shareDistance": true
+          },
+          "audio": {
+            "route": "hfpWideband",
+            "captureOk": true,
+            "renderOk": true,
+            "inputLevel": 0.42,
+            "txMutedNoHeadset": false
+          },
+          "talkers": [
+            {
+              "nodeId": 1,
+              "name": "Ana",
+              "hops": 0,
+              "level": 0.6,
+              "sinceMs": 1200
+            },
+            {
+              "nodeId": 7,
+              "name": "Carla",
+              "hops": 3,
+              "level": 0.3,
+              "sinceMs": 300
+            }
+          ],
+          "members": [
+            {
+              "nodeId": 3,
+              "name": "Beto",
+              "role": "member",
+              "platform": "android",
+              "status": "direct",
+              "hops": 1,
+              "quality": 72,
+              "linkKinds": [
+                "ble"
+              ],
+              "hearsMe": true,
+              "voice": "maybe",
+              "lastHeardMs": 400,
+              "battery": 0.55,
+              "ready": {
+                "live": true,
+                "mic": true,
+                "route": "hfpNarrowband"
+              },
+              "flags": [
+                "noHeadset"
+              ],
+              "distanceM": 42.5,
+              "bearingDeg": 181.0
+            }
+          ],
+          "mesh": {
+            "links": 2,
+            "neighbors": 2,
+            "islands": 1,
+            "reachable": 3,
+            "total": 4,
+            "capBle": 2,
+            "capWifi": 4,
+            "profile": "ble"
+          },
+          "device": {
+            "battery": 0.81,
+            "thermal": "fair",
+            "background": true,
+            "bluetooth": "on"
+          },
+          "latency": {
+            "p50Ms": 95.5,
+            "p95Ms": 141.0,
+            "byHops": [
+              88.0,
+              120.5,
+              151.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "error unknown code",
+      "json": {
+        "type": "error",
+        "code": "Something went wrong",
+        "params": {}
+      }
+    },
+    {
+      "name": "labProgress missing sample",
+      "json": {
+        "type": "labProgress",
+        "runId": "r",
+        "elapsedS": 1.0
+      }
+    },
+    {
+      "name": "talkDenied with unknown field",
+      "json": {
+        "type": "talkDenied",
+        "reason": "cap",
+        "message": "Channel busy"
+      }
+    },
+    {
+      "name": "notice param is an object",
+      "json": {
+        "type": "notice",
+        "key": "memberJoined",
+        "params": {
+          "name": {
+            "first": "Ana"
+          }
+        }
+      }
+    },
+    {
+      "name": "audioCheckSample bad phase",
+      "json": {
+        "type": "audioCheckSample",
+        "level": 0.1,
+        "vadP": 0.2,
+        "gate": "open",
+        "route": "wired",
+        "inputRate": 16000,
+        "phase": "sing"
+      }
+    },
+    {
+      "name": "snapshot without latency (must be null, not absent)",
+      "json": {
+        "type": "snapshot",
+        "s": {
+          "engine": "running",
+          "session": {
+            "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e",
+            "groupName": "Sunday ride",
+            "role": "leader",
+            "myNodeId": 1,
+            "live": true,
+            "mode": "vox",
+            "talk": "talking",
+            "ride": "riding",
+            "ladder": "L0",
+            "shareDistance": true
+          },
+          "audio": {
+            "route": "hfpWideband",
+            "captureOk": true,
+            "renderOk": true,
+            "inputLevel": 0.42,
+            "txMutedNoHeadset": false
+          },
+          "talkers": [
+            {
+              "nodeId": 1,
+              "name": "Ana",
+              "hops": 0,
+              "level": 0.6,
+              "sinceMs": 1200
+            },
+            {
+              "nodeId": 7,
+              "name": "Carla",
+              "hops": 3,
+              "level": 0.3,
+              "sinceMs": 300
+            }
+          ],
+          "members": [
+            {
+              "nodeId": 1,
+              "name": "Ana",
+              "role": "leader",
+              "platform": "ios",
+              "status": "me",
+              "hops": 0,
+              "quality": 100,
+              "linkKinds": [],
+              "hearsMe": true,
+              "voice": "kpi",
+              "lastHeardMs": 0,
+              "battery": 0.81,
+              "ready": {
+                "live": true,
+                "mic": true,
+                "route": "hfpWideband"
+              },
+              "flags": [],
+              "distanceM": null,
+              "bearingDeg": null
+            },
+            {
+              "nodeId": 3,
+              "name": "Beto",
+              "role": "member",
+              "platform": "android",
+              "status": "direct",
+              "hops": 1,
+              "quality": 72,
+              "linkKinds": [
+                "ble"
+              ],
+              "hearsMe": true,
+              "voice": "kpi",
+              "lastHeardMs": 400,
+              "battery": 0.55,
+              "ready": {
+                "live": true,
+                "mic": true,
+                "route": "hfpNarrowband"
+              },
+              "flags": [
+                "noHeadset"
+              ],
+              "distanceM": 42.5,
+              "bearingDeg": 181.0
+            },
+            {
+              "nodeId": 7,
+              "name": "Carla",
+              "role": "member",
+              "platform": "ios",
+              "status": "relayed",
+              "hops": 3,
+              "quality": 48,
+              "linkKinds": [
+                "ble",
+                "aware"
+              ],
+              "hearsMe": false,
+              "voice": "bestEffort",
+              "lastHeardMs": 1800,
+              "battery": null,
+              "ready": {
+                "live": true,
+                "mic": false,
+                "route": null
+              },
+              "flags": [
+                "onCall",
+                "micLost",
+                "radioOff"
+              ],
+              "distanceM": null,
+              "bearingDeg": null
+            },
+            {
+              "nodeId": 9,
+              "name": "Luis",
+              "role": "member",
+              "platform": "ios",
+              "status": "unconfirmed",
+              "hops": 0,
+              "quality": 0,
+              "linkKinds": [],
+              "hearsMe": false,
+              "voice": "no",
+              "lastHeardMs": 61000,
+              "battery": null,
+              "ready": {
+                "live": false,
+                "mic": false,
+                "route": null
+              },
+              "flags": [],
+              "distanceM": null,
+              "bearingDeg": null
+            }
+          ],
+          "mesh": {
+            "links": 2,
+            "neighbors": 2,
+            "islands": 1,
+            "reachable": 3,
+            "total": 4,
+            "capBle": 2,
+            "capWifi": 4,
+            "profile": "ble"
+          },
+          "device": {
+            "battery": 0.81,
+            "thermal": "fair",
+            "background": true,
+            "bluetooth": "on"
+          }
+        }
+      }
+    },
+    {
+      "name": "labProgress sample without rssi",
+      "json": {
+        "type": "labProgress",
+        "runId": "r-20261023-0912-ab12",
+        "elapsedS": 12.5,
+        "sample": {
+          "links": 1,
+          "peers": 1,
+          "txKbps": 93.4,
+          "rxKbps": 93.1,
+          "loss": 0.004,
+          "rttP50Ms": 38.0,
+          "rttP95Ms": 61.5,
+          "distM": 12.4,
+          "stalls": 0,
+          "anchorOk": true
+        }
+      }
+    }
+  ],
+  "results": [
+    {
+      "name": "ok missing",
+      "json": {
+        "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e"
+      }
+    },
+    {
+      "name": "ok not boolean",
+      "json": {
+        "ok": "true"
+      }
+    },
+    {
+      "name": "error unknown code",
+      "json": {
+        "ok": false,
+        "code": "oops"
+      }
+    },
+    {
+      "name": "error with payload",
+      "json": {
+        "ok": false,
+        "code": "internal",
+        "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e"
+      }
+    },
+    {
+      "name": "unknown payload field",
+      "json": {
+        "ok": true,
+        "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e",
+        "extra": 1
+      }
+    },
+    {
+      "name": "ok false with payload kind",
+      "json": {
+        "ok": false,
+        "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e"
+      }
+    },
+    {
+      "name": "inviteInfo without epoch",
+      "json": {
+        "ok": true,
+        "valid": false,
+        "groupName": null,
+        "groupId": null,
+        "expired": false,
+        "alreadyMember": false,
+        "leaderSigOk": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,275 @@
+{
+  "description": "MeshPacket (DESIGN §4.5-§4.6): 9-byte header vt (ver<<5 | ptype), ttl_hops (ttl<<4 | hops), origin u16, sess u8 (non-zero), seq u16, age u8 (2 ms units), flags (class<<6 | LEADER<<5 | SEG<<4), then the payload. expected = header || payload. Signatures are filler (real ones in test-vectors/crypto/).",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "2260efbe01ffffff20",
+      "inputs": {
+        "age": 255,
+        "class": 0,
+        "hops": 0,
+        "leader": true,
+        "origin": 48879,
+        "ptype": 2,
+        "seg": false,
+        "seq": 65535,
+        "sess": 1,
+        "ttl": 6
+      },
+      "name": "header/talk-leader-age-saturated"
+    },
+    {
+      "expected": "213102015a0a000b40",
+      "inputs": {
+        "added_us": 13000,
+        "before": "214002015a0a000440",
+        "rule": "ttl -= 1, hops += 1, age += round(added_us / 2000)"
+      },
+      "name": "header/voice-relayed-once"
+    },
+    {
+      "expected": "214002015a64000040030000a2f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281",
+      "inputs": {
+        "burst": 3,
+        "bw": "wide",
+        "dur_ms": 40,
+        "first": true,
+        "frame_index": 0,
+        "opus": "f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281",
+        "ts": 0
+      },
+      "name": "voice/ble16-frame0-first"
+    },
+    {
+      "expected": "214002015a66000040030800a4f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281",
+      "inputs": {
+        "burst": 3,
+        "dred": true,
+        "frame_index": 2,
+        "opus": "f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281",
+        "ts": 8
+      },
+      "name": "voice/ble-dred-frame2-ts8"
+    },
+    {
+      "expected": "224002015ac800004003010101010000",
+      "inputs": {
+        "burst": 3,
+        "elapsed_10ms": 0,
+        "mode": 1,
+        "prio": 1,
+        "profile": 1,
+        "state": 1
+      },
+      "name": "talk/start"
+    },
+    {
+      "expected": "224002015ac800004003030101016400",
+      "inputs": {
+        "burst": 3,
+        "elapsed_10ms": 100,
+        "mode": 1,
+        "prio": 1,
+        "profile": 1,
+        "state": 3
+      },
+      "name": "talk/keep-elapsed-1s"
+    },
+    {
+      "expected": "224002015ac80000400302010101a401",
+      "inputs": {
+        "burst": 3,
+        "elapsed_10ms": 420,
+        "mode": 1,
+        "prio": 1,
+        "profile": 1,
+        "state": 2
+      },
+      "name": "talk/stop-elapsed-4.2s"
+    },
+    {
+      "expected": "224002015ac900004003010202050000",
+      "inputs": {
+        "burst": 3,
+        "elapsed_10ms": 0,
+        "mode": 2,
+        "prio": 2,
+        "profile": 5,
+        "state": 1
+      },
+      "name": "talk/start-leader-ptt-ble-dred"
+    },
+    {
+      "expected": "234002015a2c01004004037709010b0a",
+      "inputs": {
+        "at": 2571,
+        "burst": 9,
+        "reason": 1,
+        "target": 772,
+        "target_sess": 119
+      },
+      "name": "floor_reject/cap"
+    },
+    {
+      "expected": "244002015a9001004011000200535b5721301405000080",
+      "inputs": {
+        "battery": 87,
+        "capture_ok": true,
+        "dred_ok": true,
+        "epoch": 65538,
+        "epoch16": 2,
+        "heard": 2147483653,
+        "interval": 20,
+        "ladder": 1,
+        "links_aware": 1,
+        "links_ble": 2,
+        "live": true,
+        "platform": 0,
+        "radio_off_recently": true,
+        "render_ok": true,
+        "ride": 1,
+        "roster_ver16": 17,
+        "roster_version": 196625,
+        "route": 3,
+        "sharing_distance": true,
+        "talk": 1
+      },
+      "name": "presence/riding-talking-radio-off-recently"
+    },
+    {
+      "expected": "11000200535b5721301405000080",
+      "inputs": {
+        "of": "presence/riding-talking-radio-off-recently"
+      },
+      "name": "presence/payload-14-bytes"
+    },
+    {
+      "expected": "284002015af401004001e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382",
+      "inputs": {
+        "reason": 1,
+        "sig": "e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483a2c1e0ff1e3d5c7b9ab9d8f71635547392b1d0ef0e2d4c6b8aa9c8e70625446382"
+      },
+      "name": "leave/user"
+    },
+    {
+      "expected": "637669632f76312f6c65617665102f4e6d8cabcae90827466584a3c2e102015a01",
+      "inputs": {
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "origin": 258,
+        "reason": 1,
+        "rule": "\"cvic/v1/leave\" || group_id || origin u16 || sess u8 || reason u8",
+        "sess": 90
+      },
+      "name": "leave/signed-message"
+    },
+    {
+      "expected": "294002015af40100400178563412e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483",
+      "inputs": {
+        "op": 1,
+        "ride_id": 305419896,
+        "sig": "e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584a3c2e1001f3e5d7c9bbad9f81736557493b2d1f00f2e4d6c8baac9e80726456483"
+      },
+      "name": "ride_ctl/start"
+    },
+    {
+      "expected": "637669632f76312f7269646563746c102f4e6d8cabcae90827466584a3c2e1030000007856341201",
+      "inputs": {
+        "epoch": 3,
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "op": 1,
+        "ride_id": 305419896,
+        "rule": "\"cvic/v1/ridectl\" || group_id || epoch u32 || ride_id u32 || op u8"
+      },
+      "name": "ride_ctl/signed-message"
+    },
+    {
+      "expected": "2c4002015af4010040010200000003000000e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584",
+      "inputs": {
+        "ctl_version": 2,
+        "epoch": 3,
+        "op": 1,
+        "sig": "e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3d2f1102f4e6d8cabcae90827466584"
+      },
+      "name": "group_ctl/close-73"
+    },
+    {
+      "expected": "637669632f76312f67726f757063746c102f4e6d8cabcae90827466584a3c2e1010200000003000000",
+      "inputs": {
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "rule": "\"cvic/v1/groupctl\" || group_id || preceding bytes"
+      },
+      "name": "group_ctl/close/signed-message"
+    },
+    {
+      "expected": "2c4002015af4010040020300000003000000e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a50301e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786",
+      "inputs": {
+        "ctl_version": 3,
+        "epoch": 3,
+        "new_leader_ed_pk": "e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5",
+        "new_leader_node": 259,
+        "op": 2,
+        "sig": "e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786"
+      },
+      "name": "group_ctl/transfer-leader-107"
+    },
+    {
+      "expected": "637669632f76312f67726f757063746c102f4e6d8cabcae90827466584a3c2e1020300000003000000e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a50301",
+      "inputs": {
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "rule": "\"cvic/v1/groupctl\" || group_id || preceding bytes"
+      },
+      "name": "group_ctl/transfer-leader/signed-message"
+    },
+    {
+      "expected": "2a4002015a580200c00df0fecaea16b04c020000000202010403",
+      "inputs": {
+        "probe_id": 3405705229,
+        "t_origin": 9876543210,
+        "trace": [
+          258,
+          772
+        ]
+      },
+      "name": "mesh_probe/two-relays"
+    },
+    {
+      "expected": "2b4002015abc0200400202010000",
+      "inputs": {
+        "at": 258,
+        "profile": 2,
+        "target": 0
+      },
+      "name": "path_hint/ble12-all"
+    },
+    {
+      "expected": "304002015a200300403d2e950b1079e9c416012d050300",
+      "inputs": {
+        "acc_m": 5,
+        "fix_age_100ms": 3,
+        "heading_2deg": 45,
+        "lat_e7": 194326077,
+        "lon_e7": -991332080,
+        "rsv": 0,
+        "speed_dms": 278
+      },
+      "name": "position/moving"
+    },
+    {
+      "expected": "3f4002015a8403004001090807",
+      "inputs": {
+        "body": "090807",
+        "ext_type": 1
+      },
+      "name": "ext/type1"
+    },
+    {
+      "expected": "35f002015a8503000001020304",
+      "inputs": {
+        "payload": "01020304",
+        "ptype": 21
+      },
+      "name": "unknown/0x15-relayed-not-delivered"
+    }
+  ]
+}

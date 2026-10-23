@@ -1,0 +1,246 @@
+{
+  "description": "Records (DESIGN §4.4): rtype u8 || len LEB128 (1-2 B, <= 16383, shortest form) || body; <= 32 records per plaintext; unknown types are skipped. expected = the whole record.",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "011724f002015a341203000000000000000000000000000000",
+      "inputs": {
+        "mesh_packet": "24f002015a341203000000000000000000000000000000"
+      },
+      "name": "0x01-mesh"
+    },
+    {
+      "expected": "0206070004030201",
+      "inputs": {
+        "id": 7,
+        "t_tx": 16909060
+      },
+      "name": "0x02-ping"
+    },
+    {
+      "expected": "03080700040302015203",
+      "inputs": {
+        "hold_us": 850,
+        "id": 7,
+        "t_tx": 16909060
+      },
+      "name": "0x03-pong"
+    },
+    {
+      "expected": "040d0109020b0a5001020d0c280604",
+      "inputs": {
+        "entries": [
+          {
+            "congested": false,
+            "good": true,
+            "kind": 0,
+            "node_id": 2571,
+            "q": 80,
+            "vcap": 2
+          },
+          {
+            "congested": true,
+            "good": false,
+            "kind": 1,
+            "node_id": 3085,
+            "q": 40,
+            "vcap": 4
+          }
+        ],
+        "nseq": 9,
+        "ver": 1
+      },
+      "name": "0x04-nbr-v1-2-entries"
+    },
+    {
+      "expected": "0403010000",
+      "inputs": {
+        "entries": [],
+        "nseq": 0,
+        "ver": 1
+      },
+      "name": "0x04-nbr-v1-empty"
+    },
+    {
+      "expected": "050bfa003c73000001003c000c",
+      "inputs": {
+        "gaps": 1,
+        "pace_kbps": 60,
+        "queue_ms": 12,
+        "rx_bytes": 29500,
+        "rx_frames": 250
+      },
+      "name": "0x05-lstat"
+    },
+    {
+      "expected": "0615010002010300070301020001001100000002000000",
+      "inputs": {
+        "app_ver": 258,
+        "codec": 3,
+        "ctl_version": 2,
+        "epoch": 65538,
+        "max_links": 3,
+        "platform": 0,
+        "proto": 1,
+        "role": 1,
+        "roster_version": 17,
+        "transports": 7
+      },
+      "name": "0x06-caps"
+    },
+    {
+      "expected": "0615010002010300070300000000000000000000000000",
+      "inputs": {
+        "summary": "zeros on Lab links"
+      },
+      "name": "0x06-caps-lab-link-zero-summary"
+    },
+    {
+      "expected": "0778efbeadde15cd5b0700000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inputs": {
+        "flags": 1,
+        "pad_len": 107,
+        "probe_id": 3735928559,
+        "t_tx": 123456789
+      },
+      "name": "0x07-lprobe-pad107"
+    },
+    {
+      "expected": "0814efbeadde15cd5b070000000080020000e8030000",
+      "inputs": {
+        "hold_us": 640,
+        "probe_id": 3735928559,
+        "rx_count": 1000,
+        "t_tx": 123456789
+      },
+      "name": "0x08-lecho"
+    },
+    {
+      "expected": "090901010d0c0b0a112233",
+      "inputs": {
+        "nonce": 168496141,
+        "op": 1,
+        "params": "112233",
+        "transport": 1
+      },
+      "name": "0x09-upgrade-offer"
+    },
+    {
+      "expected": "0a0105",
+      "inputs": {
+        "reason": 5
+      },
+      "name": "0x0a-close-member-removed"
+    },
+    {
+      "expected": "0a0109",
+      "inputs": {
+        "reason": 9
+      },
+      "name": "0x0a-close-redundant"
+    },
+    {
+      "expected": "0a010a",
+      "inputs": {
+        "reason": 10
+      },
+      "name": "0x0a-close-leaving"
+    },
+    {
+      "expected": "0b10054d0000000021430807060504030201",
+      "inputs": {
+        "bench": 0,
+        "lab_node_id": 17185,
+        "nonce": 72623859790382856,
+        "op": 5,
+        "run_id": 77
+      },
+      "name": "0x0b-lab_ctl-announce"
+    },
+    {
+      "expected": "0b06014d00000003",
+      "inputs": {
+        "bench": 3,
+        "op": 1,
+        "params": "",
+        "run_id": 77
+      },
+      "name": "0x0b-lab_ctl-start"
+    },
+    {
+      "expected": "0c800121405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e24261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4036382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504",
+      "inputs": {
+        "ed_pk": "21405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e2",
+        "sig": "6382a1c0dffe1d3c5b7a99b8d7f61534537291b0cfee0d2c4b6a89a8c7e60524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504",
+        "signed_context": "\"cvic/v1/idproof\" || role u8 || handshake_hash[32]",
+        "x_pk": "4261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e403"
+      },
+      "name": "0x0c-idproof"
+    },
+    {
+      "expected": "637669632f76312f696470726f6f66010524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6",
+      "inputs": {
+        "handshake_hash": "0524436281a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6",
+        "role": 1
+      },
+      "name": "0x0c-idproof/signed-message-responder"
+    },
+    {
+      "expected": "0d12881300003d2e950b1079e9c4da0a23007869",
+      "inputs": {
+        "acc_dm": 35,
+        "heading_cdeg": 27000,
+        "lat_e7": 194326077,
+        "lon_e7": -991332080,
+        "speed_cms": 2778,
+        "t_ms": 5000
+      },
+      "name": "0x0d-lab_gps"
+    },
+    {
+      "expected": "0e1000000000000000000000000000000000",
+      "inputs": {
+        "len": 16
+      },
+      "name": "0x0e-pad-16"
+    },
+    {
+      "expected": "0ec8010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inputs": {
+        "len": 200
+      },
+      "name": "0x0e-pad-200-two-byte-leb128"
+    },
+    {
+      "expected": "0f2c010201127796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f21130",
+      "inputs": {
+        "chunk": "7796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f21130",
+        "count": 3,
+        "idx": 1,
+        "kind": 1,
+        "msg_id": 258
+      },
+      "name": "0x0f-sync-roster-seg1of3"
+    },
+    {
+      "expected": "4203010203",
+      "inputs": {
+        "body": "010203",
+        "rtype": 66
+      },
+      "name": "0x42-unknown-skipped"
+    },
+    {
+      "expected": "011724f002015a34120300000000000000000000000000000002060100020000000e03000000",
+      "inputs": {
+        "records": [
+          "0x01-mesh",
+          "ping id 1 t_tx 2",
+          "pad 3"
+        ]
+      },
+      "name": "coalesced/mesh-ping-pad"
+    }
+  ]
+}

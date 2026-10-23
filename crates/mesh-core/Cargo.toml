@@ -1,0 +1,38 @@
+# mesh-core (owned by WP-10A, DESIGN §3.1-§3.3, contract C3).
+# Stub created by WP-01 (DESIGN §3.1, §16.2 stub hand-off). The manifest declares every
+# workspace edge and feature from day 1, so the sub-WPs (WP-10B/C/D) never edit it.
+[package]
+name = "mesh-core"
+description = "Sans-IO engine: links, group, session, media, mesh glue, lab, ui."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["opus"]
+opus = ["mesh-voice/opus"]
+
+[dependencies]
+mesh-api = { path = "../mesh-api" }
+mesh-wire = { path = "../mesh-wire" }
+mesh-crypto = { path = "../mesh-crypto" }
+mesh-lab = { path = "../mesh-lab" }
+mesh-voice = { path = "../mesh-voice", default-features = false }
+mesh-routing = { path = "../mesh-routing" }
+# Injected randomness (DESIGN §3.1): the engine's only RNG is a ChaCha20Rng seeded from
+# `EngineConfig::rng_seed`; no OS randomness is ever pulled.
+rand_chacha = { workspace = true }
+rand_core = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest.workspace = true
+# JSON Schema (draft 2020-12) validator for the labrun/1 lines produced by Lab runs
+# (contract C7). Not in [workspace.dependencies]: exact pin local to this crate's tests,
+# the same version WP-05 pinned in mesh-lab (reported as a deviation).
+boon = "=0.6.1"

@@ -1,0 +1,6 @@
+/* Usage descriptions and display name (WP-18, DESIGN §10.1.5). Keep in sync with Info.plist. */
+"CFBundleDisplayName" = "convLink Voice";
+"NSMicrophoneUsageDescription" = "Your voice is sent to the riders in your group.";
+"NSBluetoothAlwaysUsageDescription" = "Connects directly to nearby riders' phones to carry the intercom, without internet.";
+"NSCameraUsageDescription" = "Scan your group's invite QR code.";
+"NSLocationWhenInUseUsageDescription" = "Shows how far each rider is and keeps the intercom running while the screen is locked.";

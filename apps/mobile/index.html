@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" class="dark" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Content Security Policy (WP-18, DESIGN §11.3): everything is bundled and offline.
+      'wasm-unsafe-eval' lets the web build instantiate the simulator WASM (§11.2);
+      data: images carry the natively rendered invite QR (getInvite.qrPng).
+      Static contract: tests/csp.test.mjs. `vite dev` relaxes it (vite.config.ts).
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="app-version" content="0.1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#08080a" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <title>convLink Voice</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

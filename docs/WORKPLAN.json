@@ -1,0 +1,706 @@
+[
+  {
+    "id": "WP-00",
+    "phase": 0,
+    "wave": 0,
+    "title": "Toolchain prerequisites (first step)",
+    "description": "Idempotent bootstrap for this Mac: install the toolchain named in rust-toolchain.toml (a pinned name such as 1.89.0 is a separate rustup toolchain from 'stable'); MSRV probe first: scripts/msrv-probe.sh builds scripts/msrv-probe/ (a scratch crate outside the workspace listing every pinned dependency of DESIGN §2.6) with `cargo +<pin> check` and prints the highest declared rust-version and the crates that declare none (uniffi 0.32.2); if it fails, move the pin to the current stable and update DESIGN §2.6 in the same change (contract change to the design owner). Add Rust targets (aarch64-apple-ios, aarch64-apple-ios-sim, aarch64-linux-android, x86_64-linux-android, wasm32-unknown-unknown); check cargo-ndk (present at ~/.cargo/bin, install ^4 only if missing); export ANDROID_HOME, ANDROID_NDK_HOME=ndk/27.1.12297006, PATH += $ANDROID_HOME/cmake/3.22.1/bin (cmake+ninja for the Oboe shim), JAVA_HOME from /usr/libexec/java_home -v 21, and the cc-crate cross variables CC_/AR_ for aarch64-linux-android and x86_64-linux-android plus CARGO_TARGET_*_LINKER (API 31 clang, llvm-ar); corepack/pnpm check; call `cargo xtask fetch-opus` only when xtask exists; when apps/mobile exists run `pnpm install --frozen-lockfile` and `pnpm --filter @meshapp/mobile exec playwright install chromium`. Never requires system cmake, wasm-bindgen-cli, wasm-pack or uniffi-bindgen. doctor.sh prints missing items with a fix-it line (incl. Playwright Chromium and the MSRV report) and never installs. pick-sim.sh prints the UDID of an available iPhone simulator via `xcrun simctl list devices available -j` (never hard-coded names). DESIGN.md §2.2, §2.6.",
+    "ownedPaths": ["scripts/bootstrap.sh", "scripts/doctor.sh", "scripts/env.sh", "scripts/pick-sim.sh", "scripts/msrv-probe.sh", "scripts/msrv-probe/", "rust-toolchain.toml", ".cargo/config.toml"],
+    "dependsOn": [],
+    "interfaces": [
+      "scripts/env.sh exports ANDROID_HOME, ANDROID_NDK_HOME, JAVA_HOME (21), PATH with SDK cmake 3.22.1, CC_aarch64_linux_android, AR_aarch64_linux_android, CC_x86_64_linux_android, AR_x86_64_linux_android, CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER, CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER; sourcing it is side-effect free",
+      "scripts/pick-sim.sh prints exactly one simulator UDID on stdout, exit 1 if none",
+      "scripts/msrv-probe.sh exits non-zero if the pinned dependency set does not build with the pinned toolchain; scripts/msrv-probe/Cargo.toml is the pin list WP-01 copies into [workspace.dependencies]",
+      "rust-toolchain.toml: channel = the probed pin (1.89.0 if the probe passes) + the six targets + rustfmt, clippy",
+      ".cargo/config.toml: alias xtask = 'run -p xtask --'; [target.wasm32-unknown-unknown] rustflags getrandom_backend=\"wasm_js\"; NDK linker fallbacks for aarch64/x86_64-linux-android (API 31)"
+    ],
+    "acceptance": [
+      "bootstrap.sh runs twice without error and without re-installing anything the second time",
+      "the pinned toolchain and all six Rust targets installed",
+      "msrv-probe.sh passes with the pinned toolchain (or the pin was moved and DESIGN §2.6 updated)",
+      "doctor.sh exits 0 on this Mac after bootstrap",
+      "pick-sim.sh returns a UDID that xcrun simctl recognizes"
+    ],
+    "verify": [
+      "bash scripts/bootstrap.sh && bash scripts/bootstrap.sh",
+      "bash scripts/msrv-probe.sh",
+      "source scripts/env.sh && test -x \"$CC_aarch64_linux_android\" && test -x \"$AR_x86_64_linux_android\"",
+      "bash scripts/doctor.sh",
+      "rustup target list --installed | grep -c -E '^(aarch64-apple-ios|aarch64-apple-ios-sim|aarch64-linux-android|x86_64-linux-android|wasm32-unknown-unknown)$' | grep -q 5",
+      "source scripts/env.sh && test -x \"$ANDROID_HOME/cmake/3.22.1/bin/cmake\" && \"$JAVA_HOME/bin/java\" -version 2>&1 | grep -q '\"21'",
+      "xcrun simctl list devices | grep -q \"$(bash scripts/pick-sim.sh)\""
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-01",
+    "phase": 0,
+    "wave": 1,
+    "title": "Monorepo scaffold, task runner, xtask skeleton, CI",
+    "description": "Ask the user before `git init` (mesh-app becomes its own repo). Create the pnpm workspace (apps/*, packages/*, tools/*; packageManager pnpm@11.5.3; minimumReleaseAge + overrides convLink style) with tsconfig.base.json and a root eslint.config.js that every package/app extends, the Cargo workspace (members crates/*, tools/xtask, tools/uniffi-bindgen; resolver 3; [workspace.dependencies] exact pins copied from scripts/msrv-probe/Cargo.toml (DESIGN §2.6), checked equal by `cargo xtask check`; release profile §2.3; [workspace.lints.clippy] disallowed_methods = 'allow', disallowed_types = 'allow'), clippy.toml disallowed-methods/types list for determinism (§3.1; the lint is denied only by `#![deny]` in the seven sans-IO crates), STUB CRATES for every workspace member (crates/mesh-api, mesh-wire, mesh-crypto, mesh-lab, opus-sys, mesh-voice, mesh-routing, mesh-core, mesh-sim, mesh-ffi, mesh-wasm: Cargo.toml with the DESIGN §3.1 edges and features (mesh-voice 'opus' optional and not default; mesh-core default ['opus']; mesh-sim and mesh-wasm use mesh-core with default-features = false) + empty src/lib.rs (with the #![deny] line in sans-IO crates)); ownership of each stub crate passes to its WP at creation (stub hand-off), uniffi.toml, .gitignore (target/, build/, node_modules/, dist/, third_party/opus/opus-1.6.1/, native/ios/MeshEngineKit/Frameworks/, jniLibs/), scripts/tasks.mjs (single runner with --dry-run: rust/ios/android/cap/lab/doctor/ci groups; `pnpm run ci` = DESIGN §2.5 exactly), tools/uniffi-bindgen (one-line main), xtask main with dispatch table and STUB files ts.rs, vectors.rs, opus.rs, ios.rs, android.rs, bindings.rs, wasm.rs that return 'not implemented (owned by WP-xx)' with exit 1 — except the fetch-opus entry of opus.rs, which prints 'nothing to fetch' and exits 0 so every verify can call it from day 1 — after creation those stub files belong to the named WPs. check.rs: fmt + clippy + determinism grep over the seven sans-IO crates + pin-list equality with scripts/msrv-probe + (once mesh-wasm builds) the wasm getrandom tree check. GitHub Actions workflow mirroring `pnpm run ci` on macOS arm64 (best effort); the fuzz job is a separate nightly workflow that fails loudly. Lockfiles are tool-generated: any WP may regenerate them with pnpm install / cargo; conflicts are resolved by re-running the tool, never by hand edits.",
+    "ownedPaths": ["package.json", "pnpm-workspace.yaml", "pnpm-lock.yaml", "tsconfig.base.json", "eslint.config.js", "Cargo.toml", "Cargo.lock", ".gitignore", ".npmrc", ".nvmrc", ".editorconfig", "uniffi.toml", "clippy.toml", "tools/xtask/Cargo.toml", "tools/xtask/size-baseline.json", "tools/xtask/src/main.rs", "tools/xtask/src/util.rs", "tools/xtask/src/check.rs", "tools/xtask/src/size.rs", "tools/uniffi-bindgen/", "scripts/tasks.mjs", ".github/"],
+    "dependsOn": ["WP-00"],
+    "interfaces": [
+      "cargo xtask <fetch-opus|opus-smoke|build-ios|build-android|build-wasm|gen-bindings|gen-ts|vectors|check|size> [--check] dispatch; each subcommand implemented in its own module file owned by another WP",
+      "node scripts/tasks.mjs <group> <action> [--dry-run]; `pnpm run ci` runs the DESIGN §2.5 sequence (source env.sh → fetch-opus → fmt → clippy → check → test → vectors/gen checks → native builds → size → pnpm build/test/lint → playwright → xcodebuild → host mesh-ffi build → gradle) and skips steps whose owners have not landed yet only when invoked with --allow-missing",
+      "every workspace crate exists as a compiling stub with the DESIGN §3.1 dependency edges and features; later WPs fill their crate without editing another WP's manifest",
+      "uniffi.toml: Kotlin package com.convlink.voice.core, cdylib mesh_ffi; Swift module MeshCoreBindings, ffi module MeshCoreFFI",
+      "clippy.toml lists std::time::*, std::thread::spawn, getrandom, HashMap/HashSet iteration; workspace lints allow them; the seven sans-IO crates (mesh-wire, mesh-crypto, mesh-lab, mesh-voice, mesh-routing, mesh-core, mesh-sim) put #![deny(clippy::disallowed_methods, clippy::disallowed_types)] in lib.rs",
+      "tsconfig.base.json (strict, verbatimModuleSyntax, erasableSyntaxOnly) and eslint.config.js are extended by every package and app"
+    ],
+    "acceptance": [
+      "cargo check --workspace succeeds with all stub crates",
+      "cargo clippy --workspace --all-targets -- -D warnings passes with a stub mesh-ffi that spawns a thread (allowed), and a scratch std::time::Instant::now() call inside a sans-IO stub makes it fail (verified once, then removed)",
+      "pnpm install succeeds with an empty packages set",
+      "tasks.mjs help lists every task; ci --dry-run prints the §2.5 sequence incl. fetch-opus first and size",
+      "cargo xtask check runs fmt + clippy + determinism grep + pin-list equality"
+    ],
+    "verify": [
+      "cargo xtask fetch-opus",
+      "cargo check --workspace",
+      "cargo clippy --workspace --all-targets -- -D warnings",
+      "pnpm install",
+      "node scripts/tasks.mjs help",
+      "node scripts/tasks.mjs ci --dry-run",
+      "cargo xtask check"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-02",
+    "phase": 0,
+    "wave": 0,
+    "title": "README and AGENTS.md conventions",
+    "description": "Write README.md (what the app is, honest range promise, repo map, quick start: bootstrap → pnpm run ci → dev web sim → iOS device build) and AGENTS.md (rules for coding agents: exclusive ownedPaths from docs/WORKPLAN.json (subtrees ending in '/' or single files, no globs), phase/wave/milestones semantics, contract change requests C1-C9 (also the route for any change outside owned paths), stub hand-off rule (DESIGN §16.2), verify prerequisites (cargo xtask fetch-opus before anything that builds mesh-core; pnpm --filter \"<pkg>...\" build before app tests; pnpm exec cap, never npx; host mesh-ffi build before Kotlin tests), gesture-command rule (goLive/resumeMic/labStart with audio/audioCheck only via gestureCommand), generated files only via xtask, determinism rules (lint denied only in the seven sans-IO crates), English code/docs and ES+EN UI, pnpm only, convLink TS rules (strict, verbatimModuleSyntax, erasableSyntaxOnly, React Compiler, one Zustand store per domain, commented catch blocks, no secrets in web storage, no text chat), never modify ../comvoy-app, BITACORA format with 'pending physical — not faked', all verify commands run from the repo root). docs/BITACORA.md newest-first with an 'Invariants — DO NOT REVERT' section seeded from DESIGN Appendix C. docs/conventions/ holds rust.md, swift.md, kotlin.md, typescript.md, commits.md.",
+    "ownedPaths": ["README.md", "AGENTS.md", "docs/BITACORA.md", "docs/conventions/"],
+    "dependsOn": [],
+    "interfaces": [
+      "AGENTS.md is the entry point every agent reads first; it links DESIGN.md sections and WORKPLAN.json",
+      "BITACORA entry format: date, WP id, what changed, automated checks run, physical validation status"
+    ],
+    "acceptance": [
+      "README quick start commands exist in scripts/tasks.mjs or package.json",
+      "AGENTS.md lists the ownership, stub hand-off and generated-file rules and the never-modify-comvoy-app rule",
+      "BITACORA has the invariants section"
+    ],
+    "verify": [
+      "test -f README.md && test -f AGENTS.md && test -f docs/BITACORA.md",
+      "grep -q 'ownedPaths' AGENTS.md && grep -q 'comvoy-app' AGENTS.md && grep -q 'DO NOT REVERT' docs/BITACORA.md",
+      "ls docs/conventions/rust.md docs/conventions/swift.md docs/conventions/kotlin.md docs/conventions/typescript.md"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-03",
+    "phase": 0,
+    "wave": 2,
+    "title": "UI contract (mesh-api) and typed TS client (engine-api)",
+    "description": "Rust serde + ts-rs types for UiCommand, CommandResult, UiEvent, Snapshot, NoticeKey, ErrorCode, PromptKey, Lab types exactly as DESIGN §3.7 (Lab subset first for Phase 0, full set in Phase 1), incl. LabParams {audio: off|renderOnly|full, anchor: none|audio|audioLocation, gps} (mandatory fields), audioCheck + audioCheckSample, previewAccessLoss, transferLeader, getInvite → qrPng, parseInvite.leaderSigOk, members[].voice (kpi|bestEffort|no), radioOff flag, device.bluetooth, notices bluetoothOff/bluetoothDenied/linkLimitReached/leaderChanged/inviteLeaderMismatch/liveActivityRenewed, ErrorCode useGestureCommand/notForeground, and a GESTURE_COMMANDS list (goLive, resumeMic, labStart with audio != off, audioCheck start) exported to TS for the plugin and lint rule. Events carry i18n keys + params only. API_VERSION 1.1 (frozen at the end of Phase 0). xtask gen-ts writes packages/engine-api/src/generated/ (--check fails on drift). @meshapp/engine-api: createEngineClient(plugin) with typed command<C>() (routes GESTURE_COMMANDS through plugin.gestureCommand) and onEvent(), hand-written guards over generated discriminants, golden JSON fixtures shared with Rust tests.",
+    "ownedPaths": ["crates/mesh-api/", "packages/engine-api/", "tools/xtask/src/ts.rs"],
+    "dependsOn": ["WP-01"],
+    "interfaces": [
+      "C1: crates/mesh-api/src/lib.rs + packages/engine-api/src/generated/*.ts; serde tag='type', rename_all camelCase",
+      "packages/engine-api exports createEngineClient, isUiEvent, parseSnapshot and all generated types; built to dist/"
+    ],
+    "acceptance": [
+      "every UiCommand/UiEvent variant round-trips JSON in Rust and parses with the TS guards using shared fixtures",
+      "gen-ts --check passes after generation",
+      "no English user-facing strings in any event type",
+      "LabParams without audio or anchor fails to deserialize",
+      "createEngineClient sends every GESTURE_COMMANDS member through gestureCommand and nothing else"
+    ],
+    "milestones": [
+      {"phase": 0, "scope": "Lab subset: lab* commands, LabParams (audio, anchor, gps), labProgress/labFinished, snapshot engine/device fields, error codes, GESTURE_COMMANDS", "acceptance": ["Lab fixtures round-trip in Rust and TS", "Lab subset of API 1.1 frozen at Phase 0 exit"]},
+      {"phase": 1, "scope": "full intercom contract incl. audioCheck, transferLeader, previewAccessLoss, notices and snapshot members", "acceptance": ["every variant has a shared fixture", "full API 1.1 frozen in week 1 of Phase 1; later changes bump the minor version"]}
+    ],
+    "verify": [
+      "cargo test -p mesh-api",
+      "cargo xtask gen-ts --check",
+      "pnpm --filter @meshapp/engine-api build && pnpm --filter @meshapp/engine-api test"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-04",
+    "phase": 0,
+    "wave": 2,
+    "title": "Wire protocol (mesh-wire), golden vectors, fuzz targets",
+    "description": "Bounded zero-panic codecs for DESIGN §4: L2CAP length-prefix stream deframer (any chunk boundary), GATT chunker/reassembler, LinkFrame (HS/SEC with kp_ctr key-phase bit/LAB/REJECT; AAD builder lf_type ‖ kp_ctr), records 0x01-0x0F incl. NBR v1, CAPS (21 B with epoch/roster_version/ctl_version summary, no SWB bit), PAD and SYNC (anti-entropy chunks), 9-byte MeshPacket header, all ptypes incl. VOICE (burst-relative ts), TALK (7 B with elapsed_10ms, profile 5 BLE-DRED), PRESENCE (14 B: roster_ver16, epoch16, radio_off bit), signed LEAVE (65 B) and RIDE_CTL (69 B) layouts, POSITION, GROUP_CTL (close 73 B / transfer-leader 107 B), segmentation, HELLO value (epoch_lo u16), adv token payload builders (iPhone local name: 14-bit token prefix), BLE constants (UUIDs, timings), name encoders (UTF-8 bytes, grapheme-boundary truncation). vectors::generate() + xtask vectors (also calls mesh-crypto::vectors once WP-07 lands, behind a feature) writing test-vectors/wire/. docs/protocol/WIRE.md mirrors §4. cargo-fuzz targets listed in §13.1 (built and run only by the nightly job).",
+    "ownedPaths": ["crates/mesh-wire/", "fuzz/", "docs/protocol/", "test-vectors/wire/", "tools/xtask/src/vectors.rs"],
+    "dependsOn": ["WP-01"],
+    "interfaces": [
+      "C2: mesh_wire::{link::{StreamDeframer, GattReassembler, GattChunker, encode_stream}, frame::{LinkFrame, LfType}, record::{Record, RecordIter, RecordWriter}, mesh::{MeshHeader, PacketType, Voice, Talk, FloorReject, Presence, Position, Segment}, hello::Hello, consts::BleConstants, vectors::generate()}",
+      "MeshHeader is 9 bytes: vt, ttl_hops, origin u16, sess u8, seq u16, age u8, flags u8 (little-endian)",
+      "test-vectors/wire/*.json: {name, inputs, expected(hex)}"
+    ],
+    "acceptance": [
+      "round-trip proptests for every record and ptype; malformed input never panics (proptest + fuzz build)",
+      "§4.8 size table reproduced by a unit test (BLE voice 118 B on L2CAP, BLE-DRED 138 B, PRESENCE record 25 B) and cost(k) helper matches §4.8",
+      "GATT chunking correct at ATT MTU 23, 185 and 517",
+      "truncated fields: roster_ver16/epoch16/epoch_lo serial comparison; names truncated at grapheme boundaries",
+      "vectors --check is byte-stable across runs"
+    ],
+    "milestones": [
+      {"phase": 0, "scope": "framing, LinkFrame incl. LAB/REJECT, records incl. CAPS/PAD/PING/PONG/LSTAT/LPROBE/LECHO/LAB_CTL/LAB_GPS, MESH_PROBE, HELLO, adv builders, constants, vectors", "acceptance": ["Phase 0 vectors frozen (C2 for the Lab path)"]},
+      {"phase": 1, "scope": "SEC body with kp_ctr, VOICE, TALK, FLOOR_REJECT, PRESENCE, ROSTER/JOIN_REQ segmentation, IDPROOF, SYNC, LEAVE, RIDE_CTL", "acceptance": ["full v1 vectors frozen"]},
+      {"phase": 2, "scope": "REKEY, GROUP_CTL (close, transfer-leader), POSITION, PATH_HINT", "acceptance": ["vectors --check clean"]}
+    ],
+    "verify": [
+      "cargo test -p mesh-wire",
+      "cargo xtask vectors --check"
+    ],
+    "verifyNightly": [
+      "cd fuzz && cargo +nightly fuzz build"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-05",
+    "phase": 0,
+    "wave": 3,
+    "title": "Lab logic (mesh-lab), labrun/1 schema, lab-analyze",
+    "description": "Bench generators (saturate, voice-like CBR padded to exact VOICE sizes, ping, ping-under-load, MESH_PROBE patterns), per-link stats (kbps, loss, reorder, stalls, RTT percentiles), NTP-style clock-offset estimator, loopback correlator for T5a and the T5b echo-return measurement (MLS click train), labrun/1 record emitter and JSON Schema (C7; the run line carries mandatory audio and anchor fields, and 1 Hz samples carry anchor state and Bluetooth radio state), bench catalog T0/T0b/T0c/T1/T2/T3 (incl. the Phase 3 Android overflow-bitmask variant)/T5a/T5b/T6/T8/VOX-cal/T4 (incl. battery variant) with variants and each bench's default audio path and anchor per DESIGN §12.2. tools/lab-analyze: Node CLI merging per-device files by runId, CSV output, verdicts against thresholds.json (DESIGN §12.2). docs/lab/LAB_PROTOCOL.md: procedures in EN and ES incl. safety note (markers by passengers or at stops).",
+    "ownedPaths": ["crates/mesh-lab/", "docs/lab/", "tools/lab-analyze/"],
+    "dependsOn": ["WP-04"],
+    "interfaces": [
+      "C7: crates/mesh-lab/schema/labrun-1.schema.json",
+      "mesh_lab::{BenchRunner, BenchSpec, Stats, ClockEstimator, LoopbackCorrelator, LabRecord::to_jsonl()} — sans-IO, Instant-driven",
+      "node tools/lab-analyze/cli.mjs merge|verdicts <dir> --thresholds tools/lab-analyze/thresholds.json"
+    ],
+    "acceptance": [
+      "every emitted line validates against the schema (Rust test with a JSON Schema validator); a run line without audio or anchor is rejected",
+      "the bench catalog's default audio/anchor per bench matches DESIGN §12.2 (T1/T3 default anchor 'audio'; T0 headset, T2, T5a, T5b, T6, T8, VOX-cal use audio 'full')",
+      "lab-analyze excludes T1 windows whose anchor dropped from the range verdict",
+      "clock estimator recovers a simulated offset within 2 ms under 20 ms jitter",
+      "correlator finds a delayed click train within ±1 sample",
+      "lab-analyze self-test merges two fixture files and prints go/no-go"
+    ],
+    "verify": [
+      "cargo test -p mesh-lab",
+      "node tools/lab-analyze/cli.mjs --self-test"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-06",
+    "phase": 0,
+    "wave": 2,
+    "title": "libopus 1.6.1 via cc (opus-sys), fetch and cross-target smoke",
+    "description": "xtask fetch-opus: download opus-1.6.1.tar.gz from downloads.xiph.org, verify SHA-256 against third_party/opus/SHA256SUMS (pinned from xiph's published SHA256SUMS at WP start), extract; if dnn/*_data.c are missing download the model tarball whose hash is hard-coded in that release's autogen.sh, verify, extract; write the .ok stamp. build.rs compiles with cc parsing upstream *_sources.mk lists (float, DEEP_PLC, DRED, OSCE, NEON presumed on aarch64, SSE2 on x86_64), not built for wasm32. shim.c with fixed-arity ctl wrappers (no variadic FFI). Hand-written extern declarations. Upstream test_opus_api/decode/encode run on the host. xtask opus-smoke builds the crate for aarch64-apple-ios, aarch64-apple-ios-sim, and (through `cargo ndk`, falling back to the CC_/AR_ variables exported by scripts/env.sh) aarch64-linux-android and x86_64-linux-android. Replaces the WP-01 fetch-opus stub (which exits 0) with the real command; once this lands, every verify that builds mesh-core runs it first (DESIGN §2.3, §16.2). Document the opusic-sys =0.7.5 + SDK cmake fallback.",
+    "ownedPaths": ["crates/opus-sys/", "third_party/opus/", "tools/xtask/src/opus.rs"],
+    "dependsOn": ["WP-00", "WP-01"],
+    "interfaces": [
+      "opus_sys::{Encoder, Decoder} safe wrappers: new(16000, mono, VOIP), set_bitrate, set_complexity, set_vbr(constrained), set_inband_fec, set_packet_loss_perc, set_dtx, set_max_bandwidth, set_signal_voice, set_dred_duration, encode(&[i16], &mut [u8]), decode(&[u8]|None, &mut [i16], fec), lookahead()",
+      "feature 'opus' is consumed by mesh-voice; crate compiles to nothing on wasm32"
+    ],
+    "acceptance": [
+      "fetch-opus is idempotent and fails closed on hash mismatch",
+      "upstream libopus tests pass on the host",
+      "opus-smoke succeeds for all four targets without system cmake",
+      "a test proves each ctl wrapper sets and reads back its value"
+    ],
+    "verify": [
+      "cargo xtask fetch-opus",
+      "cargo test -p opus-sys --release",
+      "source scripts/env.sh && cargo xtask opus-smoke"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-07",
+    "phase": 1,
+    "wave": 3,
+    "title": "Crypto (mesh-crypto)",
+    "description": "Per-group identities (Ed25519 + X25519, id_hash, node_id), invite v1 codec (current epoch secret, policy, optional expiry, name in UTF-8 bytes, invite_sig over group_id ‖ epoch ‖ policy ‖ name ‖ leader_ed_pk ‖ SHA-256(epoch_secret), base64url fragment URL convlinkvoice://join?v=1#...), HKDF key schedule (psk_e, disc_key_e, group_tag, node_token with t10±1 for every retained epoch, aware_pmk, tunnel_rdv, lab_tag), Noise_XXpsk1_25519_ChaChaPoly_SHA256 over snow built with default-features = false and our own CryptoResolver (X25519/ChaChaPoly/SHA-256 from the pinned crates, randomness from the injected ChaCha20Rng; dalek crates without rand_core/getrandom features) with prologue binding; transport keys via HandshakeState::dangerously_get_raw_split() and SEC sealing with the chacha20poly1305 crate (nonce 0^4 ‖ u64(kp_ctr), AAD lf_type ‖ kp_ctr), in-band key update (HKDF 'cvic/v1/keyupdate', phase bit, old key kept 10 s), 1024-bit replay window per direction and phase updated only after tag verification, IDPROOF sign/verify with channel binding, ROSTER (with ed_pk per entry and invite_sig)/JOIN_REQ/GROUP_CTL (close, transfer-leader)/LEAVE/RIDE_CTL signing, REKEY sealing/opening with fresh ephemeral, monotonic acceptance helpers (roster_version strictly greater, new_epoch > epoch with an entry for me, ctl_version strictly greater), retained-epoch keyring (last 4), deny list. Crypto vectors into test-vectors/crypto/. No OS randomness anywhere in the crate.",
+    "ownedPaths": ["crates/mesh-crypto/", "test-vectors/crypto/"],
+    "dependsOn": ["WP-04"],
+    "interfaces": [
+      "C8: mesh_crypto::{GroupIdentity, Invite, InviteSig, KeySchedule, EpochKeyring (retained epochs), LinkSession (initiator/responder state machine yielding HS bytes, then seal/open with key phases), ReplayWindow, IdProof, Roster, JoinReq, Rekey, GroupCtl, SignedLeave, SignedRideCtl, accept::{roster, rekey, group_ctl} monotonic checks, MeshResolver, vectors::generate()}",
+      "LinkSession::open(frame) returns Err before touching the replay window when the tag fails; the AAD is lf_type ‖ kp_ctr"
+    ],
+    "acceptance": [
+      "HKDF/HMAC KATs; handshake between two in-memory peers; wrong PSK/epoch rejected at msg1 without revealing a static key",
+      "a flipped lf_type or kp_ctr byte fails the tag; raw-split keys and first SEC frame per direction match golden vectors",
+      "key update: both phases decrypt, reordered old-phase frames accepted within 10 s, rejected after",
+      "replay window proptest: no accept twice, no state change on forged frames",
+      "REKEY: removed member cannot open; remaining members can, including one that is 3 epochs behind",
+      "older ROSTER/REKEY/GROUP_CTL rejected by the monotonic checks; invite_sig verifies from a member-assembled invite",
+      "`cargo tree -p mesh-crypto -i getrandom` is empty",
+      "per-group identities are independent; node_id collision detection helper deterministic"
+    ],
+    "milestones": [
+      {"phase": 1, "scope": "identities, invite + invite_sig, key schedule, Noise + raw split SEC + key update, replay window, IDPROOF, ROSTER/JOIN_REQ, LEAVE/RIDE_CTL signatures", "acceptance": ["link vectors frozen"]},
+      {"phase": 2, "scope": "REKEY, GROUP_CTL close/transfer, retained-epoch keyring, monotonic acceptance", "acceptance": ["membership vectors frozen"]}
+    ],
+    "verify": [
+      "cargo test -p mesh-crypto",
+      "cargo xtask vectors --check"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-08",
+    "phase": 1,
+    "wave": 3,
+    "title": "Voice pipeline (mesh-voice)",
+    "description": "Codec trait with OpusCodec (opus-sys, optional feature 'opus', NOT default) and SimCodec (always available: WASM/sim); profiles BLE16/BLE12/WIFI20/WIFI24FEC/BLE-DRED (TALK id 5) exactly as DESIGN §7.4 (PACKET_LOSS_PERC 0 whenever LBRR off, DTX off, LBRR only at 24 kbps with smoothed loss >= 3 %, never DRED with LBRR, bandwidth from capture route, WB ceiling); HPF 80 Hz; VAD trait with nnnoiseless probability + noise-floor gate + wind guard + sensitivity presets (the single 300 ms hangover lives in the VAD); talk FSM inputs/outputs per §6.4 (states MUTED/IDLE/TALKING/BLOCKED, no FSM hangover, latch toggle from RT bit3, pure, floor decisions injected); pre-roll; packetizer with burst-relative ts (frame n of 40 ms = 4n); per-origin jitter buffer (NetEq-lite §7.5, timeline reset per burst); decoder pool (6); mixer ≤4 + limiter; earcons per §6.5 incl. Bluetooth-off; tone generator, echo delay line (1 s) and VAD meter for audioCheck; PromptBank (≤512 KB); no allocation on the 10 ms paths (counting allocator test). Fixture clips ≤2 MB.",
+    "ownedPaths": ["crates/mesh-voice/"],
+    "dependsOn": ["WP-06"],
+    "interfaces": [
+      "C8: mesh_voice::{Codec, OpusCodec (feature opus), SimCodec, Profile, EncoderConfig::for_profile(profile, route_rate, loss), Vad, VadSensitivity, TalkFsm, CaptureChain, JitterBuffer, Mixer, Limiter, Earcon, Earcons, PromptBank, AudioCheck {Tone, Echo, VoxMeter}}",
+      "all processing on [i16;160] blocks at 16 kHz"
+    ],
+    "acceptance": [
+      "EncoderConfig unit tests assert the §7.4 table incl. loss hint 0 with LBRR off",
+      "Opus WB and NB round trip above spectral-distance threshold; LBRR recovery and deep PLC paths exercised",
+      "JB proptest over arrival permutations; VAD precision/recall floors on fixtures",
+      "talk FSM: VOX release happens exactly one 300 ms hangover after speech ends (no double hangover)",
+      "counting allocator shows zero allocations in capture/playout steady state"
+    ],
+    "verify": [
+      "cargo xtask fetch-opus && cargo test -p mesh-voice --release --features opus",
+      "cargo test -p mesh-voice"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-09",
+    "phase": 1,
+    "wave": 3,
+    "title": "Routing, floor, pacing, presence (mesh-routing)",
+    "description": "Neighbor table with link bundles and q formula, congested flag (drops/WouldBlock only; a cap below S_MAX is not congestion), NBR build/ingest (on change <=4 Hz, 1 s heartbeat, fresh <1.5 s; vcap informational), forwarding per DESIGN §5.2 with first-hop origin check and penalties, dedup windows per (origin, sess) after auth only (§5.3), 2-hop pruning for ctrl/bulk classes only — voice is never pruned (§5.4), TTL/age rules, per-link priority queues, stream-level shedding, delay-based pacer, cost model cost(k) = k × r_stream + 3 kbps (§4.8), voice-aware node BLE airtime budget (180 kbps; idle links granted 8 kbps; only voice links scaled) (§5.6), cap_pacing = max k with cost(k) <= 0.9 × grant and publication hysteresis (down after 2 s, up after 5 s), PATH_HINT trigger, link selection policy (BLE target 2 / max 3 from Limits, LimitReached backoff −1 for 10 min, articulation check, speculative link to an epoch-ahead peer at lowest priority), floor table with total rank (prio, t_origin from age + burst-relative ts/elapsed + hash smear T_TIE, origin), T_STICKY, per-link admission, near-talker rejection, reachability/who-hears-me/one-way/islands, voice reach classes (kpi ≤ 2 BLE hops, bestEffort 3-4 hops in TTL/age), position math. Phase 1: direct delivery + floor + presence; Phase 2: everything.",
+    "ownedPaths": ["crates/mesh-routing/"],
+    "dependsOn": ["WP-04"],
+    "interfaces": [
+      "C8: mesh_routing::{NeighborTable, LinkQuality, NbrReport, Router (on_mesh_packet -> deliver + Vec<(link, packet)>), Dedup, Pacer, CostModel, AirtimeBudget, CapEstimator (with hysteresis), FloorTable, BurstKey, Admission, Reachability, VoiceReach, LinkSelector}",
+      "vcap per link exported for NBR (informational); one rank function shared by admission and the origin's local_admit"
+    ],
+    "acceptance": [
+      "ctrl/bulk pruning-equivalence property test on random geometric graphs; voice is forwarded on every admitting link regardless of NBR state",
+      "random floor contention with per-link caps: every node whose path admits a burst receives it",
+      "cap steady state with BLE16 and default Limits: chain interior node (2 voice links), 3-link hub (3 voice links), 3-link node (2 voice + 1 idle) keep cap 2 on every link for 10 simulated minutes; one injected WouldBlock lowers it for at most 2 s + recovery",
+      "floor property tests: convergence, safety (never > cap per link), liveness; a node that joins mid-burst (missed TALK START) agrees on rank within one TALK KEEP",
+      "dedup: new sess starts fresh window; no state change from unauthenticated input (API takes authenticated packets only)",
+      "pacer step-response tests; airtime budget scales only voice links and grants idle links 8 kbps"
+    ],
+    "milestones": [
+      {"phase": 1, "scope": "neighbor table, direct delivery, dedup, floor table + admission, cost model + cap estimator, presence/reachability", "acceptance": ["floor convergence/safety/liveness incl. mid-burst join", "cap steady state on a 2-link node"]},
+      {"phase": 2, "scope": "multi-hop forwarding, ctrl pruning, pacer + voice-aware airtime, shedding, PATH_HINT, link selection incl. LimitReached and speculative links, islands, voice reach classes", "acceptance": ["all acceptance items above"]}
+    ],
+    "verify": [
+      "cargo test -p mesh-routing --release"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-10A",
+    "phase": 0,
+    "wave": 4,
+    "title": "mesh-core base: engine, plain links, Lab mode, UI dispatch",
+    "description": "Sans-IO Engine per DESIGN §3.2 (C3 signatures stubbed with todo!() by day 3 so FFI/platform agents can compile), effect queues, config/limits (BLE target 2 / max 3, NODE_BLE_BUDGET 180, idle grant 8, per-platform defaults), PlatformEvent incl. RadioState and LinkDownReason::{RadioOff, LimitReached}, link registry and per-link state machine over the real mesh-wire framing (stream/GATT/datagram units) with a LinkSecurity trait (Plain implementation for LAB links; the secure implementation is WP-10B's), PING/PONG, LSTAT, CAPS (21 B; zero summary on Lab links), Lab mode (lab code, lab_node_id + announce + collision redraw, LAB_CTL controller/peer, bench runners from mesh-lab, Lab audio paths off/renderOnly/full and mandatory anchors with the matching AudioCommands — StartCapture only for audio full, minimal TTL+dedup flood for MESH_PROBE, platform samples incl. anchor and radio state, LabWrite effects), RadioCommand policy for Lab discovery/connect, UI command dispatch + snapshot builder (dirty flag, <=10 Hz, detached suppression). Cargo.toml declares ALL workspace dependencies and features from day 1 (mesh-api, mesh-wire, mesh-crypto, mesh-lab, mesh-voice, mesh-routing as path deps from the WP-01 stub crates; features default = ['opus'], opus = ['mesh-voice/opus']). Stub hand-off: creates src/wire/{secure,group,session,media,mesh}.rs as no-op `register` functions and empty src/{secure,group,session,media,mesh}/mod.rs; ownership passes to WP-10B (secure, group, session), WP-10C (media), WP-10D (mesh). engine.rs calls wire::register_all() whose fixed list lives in src/wire/mod.rs.",
+    "ownedPaths": ["crates/mesh-core/Cargo.toml", "crates/mesh-core/src/lib.rs", "crates/mesh-core/src/engine.rs", "crates/mesh-core/src/effects.rs", "crates/mesh-core/src/config.rs", "crates/mesh-core/src/wire/mod.rs", "crates/mesh-core/src/links/", "crates/mesh-core/src/lab/", "crates/mesh-core/src/ui/", "crates/mesh-core/tests/links/", "crates/mesh-core/tests/lab/", "crates/mesh-core/tests/ui/"],
+    "dependsOn": ["WP-01", "WP-03", "WP-04", "WP-05"],
+    "interfaces": [
+      "C3: Engine::{new, handle_command, handle_event, handle_packet, handle_timeout, poll_timeout, poll_transmit, poll_effect, push_capture, pull_playout, set_rt_flags}; PlatformEvent, Effect, RadioCommand, AudioCommand, Transmit, LinkInfo, LinkDownReason, RadioAvail, SessionStart",
+      "module hook trait CoreModule { on_link_up, on_caps, on_record, on_timer, on_command } and ModuleRegistry used by secure/group/session/media/mesh through src/wire/<module>.rs",
+      "trait LinkSecurity { on_hs, seal, open } with Plain (Lab) implemented here"
+    ],
+    "acceptance": [
+      "two in-memory engines in Lab mode complete a T0 voice-like run over a simulated stream link and emit schema-valid labrun lines carrying audio and anchor",
+      "Lab audio: labStart{audio: off} emits no AudioCommand, renderOnly emits OpenSession without StartCapture, full emits StartCapture (property test over random Lab command sequences)",
+      "three engines A-B-C relay MESH_PROBE through the minimal flood with trace",
+      "lab_node_id collision is resolved by redraw",
+      "RadioState Off marks BLE links down with RadioOff and pauses discovery",
+      "determinism: same seed and inputs produce identical outputs"
+    ],
+    "verify": [
+      "cargo xtask fetch-opus",
+      "cargo test -p mesh-core --test links --test lab --test ui",
+      "cargo test -p mesh-core --lib",
+      "cargo xtask check"
+    ],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-10B",
+    "phase": 1,
+    "wave": 5,
+    "title": "mesh-core group, session and secure links",
+    "description": "Secure link path in src/secure/ (LinkSecurity implementation: Noise HS via mesh-crypto LinkSession, raw-split SEC with AAD and in-band key update, IDPROOF exchange, deny list, node_id collision REJECT 8, duplicate-link resolution by lower node_id initiator), groups in src/group/ (create/parse/join/forget, per-group identity persistence via Persist effects, invite assembly from the stored epoch secret + ROSTER invite_sig and native QR rendering request (qrPng), parseInvite leaderSigOk and the first-ROSTER leader-key cross-check, roster cache + JOIN_REQ with retransmission on every new link and every 30 s until in a verified ROSTER, signed roster ingest with monotonic acceptance, epochs with a retained keyring (last 4), retained-epoch tag/token acceptance, token rotation and SetHello/SetDiscovery adv payloads, anti-entropy per DESIGN §8.9: CAPS summary, SYNC push on link-up and on direct-neighbor PRESENCE mismatch, rate limits), session in src/session/ (lobby/riding, capture gating: AudioCommand::StartCapture only while handling goLive, resumeMic or audioCheck start (Lab audio full is WP-10A's), talk mode, signed RIDE_CTL with ride_id and signed LEAVE, ladder level L0-L3 from AudioIo, RadioState handling (cue, notice, PRESENCE radio_off bit), audioCheck lifecycle (temporary session, refused while live), PRESENCE origination (14 B), POSITION when sharing, reachability view with voice reach classes, notices with i18n keys aggregated over 5 s). Registers through src/wire/{secure,group,session}.rs (stubs created by WP-10A). Phase 2: removeMember/lockGroup/closeGroup/transferLeader + REKEY, previewAccessLoss, old-epoch acceptance from non-denied roster members until they hold the newest epoch (no time limit).",
+    "ownedPaths": ["crates/mesh-core/src/group/", "crates/mesh-core/src/session/", "crates/mesh-core/src/secure/", "crates/mesh-core/src/wire/secure.rs", "crates/mesh-core/src/wire/group.rs", "crates/mesh-core/src/wire/session.rs", "crates/mesh-core/tests/group/", "crates/mesh-core/tests/session/", "crates/mesh-core/tests/secure/"],
+    "dependsOn": ["WP-10A", "WP-07", "WP-09"],
+    "interfaces": [
+      "UI commands createGroup, parseInvite, joinGroup, listGroups, forgetGroup, getInvite, goLive, resumeMic, audioCheck, setTalkMode, rideControl, setShareDistance, previewAccessLoss, removeMember, lockGroup, closeGroup, transferLeader, setInviteExpiry behave per DESIGN §3.7/§8",
+      "Persist keys: 'group/<hex id>' (identity, retained epoch secrets, latest ROSTER/REKEY/GROUP_CTL bodies, leader key; opaque bytes, stored natively), 'groups/index'"
+    ],
+    "acceptance": [
+      "two engines create/join over an in-memory link, handshake, exchange IDPROOF and reach link up; frames with a tampered AAD byte are dropped",
+      "StartCapture is emitted only while handling goLive, resumeMic, labStart{audio: full} or audioCheck{start}, never in Idle (property test over random command/event sequences across session and Lab modes)",
+      "stranger with an old QR is refused after lockGroup; a roster member 3 epochs behind connects (incl. via a speculative link as BLE central) and receives the latest REKEY; a denied member is refused",
+      "anti-entropy: a node that missed ROSTER/REKEY/GROUP_CTL converges after link-up; a replayed older ROSTER is ignored; JOIN_REQ sent while the leader was unreachable is retried and lands in the next ROSTER",
+      "transferLeader: after the signed GROUP_CTL + ROSTER, only the new leader's ROSTER is accepted",
+      "RadioState Off produces the notice, earcon request and PRESENCE bit; recovery relinks",
+      "ladder transitions L0->L1->L2->L0 reflected in PRESENCE and snapshot"
+    ],
+    "milestones": [
+      {"phase": 1, "scope": "secure links, groups (create/join/invite/roster/JOIN_REQ retransmission, anti-entropy for ROSTER), session (go-live gating, audioCheck, talk mode, RIDE_CTL/LEAVE signed, ladder, RadioState, PRESENCE)", "acceptance": ["first, second and last two acceptance items"]},
+      {"phase": 2, "scope": "remove/lock/close/transfer + REKEY, retained keyring, speculative-link support, previewAccessLoss, full anti-entropy, POSITION", "acceptance": ["all acceptance items"]}
+    ],
+    "verify": ["cargo xtask fetch-opus", "cargo test -p mesh-core --test group --test session --test secure", "cargo test -p mesh-core"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-10C",
+    "phase": 1,
+    "wave": 5,
+    "title": "mesh-core media integration",
+    "description": "Capture chain wiring (RT flags incl. bit3 latch toggle, built-in-mic mute, VAD -> talk FSM -> encoder profile selection from own links, PATH_HINT and capture route), TALK/VOICE origination with pre-roll, FIRST flag, burst-relative ts and TALK elapsed_10ms, receive chain (per (origin, sess) jitter buffers reset per burst, decoder pool, mixer by floor rank), earcons and prompt playback through the mixer, render_prompts requests at goLive with fixed prompts + known names, prompt fallback to earcon, audioCheck audio (tone, 2 s record level + route, 1 s echo, VOX meter) emitting audioCheckSample at 20 Hz, Demo-ride voice lines (demo.* prompts rendered at Demo start, Opus-encoded once for the bots, PCM dropped), wind-hog protection, latency estimator (age-based, per origin and hop count) into snapshot and ride recorder. Registers through src/wire/media.rs (stub created by WP-10A).",
+    "ownedPaths": ["crates/mesh-core/src/media/", "crates/mesh-core/src/wire/media.rs", "crates/mesh-core/tests/media/"],
+    "dependsOn": ["WP-10A", "WP-08", "WP-09"],
+    "interfaces": [
+      "Effect::RenderPrompts(Vec<PromptRequest{key,text,lang}>) and PlatformEvent::PromptPcm",
+      "snapshot.talkers, snapshot.latency, talkDenied events"
+    ],
+    "acceptance": [
+      "two engines exchange SimCodec voice end to end with correct floor-ranked mixing",
+      "PTT flag to first VOICE frame <= 5 ms + pre-roll in simulated time",
+      "VOX busy tone only after 600 ms sustained speech when blocked; PTT busy immediately",
+      "latency estimator matches simulator ground truth within 5 ms",
+      "audioCheck echo returns the captured block 1 s later; voxMeter samples carry vadP and gate",
+      "RT latch bit toggles a PTT burst on and off exactly like a latch tap"
+    ],
+    "verify": ["cargo xtask fetch-opus", "cargo test -p mesh-core --test media", "cargo test -p mesh-core"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-10D",
+    "phase": 2,
+    "wave": 6,
+    "title": "mesh-core mesh glue (multi-hop)",
+    "description": "Connect mesh-routing to the engine: authenticated MESH records -> Router, forwarding with ctrl/bulk pruning inputs (NBR send/ingest; voice never pruned), per-link scheduler with priorities, pacing, cost-model caps with hysteresis and the voice-aware node airtime budget, stream-level shedding, FLOOR_REJECT and near-talker rejection, PATH_HINT, link selection policy (targets 2/3 from Limits, LimitReached backoff, articulation, backoff, speculative link to an epoch-ahead peer, ArmReconnect policy chosen by Phase 0 memo), Aware link bundles and per-packet link choice with 1 s overlap (Phase 4 hooks), Tunnel cost hook (v2, unused). Registers through src/wire/mesh.rs (stub created by WP-10A).",
+    "ownedPaths": ["crates/mesh-core/src/mesh/", "crates/mesh-core/src/wire/mesh.rs", "crates/mesh-core/tests/mesh/"],
+    "dependsOn": ["WP-10B", "WP-10C"],
+    "interfaces": ["RadioCommand::{Connect, Close, ArmReconnect, AwareUpgrade} emitted by LinkSelector policy", "NBR record content per DESIGN §4.4"],
+    "acceptance": ["chain of 4 in-memory engines relays voice with age cap enforced", "no link ever carries more than its cap under contention; cap 2 holds at steady state on a 3-link hub", "voice is forwarded on every admitting link even with stale or missing NBRs; ctrl pruning never skips a congested link (unit + sim S11)"],
+    "verify": ["cargo xtask fetch-opus", "cargo test -p mesh-core --test mesh", "cargo test -p mesh-core"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-11",
+    "phase": 0,
+    "wave": 5,
+    "title": "Deterministic simulator and scenarios (mesh-sim)",
+    "description": "Discrete-event world of N real Engines with the radio, discovery, role, mobility and audio models of DESIGN §13.2 (per-node airtime limit read from Limits.NODE_BLE_BUDGET, so the sim fails where the design budget fails); global assertions ((key, nonce) uniqueness in all modes, no id collisions survive, no link over cap, no panic); scenarios S1-S13 with the numeric assertions of §13.2 (S2/S4 thresholds exclude headset legs and add the 50 ms T5a budget; 3-hop latency reported, not asserted; S13 anti-entropy); fixed seeds per PR, nightly `cargo run -p mesh-sim --release -- suite nightly --seeds 64`; Demo world (4 bots that Opus-encode the demo.* lines rendered by platform TTS at Demo start; if no PCM is supplied — iOS Simulator without voices, WASM — they use a deterministic synthesized speech-like tone pattern generated here; no bundled audio assets) used by mesh-ffi and mesh-wasm; scenario presets for the web (pair, chain5, convoy15, cluster15). Crate features: default ['opus'] → mesh-core/opus; mesh-wasm uses default-features = false.",
+    "ownedPaths": ["crates/mesh-sim/"],
+    "dependsOn": ["WP-10A"],
+    "interfaces": ["mesh_sim::{World, WorldConfig, Scenario, presets, demo::DemoWorld::attach(local_engine, lines: Option<Vec<Pcm>>)}", "S10 in Phase 0; S1, S5, S8, S9 in Phase 1; all S1-S13 in Phase 2"],
+    "acceptance": ["scenario suite green on fixed seeds", "identical results for identical seeds", "nightly random seeds >= 99 % pass", "S2/S3 keep cap 2 on every link with the default Limits"],
+    "milestones": [
+      {"phase": 0, "scope": "world + radio model + Lab peers; S10 (all audio paths and anchors)", "acceptance": ["S10 green"]},
+      {"phase": 1, "scope": "S1, S5 (incl. mid-burst join), S8, S9; Demo world", "acceptance": ["those scenarios green"], "dependsOn": ["WP-10B", "WP-10C"]},
+      {"phase": 2, "scope": "S2-S4, S6, S11-S13 and the nightly suite", "acceptance": ["S1-S13 green"], "dependsOn": ["WP-10D"]},
+      {"phase": 4, "scope": "S7 Aware upgrade (simulated Aware links; consumed by WP-24's verify)", "acceptance": ["S7 green"], "dependsOn": ["WP-10D"]}
+    ],
+    "verify": ["cargo xtask fetch-opus", "cargo test -p mesh-sim --release", "cargo run -p mesh-sim --release -- suite ci --seeds 8"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-12",
+    "phase": 0,
+    "wave": 5,
+    "title": "FFI runtime, RT C ABI, native Rust builds, committed bindings",
+    "description": "mesh-ffi runtime per DESIGN §3.4 (engine thread with QoS/priority, crossbeam MPSC 2048, catch_unwind -> crashed, audioCheck runs without a session, Demo world attach in Phase 1), UniFFI 0.32.2 surface §3.5 (Vec<u8> link data, PlatformHooks with_foreign, on_platform_sample incl. RadioState, ble_constants, protocol_version, api_version), hand-written include/mesh_rt.h §3.6 (MESH_RT_ABI_VERSION 1, 16 kHz, flags bit0-3 incl. the PTT latch toggle) with process-global RT rings (rtrb), flags and stats, checked by cbindgen-as-library; mesh-ffi may use threads and clocks (workspace lint allow); xtask build-ios (device + sim staticlib, modulemap, xcframework into native/ios/MeshEngineKit/Frameworks), build-android (cargo-ndk with NDK-linker fallback, arm64-v8a + x86_64 into jniLibs), gen-bindings (host dylib -> Swift + Kotlin, committed; --check drift). Phase 0 stubs: C4/C5 compile by day 3 with todo!() bodies.",
+    "ownedPaths": ["crates/mesh-ffi/", "tools/xtask/src/ios.rs", "tools/xtask/src/android.rs", "tools/xtask/src/bindings.rs", "native/ios/MeshEngineKit/Frameworks/", "native/ios/MeshEngineKit/Sources/MeshCoreBindings/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/core/", "native/android/meshengine/src/main/jniLibs/"],
+    "dependsOn": ["WP-10A"],
+    "interfaces": [
+      "C4: MeshEngine UniFFI object + PlatformHooks trait exactly as DESIGN §3.5",
+      "C5: mesh_rt_capture, mesh_rt_render, mesh_rt_set_flags (bit0 PTT, bit1 hard mute, bit2 builtin-mic mute, bit3 latch toggle), mesh_rt_report, mesh_rt_stats (16 kHz mono int16, MESH_RT_ABI_VERSION 1)",
+      "native/ios/MeshEngineKit/Frameworks/MeshCoreFFI.xcframework (gitignored) with module MeshCoreFFI",
+      "Kotlin bindings package com.convlink.voice.core; Swift module MeshCoreBindings"
+    ],
+    "acceptance": [
+      "RT ring stress test (concurrent producer/consumer) passes; start/stop cycles leak nothing",
+      "build-ios and build-android succeed here; gen-bindings --check clean",
+      "a panicking engine thread reports crashed instead of aborting"
+    ],
+    "milestones": [
+      {"phase": 0, "scope": "runtime, Lab sessions, UniFFI surface, RT ABI, build-ios/build-android/gen-bindings (no Demo world)", "acceptance": ["all acceptance items"]},
+      {"phase": 1, "scope": "Demo world attach (startEngine demo) with TTS-rendered bot lines", "acceptance": ["a demo session plays bot voices through the RT rings in a host test"], "dependsOn": ["WP-11"]}
+    ],
+    "verify": ["source scripts/env.sh && cargo xtask fetch-opus", "cargo test -p mesh-ffi --release", "source scripts/env.sh && cargo xtask build-ios && cargo xtask build-android", "cargo xtask gen-bindings --check"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-13",
+    "phase": 1,
+    "wave": 6,
+    "title": "WASM core + web engine (mesh-wasm, engine-web)",
+    "description": "mesh-wasm cdylib exposing the raw extern \"C\" JSON ABI of DESIGN §11.2 (mw_alloc/free, world_new, command, step, poll_events, poll_lab, world_free) over mesh-core + mesh-sim, both with default-features = false (no opus; SimCodec); no wasm-bindgen; [target.'cfg(target_arch = \"wasm32\")'.dependencies] getrandom 0.3 with feature wasm_js as a guard, and xtask build-wasm (or check) fails if `cargo tree -p mesh-wasm --target wasm32-unknown-unknown -i getrandom` shows any other path. xtask build-wasm copies the .wasm into packages/engine-web/wasm/. @meshapp/engine-web: loader (browser + Node for Vitest), JS wrapper, SimConvoy driver (20 ms interval, scenario query params, optional WebAudio noise playback). Off the Phase 0 critical path.",
+    "ownedPaths": ["crates/mesh-wasm/", "packages/engine-web/", "tools/xtask/src/wasm.rs"],
+    "dependsOn": ["WP-10A", "WP-11", "WP-03"],
+    "interfaces": ["@meshapp/engine-web exports createSimConvoy(opts) -> { command(json), onEvent(cb), start(), stop(), labFiles() }", "WASM exports exactly the §11.2 function list"],
+    "acceptance": ["build-wasm works with only the rustup target installed", "Vitest in Node drives a sim convoy: join, talk, busy on third talker", "WASM size reported by xtask size"],
+    "verify": ["cargo xtask build-wasm", "pnpm install --frozen-lockfile && pnpm --filter \"@meshapp/engine-web...\" build && pnpm --filter @meshapp/engine-web test"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-14",
+    "phase": 0,
+    "wave": 3,
+    "title": "iOS platform package (MeshPlatformKit, no Rust)",
+    "description": "Swift 6 package building without any xcframework: CMeshAudio C target (raw VPIO AudioUnit setup per DESIGN §10.1.2, 16 kHz Int16 client format, input/render callbacks calling registered function pointers via cmesh_set_sink, built-in sinks: meter, loopback, tone, T5a click/capture with BypassVoiceProcessing=1), AudioSessionController (category/options per profile, non-mixable default + Lab toggle, iOS 27 interruption APIs, route changes, media reset), MuteWatchdog + mic-loss FSM §10.1.4 + OutputOnlyFallback, PromptRenderer (AVSpeechSynthesizer.write), BLE central/peripheral drivers (GATT service from constants supplied by the host, HELLO value set by host, L2CAP on a dedicated run-loop thread, GATT links, writable signals, adv per §9.4 incl. 6-char local name, pending reconnect), LinkRegistry, MeshLink/LinkDriver/LinkSink protocols (C9), KeepAliveLocation (CLBackgroundActivitySession + liveUpdates), DeviceSampler, RadioStateMonitor (CBManagerState → RadioState; connectionLimitReached → LinkDownReason.limitReached), IdleTimerController (isIdleTimerDisabled, reset on background), SecureStore (Keychain), LabFileStore, ResumeNotifier, IntercomActivityController (start before backgrounding, ≤ 1 update/s, end + restart on foreground after 7.5 h), InviteScanner, native QR image renderer for getInvite (qrPng). Owns MeshActivityShared (contract C9): IntercomAttributes + ContentState {live, muted, talk, pttLatched, speakers, inRange, total, ladder, onCall, alone, bluetoothOff, labStatus?} and the LiveActivityIntent types ToggleMuteIntent, LatchTalkIntent (perform() calls a handler the app registers at launch, which writes mesh_rt_set_flags bits 1/3) and ResumeMicIntent; the widget UI is WP-23. Audio start API split per DESIGN §3.2: activateAndStartMuted() (gesture-bound, called by the bridge) vs connectSink()/unmute (called on StartCapture).",
+    "ownedPaths": ["native/ios/MeshPlatformKit/Package.swift", "native/ios/MeshPlatformKit/Sources/CMeshAudio/", "native/ios/MeshPlatformKit/Sources/MeshActivityShared/", "native/ios/MeshPlatformKit/Sources/MeshPlatform/BLE/", "native/ios/MeshPlatformKit/Sources/MeshPlatform/Audio/", "native/ios/MeshPlatformKit/Sources/MeshPlatform/Host/", "native/ios/MeshPlatformKit/Sources/MeshPlatform/Keys/", "native/ios/MeshPlatformKit/Sources/MeshPlatform/Lab/", "native/ios/MeshPlatformKit/Sources/MeshPlatform/QR/", "native/ios/MeshPlatformKit/Tests/"],
+    "dependsOn": ["WP-01", "WP-04"],
+    "interfaces": [
+      "C9: public protocol MeshLink { id; kind; send(Data)->SendOutcome; close(reason:) }, LinkDriver.apply(RadioCommand-like Swift enum), LinkSink callbacks",
+      "cmesh_audio.h: cmesh_set_sink(push_fn, pull_fn, flags_fn, stats_fn, ctx); cmesh_start(profile), cmesh_stop(); Swift VoiceIOUnit wrapper with state publisher (Running/Interrupted/Restarting/CaptureLost/RenderLost)",
+      "C9: MeshActivityShared.IntercomAttributes, ContentState, ToggleMuteIntent, LatchTalkIntent, ResumeMicIntent, LiveActivityActionHandler registration point",
+      "products: MeshPlatform, MeshActivityShared; platforms iOS 26"
+    ],
+    "acceptance": [
+      "package resolves and tests pass on a simulator with no Rust artifacts present",
+      "adv/HELLO byte builders reproduce test-vectors/wire hello and adv vectors (iPhone local name carries the 14-bit token prefix)",
+      "mic-loss FSM unit tests cover every transition in §10.1.4 with a mocked session",
+      "ContentState encode/decode unit test; LatchTalkIntent calls the registered handler",
+      "IdleTimerController resets on background; IntercomActivityController renewal logic unit-tested with an injected clock",
+      "loopback sink runs in the simulator with the Mac mic (manual smoke documented)"
+    ],
+    "milestones": [
+      {"phase": 0, "scope": "BLE drivers, CMeshAudio + session controller (Lab audio paths), keep-alive anchors, samplers, Lab store, MeshActivityShared with labStatus, idle timer", "acceptance": ["package tests green on a simulator"]},
+      {"phase": 1, "scope": "mic-loss FSM, output-only fallback, PromptRenderer, SecureStore, InviteScanner, QR renderer, RadioStateMonitor, ResumeNotifier", "acceptance": ["all acceptance items"]},
+      {"phase": 2, "scope": "full ContentState, LatchTalkIntent, 8 h renewal", "acceptance": ["intent and renewal tests"]}
+    ],
+    "verify": ["cd native/ios/MeshPlatformKit && xcodebuild -scheme MeshPlatformKit-Package -destination \"id=$(../../../scripts/pick-sim.sh)\" test"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-15",
+    "phase": 0,
+    "wave": 6,
+    "title": "iOS engine bridge package (MeshEngineKit)",
+    "description": "Swift package with binaryTarget MeshCoreFFI (Frameworks/MeshCoreFFI.xcframework from WP-12), MeshCoreBindings target (generated, Swift 5 mode, owned by WP-12) and MeshEngineKit target depending on ../MeshPlatformKit: EngineHost owning MeshEngine and implementing PlatformHooks + LinkSink (RadioAdapter maps FfiRadioCommand to drivers, AudioAdapter registers mesh_rt_* into cmesh_set_sink and maps AudioCommand incl. OutputOnlyFallback — StartCapture only connects the sink and unmutes, never activates the session —, NotifyAdapter for notifications and Live Activity, persist via SecureStore, lab_write via LabFileStore, render_prompts via PromptRenderer), EngineHost.gestureCommand(json) that synchronously performs the OS-level gesture-bound work for goLive/resumeMic/labStart(audio != off)/audioCheck start (activate session, start VPIO muted, location anchor if requested, Live Activity) and then forwards the command, registration of the LiveActivity action handler (mute and latch bits), RadioState and LimitReached forwarding, app-state and lock observers, set_ui_attached, Demo ride entry.",
+    "ownedPaths": ["native/ios/MeshEngineKit/Package.swift", "native/ios/MeshEngineKit/Sources/MeshEngineKit/", "native/ios/MeshEngineKit/Tests/"],
+    "dependsOn": ["WP-12", "WP-14"],
+    "interfaces": ["public final class EngineHost { start(SessionStart), gestureCommand(json)->String (throws notForeground), goLive(), resumeMic(), stop(), send(json)->String (rejects gesture commands), ptt(Bool), setRtLatchToggle(), events: AsyncStream<String>, info() }", "consumed by the app-local iOS bridge (WP-19)"],
+    "acceptance": ["builds and tests on a simulator after cargo xtask build-ios", "EngineHost with fake drivers completes a Lab run (audio off and renderOnly) between two in-process hosts", "gestureCommand activates the (mocked) session before the command reaches the engine; send rejects gesture commands", "Demo ride plays audio in the simulator (Phase 1 milestone)"],
+    "milestones": [
+      {"phase": 0, "scope": "EngineHost, adapters, gestureCommand for labStart, Lab store, persist", "acceptance": ["first three acceptance items"]},
+      {"phase": 1, "scope": "goLive/resumeMic/audioCheck, prompts, notifications, Demo ride", "acceptance": ["all acceptance items"], "dependsOn": ["WP-11"]}
+    ],
+    "verify": ["source scripts/env.sh && cargo xtask fetch-opus && cargo xtask build-ios", "cd native/ios/MeshEngineKit && xcodebuild -scheme MeshEngineKit-Package -destination \"id=$(../../../scripts/pick-sim.sh)\" test"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-16",
+    "phase": 0,
+    "wave": 6,
+    "title": "Android engine library (meshengine)",
+    "description": "Standalone Gradle build (AGP 8.13.2, Gradle 8.14.3, Kotlin 2.3, JDK 21, compile/target 36, minSdk 31, NDK 27.1.12297006, CMake 3.22.1) producing :meshengine. MeshEngineService FGS with types computed from current grants (connectedDevice at lobby tap; + microphone at Go live; + location only if granted and sharing), START_NOT_STICKY, wake lock, notification actions; EngineHost implementing PlatformHooks via UniFFI/JNA; BLE scanner/advertiser (legacy connectable scannable ADV_IND, scan response service data), GATT server/client, L2CAP server/client with reader/writer threads; AudioRouteController + AudioSessionStrategy (Default on, Telecom behind Gradle property meshengine.telecom with src/telecom manifest overlay); Oboe shim meshaudio.cpp using dlsym of mesh_rt_* with tone fallback; MuteWatchdog; PromptRenderer; SecureStore (Keystore AES-GCM); notifications (Mute, Talk latch → mesh_rt_set_flags bit3, Leave, Resume); RadioStateMonitor (ACTION_STATE_CHANGED, airplane mode) and LimitReached mapping of GATT 133/257 connection-limit failures; EngineHost.gestureCommand performing startForegroundService(microphone[+location]) and stream opening before forwarding; LabFileStore; InviteScanner (code scanner). Library manifest per DESIGN §10.2.4 (no ACCESS_LOCAL_NETWORK, no telecom permissions by default). JVM tests run generated bindings against the host libmesh_ffi.dylib, which the verify builds first. Phase 0: skeleton that builds against the committed bindings (hence after WP-12); Phase 3: complete.",
+    "ownedPaths": ["native/android/settings.gradle.kts", "native/android/build.gradle.kts", "native/android/gradle.properties", "native/android/gradle/", "native/android/gradlew", "native/android/gradlew.bat", "native/android/meshengine/build.gradle.kts", "native/android/meshengine/proguard-rules.pro", "native/android/meshengine/consumer-rules.pro", "native/android/meshengine/src/main/AndroidManifest.xml", "native/android/meshengine/src/telecom/", "native/android/meshengine/src/main/cpp/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/MeshEngineService.kt", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/EngineHost.kt", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/LinkRegistry.kt", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/ble/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/audio/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/sensors/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/keys/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/notify/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/radio/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/lab/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/qr/", "native/android/meshengine/src/test/"],
+    "dependsOn": ["WP-01", "WP-12"],
+    "interfaces": ["C9 Kotlin mirror: interface MeshLink, LinkDriver, LinkSink", "class EngineHost { start, gestureCommand(json), goLive, resumeMic, stop, send(json), ptt(Boolean), events: Flow<String>, info() } exposed via a bound service binder to the app-local bridge (WP-19)", "maven coordinates com.convlink.voice:meshengine (substituted by includeBuild)"],
+    "acceptance": ["assembleRelease, lintDebug, testDebugUnitTest green", "FGS type computation tests: no LOCATION type without the permission", "advertising params unit test: legacy + connectable + scannable", "connection-limit status codes map to LinkDownReason LimitReached", "manifest merge contains no ACCESS_LOCAL_NETWORK, MANAGE_OWN_CALLS or FOREGROUND_SERVICE_PHONE_CALL in the default variant"],
+    "milestones": [
+      {"phase": 0, "scope": "Gradle skeleton, manifest, EngineHost stub over the committed bindings, binding smoke test against the host dylib", "acceptance": ["assembleRelease and testDebugUnitTest green"]},
+      {"phase": 3, "scope": "complete library per description", "acceptance": ["all acceptance items"]}
+    ],
+    "verify": ["source scripts/env.sh && cargo xtask fetch-opus && cargo xtask build-android", "cargo build -p mesh-ffi --release", "source scripts/env.sh && cd native/android && ./gradlew :meshengine:testDebugUnitTest :meshengine:lintDebug :meshengine:assembleRelease"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-17",
+    "phase": 0,
+    "wave": 3,
+    "title": "Capacitor plugin package (TS-only)",
+    "description": "@meshapp/capacitor-intercom: definitions.ts exactly as DESIGN §11.1 (C6) incl. gestureCommand, setKeepScreenOn and ptt{down, tUiMs}, index.ts registerPlugin('MeshIntercom') with lazy web implementation, web.ts backed by @meshapp/engine-web (Phase 1; Phase 0 web.ts returns a scripted fake Lab peer so the Field test UI can be developed). web.ts mirrors the native gating: gestureCommand accepts the GESTURE_COMMANDS of WP-03 only while document.visibilityState is 'visible', and send rejects them with useGestureCommand. No native code in the package (bridges are app-local, WP-19).",
+    "ownedPaths": ["packages/capacitor-intercom/"],
+    "dependsOn": ["WP-03"],
+    "interfaces": ["C6: MeshIntercomPlugin interface; event name 'event' with { json }", "web implementation honours the same command/event JSON and the same gesture gating as native"],
+    "acceptance": ["builds to dist with types", "Vitest: web implementation answers getInfo/startEngine/send/gestureCommand/ptt/setKeepScreenOn and emits events", "Vitest: send rejects goLive, resumeMic, labStart{audio: full} and audioCheck{start}", "package.json has no capacitor native plugin metadata (no ios/android dirs)"],
+    "milestones": [
+      {"phase": 0, "scope": "definitions (full C6), fake Lab peer in web.ts", "acceptance": ["C6 frozen"]},
+      {"phase": 1, "scope": "web.ts backed by @meshapp/engine-web", "acceptance": ["all acceptance items"], "dependsOn": ["WP-13"]}
+    ],
+    "verify": ["pnpm install --frozen-lockfile && pnpm --filter \"@meshapp/capacitor-intercom...\" build && pnpm --filter @meshapp/capacitor-intercom test"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-18",
+    "phase": 0,
+    "wave": 4,
+    "title": "Mobile app shell, native projects, contract tests",
+    "description": "apps/mobile with Capacitor 8.5 (SPM only), React 19, Vite 8, Tailwind 4, Zustand 5, i18next with defineCatalog(en, es) parity; router store, engine client + single event subscription, stores (engine, groups (no secrets), settings, lab), shared components, i18n infra and catalogs common/errors/notices/prompts (prompts holds the default spoken-prompt templates and the demo.line1-8 Demo-ride lines in ES/EN; engine/client.ts sends setPrompts on every startEngine), CSP default-src 'self'. iOS project: Info.plist, entitlements, PrivacyInfo per DESIGN §10.1.5, SceneDelegate (iOS 27 scene manifest), BridgeViewController registering the app-local plugin, local package references to native/ios/MeshPlatformKit and MeshEngineKit, IntercomWidget target. Android project: MainActivity singleTask + deep link + plugin registration before super.onCreate, includeBuild(\"../../../native/android\"), dependency on com.convlink.voice:meshengine, backup exclusions. STUB HAND-OFF: creates apps/mobile/ios/App/App/Plugins/MeshIntercomPlugin.swift and apps/mobile/android/app/src/main/java/com/convlink/voice/plugin/MeshIntercomPlugin.kt as stubs (getInfo → engine 'platform-only', everything else 'unavailable'; ownership → WP-19) and apps/mobile/ios/IntercomWidget/ as a minimal widget bundle compiled against MeshActivityShared (ownership → WP-23). Native app builds need the xcframework (WP-12) and :meshengine (WP-16), so they are verified by WP-19, not here; this WP verifies TS, static contracts and project-file syntax. Static contract tests (DESIGN §13.1). Playwright config + shell e2e.",
+    "ownedPaths": ["apps/mobile/package.json", "apps/mobile/capacitor.config.ts", "apps/mobile/vite.config.ts", "apps/mobile/vitest.config.ts", "apps/mobile/playwright.config.ts", "apps/mobile/tsconfig.json", "apps/mobile/eslint.config.js", "apps/mobile/index.html", "apps/mobile/public/", "apps/mobile/src/main.tsx", "apps/mobile/src/index.css", "apps/mobile/src/app/", "apps/mobile/src/engine/", "apps/mobile/src/store/", "apps/mobile/src/components/", "apps/mobile/src/i18n/index.ts", "apps/mobile/src/i18n/catalogs/common.ts", "apps/mobile/src/i18n/catalogs/errors.ts", "apps/mobile/src/i18n/catalogs/notices.ts", "apps/mobile/src/i18n/catalogs/prompts.ts", "apps/mobile/tests/", "apps/mobile/e2e/shell.spec.ts", "apps/mobile/ios/App/App.xcodeproj/", "apps/mobile/ios/App/CapApp-SPM/", "apps/mobile/ios/App/App/AppDelegate.swift", "apps/mobile/ios/App/App/SceneDelegate.swift", "apps/mobile/ios/App/App/BridgeViewController.swift", "apps/mobile/ios/App/App/Info.plist", "apps/mobile/ios/App/App/App.entitlements", "apps/mobile/ios/App/App/PrivacyInfo.xcprivacy", "apps/mobile/ios/App/App/Assets.xcassets/", "apps/mobile/ios/App/App/Base.lproj/", "apps/mobile/ios/App/App/en.lproj/", "apps/mobile/ios/App/App/es.lproj/", "apps/mobile/android/build.gradle", "apps/mobile/android/settings.gradle", "apps/mobile/android/gradle.properties", "apps/mobile/android/gradle/", "apps/mobile/android/gradlew", "apps/mobile/android/gradlew.bat", "apps/mobile/android/app/build.gradle", "apps/mobile/android/app/src/main/AndroidManifest.xml", "apps/mobile/android/app/src/main/res/", "apps/mobile/android/app/src/main/java/com/convlink/voice/MainActivity.kt"],
+    "dependsOn": ["WP-17", "WP-20"],
+    "interfaces": ["screen registry: features register screens via app/router.ts registerScreen(id, component)", "engine/client.ts exports `engine` (typed client routing GESTURE_COMMANDS through gestureCommand) and useEngineEvents()", "components/useKeepScreenOn(on) hook calling setKeepScreenOn on mount/unmount", "i18n: each feature catalog file exports defineCatalog({en, es})", "Xcode project contains targets App and IntercomWidget"],
+    "acceptance": ["vite build + vitest + lint green (lint rule: no ★ command through send)", "static contract tests pass (background modes exact set, no ACCESS_LOCAL_NETWORK, scene manifest, WiFiAwareServices rule, CSP)", "Info.plist, entitlements and project.pbxproj pass plutil -lint", "prompts catalog has ES/EN parity incl. demo.line1-8", "shell e2e green"],
+    "verify": ["pnpm install --frozen-lockfile && pnpm --filter \"@meshapp/mobile...\" build && pnpm --filter @meshapp/mobile test && pnpm --filter @meshapp/mobile lint", "pnpm --filter @meshapp/mobile exec playwright test e2e/shell.spec.ts", "plutil -lint apps/mobile/ios/App/App/Info.plist apps/mobile/ios/App/App/App.entitlements apps/mobile/ios/App/App/PrivacyInfo.xcprivacy apps/mobile/ios/App/App.xcodeproj/project.pbxproj"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-19",
+    "phase": 0,
+    "wave": 7,
+    "title": "App-local Capacitor native bridges (iOS + Android)",
+    "description": "Replaces the WP-18 stubs. iOS MeshIntercomPlugin.swift (CAPPlugin registered by BridgeViewController.capacitorDidLoad) forwarding to EngineHost: getInfo (engine full|platform-only), permissions, startEngine, gestureCommand (rejects with notForeground unless UIApplication.applicationState == .active; delegates the synchronous OS work to EngineHost.gestureCommand), goLive/resumeMic as sugar, send (rejects GESTURE_COMMANDS with useGestureCommand), ptt (mesh_rt_set_flags fast path + command, native receipt timestamp for T8), setKeepScreenOn (isIdleTimerDisabled, reset on every background transition), scanInviteQr, shareFile, openAppSettings, events via notifyListeners('event'), set_ui_attached on resume/pause, snapshot request on foreground, api_version major check, LiveActivity action handler registration at launch. Android MeshIntercomPlugin.kt registered before super.onCreate, binding to MeshEngineService, gestureCommand only while the activity is resumed with startForegroundService inside the tap, setKeepScreenOn via FLAG_KEEP_SCREEN_ON, requestBatteryExemption. Owns the native app build verification (both platforms), because only here are the xcframework, the bridge, the widget stub and :meshengine all present.",
+    "ownedPaths": ["apps/mobile/ios/App/App/Plugins/", "apps/mobile/android/app/src/main/java/com/convlink/voice/plugin/"],
+    "dependsOn": ["WP-12", "WP-15", "WP-16", "WP-17", "WP-18"],
+    "interfaces": ["implements C6 on native; each bridge <= ~350 LOC", "Android bridge is functional in Phase 3 (Phase 0: compiles against the WP-16 skeleton and returns 'unavailable' for engine calls)"],
+    "acceptance": ["iOS app builds unsigned for generic iOS and for a simulator with the bridge, the full engine and the widget stub", "a simulator run of the app reaches the Home screen and getInfo returns engine 'full'", "bridge tests: send rejects every gesture command; gestureCommand rejects when not foreground-active; setKeepScreenOn(false) on background", "Android app assembleDebug builds with the bridge"],
+    "milestones": [
+      {"phase": 0, "scope": "iOS bridge with startEngine(lab), gestureCommand(labStart), send, events, setKeepScreenOn, shareFile; Android bridge compiling", "acceptance": ["native builds green on both platforms"]},
+      {"phase": 1, "scope": "goLive/resumeMic/audioCheck, ptt fast path, scanInviteQr, permissions", "acceptance": ["all acceptance items"]},
+      {"phase": 3, "scope": "functional Android bridge", "acceptance": ["Android bridge tests"]}
+    ],
+    "verify": ["source scripts/env.sh && cargo xtask fetch-opus && cargo xtask build-ios && cargo xtask build-android", "pnpm install --frozen-lockfile && pnpm --filter \"@meshapp/mobile...\" build", "cd apps/mobile && pnpm exec cap sync ios && xcodebuild -project ios/App/App.xcodeproj -scheme App -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build", "cd apps/mobile && xcodebuild -project ios/App/App.xcodeproj -scheme App -destination \"id=$(../../scripts/pick-sim.sh)\" CODE_SIGNING_ALLOWED=NO build", "source scripts/env.sh && cd apps/mobile && pnpm exec cap sync android && cd android && ./gradlew assembleDebug"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-20",
+    "phase": 0,
+    "wave": 2,
+    "title": "UI kit (tokens and primitives)",
+    "description": "@meshapp/ui-kit: CSS tokens ported from convLink App.css (light/dark, radius, capsules, durations, glass without blur on Android, reduced-motion fallbacks) plus intercom tokens (--talk-active, --talk-blocked, --status-relayed, --status-out, --ladder-warn, --danger) and a distinct accent; Tailwind v4 theme export; primitives: Button, BigPttButton (160 px, pointer capture, ring level), SegmentedControl, ListRow, Badge, QualityBars, Sheet, Banner, Toast, Sparkline.",
+    "ownedPaths": ["packages/ui-kit/"],
+    "dependsOn": ["WP-01"],
+    "interfaces": ["exports tokens.css, theme for Tailwind v4, and React primitives; BigPttButton props { mode: 'hold'|'latch', onDown, onUp, level }"],
+    "acceptance": ["BigPttButton fires onUp on pointerup, pointercancel and visibilitychange (Vitest)", "44 px minimum targets", "builds to dist"],
+    "verify": ["pnpm install --frozen-lockfile && pnpm --filter \"@meshapp/ui-kit...\" build && pnpm --filter @meshapp/ui-kit test"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-21",
+    "phase": 0,
+    "wave": 5,
+    "title": "Field test (Lab) UI",
+    "description": "Settings -> Field test feature per DESIGN §12.5: Lab code entry, bench list (T0, T0b, T0c, T1, T2, T3, T5a, T6; Phase 1 adds T5b, T8, VOX-cal) with go/no-go thresholds, per-bench config (variants incl. role swap, headset, mixable toggle) with the mandatory audio path (off/renderOnly/full) and keep-alive anchor (none/audio/audioLocation; per-bench defaults from the WP-05 catalog; 'none' labelled as a suspension control) and per-run GPS consent; Start calls gestureCommand(labStart) whenever audio != off and keeps the screen awake until the run starts; live view (big numbers + 60 s sparklines, anchor state), mark button with passenger/stop safety note, results list with verdict chips, export/share, procedure text ES/EN.",
+    "ownedPaths": ["apps/mobile/src/features/lab/", "apps/mobile/src/i18n/catalogs/lab.ts", "apps/mobile/e2e/lab.spec.ts"],
+    "dependsOn": ["WP-18", "WP-03"],
+    "interfaces": ["uses labStart (via gestureCommand when audio != off)/labStop/labMark/labListRuns/labDeleteRun commands and labProgress/labFinished events only"],
+    "acceptance": ["component tests from fixture events", "a run cannot start without an audio path and an anchor; T1/T3 default to anchor 'audio'", "e2e: a T0 run against the web fake/WASM sim finishes and offers export", "ES/EN parity"],
+    "verify": ["pnpm install --frozen-lockfile && pnpm --filter \"@meshapp/mobile...\" build", "pnpm --filter @meshapp/mobile test", "pnpm --filter @meshapp/mobile exec playwright test e2e/lab.spec.ts"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-22",
+    "phase": 1,
+    "wave": 7,
+    "title": "Intercom UI (onboarding, home, group, lobby, ride, members, settings)",
+    "description": "Screens per DESIGN §11.4: onboarding (language, name (24-byte limit), vehicle, permissions walkthrough, Share my distance choice with keep-alive explanation, headset check + Echo test via gestureCommand(audioCheck) with live audioCheckSample level/route, don't swipe-kill, honest promise incl. 'clear voice up to 2 relays, further is best effort'), home (Resume ride), create/join (expired warning, leaderSigOk / inviteLeaderMismatch warning), lobby (natively rendered qrPng with auto-hide 60 s + screenshot warning, ready checks, voice reaches N of M with best-effort marking, unconfirmed badges, Go live with muted-state text, Start ride, screen kept awake), ride (speaking chips, PTT/mute 160 px hold/latch, mode control, route chip, busy/island/alone/Bluetooth-off/ladder banners with Resume, screen kept awake in PTT mode and by the car 'keep screen on while mounted' setting), members (flags incl. radio off, voice reach, distance/bearing, leader remove/lock with the previewAccessLoss sheet, close, make leader), settings (incl. VOX test meter via audioCheck voxMeter, prompts, built-in mic TX, keep screen on while mounted). Notices mapped through i18n; no text input on the ride screen.",
+    "ownedPaths": ["apps/mobile/src/features/onboarding/", "apps/mobile/src/features/home/", "apps/mobile/src/features/group/", "apps/mobile/src/features/lobby/", "apps/mobile/src/features/ride/", "apps/mobile/src/features/members/", "apps/mobile/src/features/settings/", "apps/mobile/src/i18n/catalogs/onboarding.ts", "apps/mobile/src/i18n/catalogs/group.ts", "apps/mobile/src/i18n/catalogs/ride.ts", "apps/mobile/src/i18n/catalogs/settings.ts", "apps/mobile/e2e/intercom.spec.ts"],
+    "dependsOn": ["WP-18", "WP-13"],
+    "interfaces": ["UI commands/events of C1 and plugin calls of C6 only; QR shown from the transient getInvite qrPng image, never stored"],
+    "acceptance": ["e2e against the WASM sim: create -> QR -> join -> Go live -> Start ride -> PTT talking -> third talker busy banner -> partition banner clears", "car profile defaults to PTT and keep-screen-on; VOX disabled on loudspeaker route", "lobby and PTT ride screens call setKeepScreenOn(true) on mount and false on unmount (Vitest)", "lock/remove shows the unconfirmed members from previewAccessLoss before confirming", "onboarding headset check and Settings VOX meter render audioCheckSample fixtures", "ES/EN parity incl. all notice keys"],
+    "verify": ["pnpm install --frozen-lockfile && pnpm --filter \"@meshapp/mobile...\" build", "pnpm --filter @meshapp/mobile test", "pnpm --filter @meshapp/mobile exec playwright test e2e/intercom.spec.ts"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-23",
+    "phase": 0,
+    "wave": 8,
+    "title": "Live Activity widget",
+    "description": "IntercomWidget extension UI only (replaces the WP-18 stub): lock screen + Dynamic Island views over MeshActivityShared.IntercomAttributes (owned by WP-14, contract C9), buttons wired to the shared ToggleMuteIntent, LatchTalkIntent (latched state shown) and ResumeMicIntent (opens the app), Bluetooth-off and alone states. Phase 0: minimal Lab-status view for the T3 variant; Phase 2: full ride view with the Talk latch.",
+    "ownedPaths": ["apps/mobile/ios/IntercomWidget/"],
+    "dependsOn": ["WP-14", "WP-18", "WP-19"],
+    "interfaces": ["consumes IntercomAttributes and the intents from MeshActivityShared; never defines shared types"],
+    "acceptance": ["app with widget builds unsigned", "previews render for every ladder level, latched and unlatched Talk, and Bluetooth off"],
+    "milestones": [
+      {"phase": 0, "scope": "Lab-status view", "acceptance": ["app with widget builds unsigned"]},
+      {"phase": 2, "scope": "full ride view with Mute, Talk latch and Resume", "acceptance": ["all acceptance items"]}
+    ],
+    "verify": ["source scripts/env.sh && cargo xtask fetch-opus && cargo xtask build-ios", "cd apps/mobile && pnpm exec cap sync ios && xcodebuild -project ios/App/App.xcodeproj -scheme App -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-24",
+    "phase": 4,
+    "wave": 7,
+    "title": "Wi-Fi Aware upgrade (iOS + Android)",
+    "description": "iOS: DeviceDiscoveryUI pairing in the lobby in one of two bipartite shapes chosen by the leader — riding-order chain (even positions publish, odd subscribe) or leader star (leader publishes, members subscribe) — never lobby join order, role stored per group; Aware rejoin only while the audio/location anchors keep the process alive; WAPublisherListener/WASubscriberBrowser + NetworkConnection UDP, realtime + interactiveVoice, keepalive and rebuild, foreground Local Network prompt if needed. Android: attach, publish/subscribe 'cvic', setPmk(aware_pmk) data path, Network-bound UDP socket, state-change handling, resource checks. Both feed the core's UPGRADE protocol and link bundles. Requires the Apple entitlement (requested in Phase 0) and WiFiAwareServices plist key (via WP-18 contract change).",
+    "ownedPaths": ["native/ios/MeshPlatformKit/Sources/MeshPlatform/WiFiAware/", "native/android/meshengine/src/main/kotlin/com/convlink/voice/engine/aware/"],
+    "dependsOn": ["WP-14", "WP-16", "WP-10D"],
+    "interfaces": ["AwareDriver conforms to LinkDriver and produces MeshLink kind WifiAware with unit Datagram", "S7 simulator scenario owned by WP-11"],
+    "acceptance": ["both platforms build and unit-test the role assignment and PMK derivation input", "S7 green"],
+    "verify": ["cd native/ios/MeshPlatformKit && xcodebuild -scheme MeshPlatformKit-Package -destination \"id=$(../../../scripts/pick-sim.sh)\" test", "cargo xtask fetch-opus && cargo build -p mesh-ffi --release", "source scripts/env.sh && cd native/android && ./gradlew :meshengine:testDebugUnitTest", "cargo test -p mesh-sim --release"],
+    "needsDevice": false
+  },
+  {
+    "id": "WP-25",
+    "phase": 5,
+    "wave": 11,
+    "title": "Hardening and store readiness",
+    "description": "App Review notes and video (Go live consent, visible mic state, Demo ride locked, distance feature justifying location), privacy labels and PrivacyInfo review, export-compliance docs, Play FGS declarations and videos (fallback to microphone-only if connectedDevice rejected), Data safety, store copy ES/EN with the honest promise (incl. 'clear voice up to 2 relays, further is best effort') and no Cardo/Sena trademarks, accessibility audit, battery target check (T6, 4 h), Capacitor 9 migration plan once GA. Owns only docs/store/: every change it needs in app or native files (accessibility fixes, PrivacyInfo edits, the Capacitor 9 bridge migration) is filed as a contract change request to the owning WP (WP-18, WP-19, WP-22, WP-14) and verified there.",
+    "ownedPaths": ["docs/store/"],
+    "dependsOn": ["WP-F2"],
+    "interfaces": ["docs/store/review-notes.md, docs/store/privacy.md, docs/store/listing.es.md, docs/store/listing.en.md"],
+    "acceptance": ["TestFlight external build approved", "store copy passes a trademark grep", "4 h ride meets the Phase 0 battery target"],
+    "verify": ["test -f docs/store/review-notes.md && ! grep -i -E 'cardo|sena' docs/store/listing.*.md"],
+    "needsDevice": true
+  },
+  {
+    "id": "WP-F0",
+    "phase": 0,
+    "wave": 8,
+    "title": "Phase 0 field campaign on iPhones (go / no-go)",
+    "description": "User-run with 3+ iPhones and helmets: install via Xcode, run T0 (transport x role x headset x pattern; headset variants with audio full), T0b relay chain, T0c multi-link hub (as many links as the phones allow), T1 drive >=30 min (anchor audio; pocket variant), T2 >=60 min locked with scripted events and anchor (audio, audioLocation, none as control)/mixable variants, T3 5 trials per variant incl. Live Activity and pending reconnect (the Live Activity variant only if WP-23's Phase 0 milestone landed; otherwise it moves to Phase 2), T5a per helmet, T6 >=1 h per variant. Every run records its audio path and anchor. Export labrun files, merge with lab-analyze, write the decision memo applying DESIGN Appendix B. Keep automated vs pending-physical separate.",
+    "ownedPaths": ["docs/field/results/phase0/"],
+    "dependsOn": ["WP-19", "WP-21", "WP-15", "WP-05"],
+    "softDependsOn": ["WP-23"],
+    "interfaces": ["memo.md sets S_MAX_BLE, BLE-fast, L2CAP vs GATT, preferred role, NODE_BLE_BUDGET and BLE link target/max (T0c), VOICE_MAX_AGE, JB init, anchors, mixable, rediscovery strategy, battery target (T6), go/no-go"],
+    "acceptance": ["all bench files schema-valid", "memo.md contains a go/no-go per research section 9 and the Appendix B decisions"],
+    "verify": ["node tools/lab-analyze/cli.mjs verdicts docs/field/results/phase0/runs --thresholds tools/lab-analyze/thresholds.json", "test -f docs/field/results/phase0/memo.md"],
+    "needsDevice": true
+  },
+  {
+    "id": "WP-F1",
+    "phase": 1,
+    "wave": 9,
+    "title": "Phase 1 field acceptance (two-iPhone 1-hop intercom)",
+    "description": "QR create -> join -> linked <=30 s; VOX and PTT both directions with helmets; estimator p95 <=200 ms at 1 hop; 60 min locked ride with no silent mute and L2 fallback working; relink after 30 s apart; busy tone with a third talker; Bluetooth toggled off/on mid-ride gives the cue and recovers; VOX calibration, T5b (helmet AEC/NREC, ducking, buttons, helmet-intercom interference) and T8 (touch -> mesh_rt_set_flags p95 < 50 ms with 15 simulated peers) benches.",
+    "ownedPaths": ["docs/field/results/phase1/"],
+    "dependsOn": ["WP-F0", "WP-22", "WP-10C", "WP-10B"],
+    "interfaces": ["report.md + ride-recorder files"],
+    "acceptance": ["every DESIGN §14 Phase 1 [DEV] criterion recorded as pass/fail with evidence files"],
+    "verify": ["node tools/lab-analyze/cli.mjs verdicts docs/field/results/phase1/runs --thresholds tools/lab-analyze/thresholds.json", "test -f docs/field/results/phase1/report.md"],
+    "needsDevice": true
+  },
+  {
+    "id": "WP-F2",
+    "phase": 2,
+    "wave": 10,
+    "title": "Phase 2 field acceptance (iPhone multi-hop)",
+    "description": "3 iPhones A-B-C with A and C out of range: relayed voice p95 <=235 ms (excl. headset legs), busy within 300 ms for a third talker, partition <=7 s, rejoin <=10 s, lock group refuses an old QR while a roster member absent during the lock rejoins and converges, locked-screen PTT via the Live Activity latch, 2 h group ride recorded, background TTS check.",
+    "ownedPaths": ["docs/field/results/phase2/"],
+    "dependsOn": ["WP-F1", "WP-10D", "WP-23"],
+    "interfaces": ["report.md + ride-recorder files"],
+    "acceptance": ["every DESIGN §14 Phase 2 [DEV] criterion recorded as pass/fail with evidence"],
+    "verify": ["test -f docs/field/results/phase2/report.md"],
+    "needsDevice": true
+  },
+  {
+    "id": "WP-F3",
+    "phase": 3,
+    "wave": 10,
+    "title": "Android device validation (deferred until a phone exists)",
+    "description": "iPhone(central) <-> Android(peripheral) link and voice; T0 iPhone<->Android with role and headset variants (the open gate); T3 variant: Android detects a backgrounded iPhone via the overflow bitmask (decides whether that scan ships enabled); FGS 60 min locked; Android 17 hardening throw mode; OEM checklist; Telecom strategy evaluation. Android is labelled supported only after this passes.",
+    "ownedPaths": ["docs/field/results/android/"],
+    "dependsOn": ["WP-16", "WP-19", "WP-F1"],
+    "interfaces": ["report.md with per-model results"],
+    "acceptance": ["T0 iPhone<->Android passes thresholds or S_MAX for such links is set to 1 with justification"],
+    "verify": ["test -f docs/field/results/android/report.md"],
+    "needsDevice": true
+  },
+  {
+    "id": "WP-F4",
+    "phase": 4,
+    "wave": 8,
+    "title": "Wi-Fi Aware field validation (T4)",
+    "description": "3 paired iPhones: BLE<->Aware switch with <=1 lost frame, 4 simultaneous talkers on an all-Aware path, riding-order chain vs star pairing, single-role vs both-roles result, battery %/h realtime vs BLE-only (T4 battery variant), Aware rejoin only with the anchors alive.",
+    "ownedPaths": ["docs/field/results/phase4/"],
+    "dependsOn": ["WP-24"],
+    "interfaces": ["report.md"],
+    "acceptance": ["T4 thresholds evaluated and recorded"],
+    "verify": ["test -f docs/field/results/phase4/report.md"],
+    "needsDevice": true
+  }
+]

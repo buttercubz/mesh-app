@@ -1,0 +1,44 @@
+// convLink Voice Android app, top-level build (WP-18, DESIGN §2.4, §10.2).
+// AGP 8.13.2, Kotlin 2.3, JDK 21 (JAVA_HOME from scripts/env.sh), compile/target 36,
+// minSdk 31. The engine library comes from the included build native/android (WP-16).
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.2'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.21'
+    }
+}
+
+// Shared versions, read by the Capacitor modules (`rootProject.ext.*`). Kept here instead
+// of the template's variables.gradle.
+ext {
+    minSdkVersion = 31
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    androidxActivityVersion = '1.11.0'
+    androidxAppCompatVersion = '1.7.1'
+    androidxCoordinatorLayoutVersion = '1.3.0'
+    androidxCoreVersion = '1.17.0'
+    androidxFragmentVersion = '1.8.9'
+    coreSplashScreenVersion = '1.2.0'
+    androidxWebkitVersion = '1.14.0'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.3.0'
+    androidxEspressoCoreVersion = '3.7.0'
+    cordovaAndroidVersion = '14.0.1'
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
+}

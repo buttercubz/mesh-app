@@ -1,0 +1,18 @@
+# UniFFI binding configuration (owned by WP-01, DESIGN §2.1, §2.3, §3.5).
+#
+# Library mode reads a crate-local uniffi.toml by default; `cargo xtask gen-bindings`
+# passes this file explicitly with `--config uniffi.toml`.
+
+[bindings.kotlin]
+# Committed to native/android/meshengine/src/main/kotlin/com/convlink/voice/core/mesh_ffi.kt
+package_name = "com.convlink.voice.core"
+cdylib_name = "mesh_ffi"
+
+[bindings.swift]
+# Committed to native/ios/MeshEngineKit/Sources/MeshCoreBindings/mesh_ffi.swift.
+# The C header is mesh_ffiFFI.h; the xcframework modulemap (written by xtask build-ios)
+# is `module MeshCoreFFI { header "mesh_ffiFFI.h" header "mesh_rt.h" export * }`.
+module_name = "MeshCoreBindings"
+ffi_module_name = "MeshCoreFFI"
+ffi_module_filename = "mesh_ffiFFI"
+generate_module_map = false

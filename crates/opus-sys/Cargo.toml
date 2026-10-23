@@ -1,0 +1,19 @@
+# Owned by WP-06 (DESIGN §2.3, §3.1). Created as a stub by WP-01.
+[package]
+name = "opus-sys"
+description = "libopus 1.6.1 built with cc plus a fixed-arity ctl shim (not built for wasm32)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+build = "build.rs"
+links = "opus"
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[build-dependencies]
+cc.workspace = true

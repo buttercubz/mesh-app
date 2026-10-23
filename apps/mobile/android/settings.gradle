@@ -1,0 +1,20 @@
+// convLink Voice Android settings (WP-18, DESIGN §2.4). The engine library
+// `com.convlink.voice:meshengine` is built by the included standalone Gradle build in
+// native/android (WP-16) and substituted here, so the app never needs a published AAR.
+// `-PmeshengineBuild=<dir>` (or gradle.properties) points at another checkout.
+def meshengineBuild = file(providers.gradleProperty('meshengineBuild').getOrElse('../../../native/android'))
+if (!new File(meshengineBuild, 'settings.gradle').exists() && !new File(meshengineBuild, 'settings.gradle.kts').exists()) {
+    throw new GradleException("The engine build is missing at ${meshengineBuild} (native/android, WP-16). Native app builds need it; see DESIGN §2.4.")
+}
+
+includeBuild(meshengineBuild) {
+    dependencySubstitution {
+        substitute(module('com.convlink.voice:meshengine')).using(project(':meshengine'))
+    }
+}
+
+include ':app'
+include ':capacitor-cordova-android-plugins'
+project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+
+apply from: 'capacitor.settings.gradle'

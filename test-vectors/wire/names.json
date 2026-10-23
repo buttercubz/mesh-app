@@ -1,0 +1,61 @@
+{
+  "description": "Names (DESIGN §4.6.1): UTF-8 bytes, truncated at the last extended grapheme-cluster boundary that fits (display name <= 24 B, group name <= 32 B).",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "416e61",
+      "inputs": {
+        "max_bytes": 24,
+        "name": "Ana",
+        "name_utf8": "416e61"
+      },
+      "name": "display/ascii-short"
+    },
+    {
+      "expected": "4a75616e204361726c6f73206465206c61204675656e7465",
+      "inputs": {
+        "max_bytes": 24,
+        "name": "Juan Carlos de la Fuente Ruiz",
+        "name_utf8": "4a75616e204361726c6f73206465206c61204675656e7465205275697a"
+      },
+      "name": "display/ascii-long"
+    },
+    {
+      "expected": "65cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc81",
+      "inputs": {
+        "max_bytes": 24,
+        "name": "ééééééééé",
+        "name_utf8": "65cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc81"
+      },
+      "name": "display/combining-accents"
+    },
+    {
+      "expected": "4a6f",
+      "inputs": {
+        "max_bytes": 24,
+        "name": "Jo👨‍👩‍👧‍👦",
+        "name_utf8": "4a6ff09f91a8e2808df09f91a9e2808df09f91a7e2808df09f91a6"
+      },
+      "name": "display/zwj-family-does-not-fit"
+    },
+    {
+      "expected": "4dc3b36e696361204865726ec3a16e64657a20c3816c7661",
+      "inputs": {
+        "max_bytes": 24,
+        "name": "Mónica Hernández Álvarez Peña",
+        "name_utf8": "4dc3b36e696361204865726ec3a16e64657a20c3816c766172657a205065c3b161"
+      },
+      "name": "display/spanish-accents"
+    },
+    {
+      "expected": "f09f87b2f09f87bdf09f87b2f09f87bdf09f87b2f09f87bdf09f87b2f09f87bd",
+      "inputs": {
+        "max_bytes": 32,
+        "name": "🇲🇽🇲🇽🇲🇽🇲🇽🇲🇽",
+        "name_utf8": "f09f87b2f09f87bdf09f87b2f09f87bdf09f87b2f09f87bdf09f87b2f09f87bdf09f87b2f09f87bd"
+      },
+      "name": "group/flags"
+    }
+  ]
+}

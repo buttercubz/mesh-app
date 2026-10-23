@@ -1,0 +1,30 @@
+# UI contract crate (WP-03, DESIGN §3.7, contract C1). Types only, no logic beyond
+# validation helpers. `ts-rs` is optional: only `cargo xtask gen-ts` enables it through
+# the `ts-export` feature, so engine builds (mesh-core, mesh-ffi, mesh-wasm) never pull it.
+[package]
+name = "mesh-api"
+description = "UI command/event/snapshot JSON contract (serde + ts-rs types, no logic)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# Derives `ts_rs::TS` and adds the `export_bindings_*` tests that write
+# packages/engine-api/src/generated/ (run by `cargo xtask gen-ts`).
+ts-export = ["dep:ts-rs"]
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+# `no-serde-warnings`: ts-rs does not understand `deserialize_with` (used for required
+# nullable fields, see `common::nullable`) and would warn on every such field; the
+# generated types are unaffected (`T | null`).
+ts-rs = { workspace = true, optional = true, features = ["no-serde-warnings"] }
+
+[dev-dependencies]
+serde_json.workspace = true

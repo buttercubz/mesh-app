@@ -1,0 +1,17 @@
+{
+  "name": "@meshapp/lab-analyze",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Merges per-device labrun/1 files by runId, writes CSV and prints go/no-go verdicts against thresholds.json (WP-05, DESIGN §12.3); `ride` merges ridelog/1 diagnostics exports of several phones into one report.",
+  "type": "module",
+  "bin": {
+    "lab-analyze": "./cli.mjs"
+  },
+  "scripts": {
+    "test": "node cli.mjs --self-test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5"
+  }
+}

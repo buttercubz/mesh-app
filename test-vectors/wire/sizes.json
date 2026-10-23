@@ -1,0 +1,124 @@
+{
+  "description": "Sizes and cost model (DESIGN §4.8): byte chain MeshPacket -> record -> SEC frame -> on-air unit, per-stream rate in bps, cost(k) = k * r_stream + 3000 bps. expected is the u32 LE encoding of the number named by the vector.",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "76000000",
+      "inputs": {
+        "mesh_packet": 93,
+        "on_air": 118,
+        "opus_bytes": 80,
+        "record": 95,
+        "sec_frame": 116
+      },
+      "name": "ble16/on-air-bytes"
+    },
+    {
+      "expected": "305c0000",
+      "inputs": {
+        "mesh_packet": 93,
+        "on_air": 118,
+        "opus_bytes": 80,
+        "record": 95,
+        "sec_frame": 116
+      },
+      "name": "ble16/r_stream-bps"
+    },
+    {
+      "expected": "62000000",
+      "inputs": {
+        "mesh_packet": 73,
+        "on_air": 98,
+        "opus_bytes": 60,
+        "record": 75,
+        "sec_frame": 96
+      },
+      "name": "ble12/on-air-bytes"
+    },
+    {
+      "expected": "904c0000",
+      "inputs": {
+        "mesh_packet": 73,
+        "on_air": 98,
+        "opus_bytes": 60,
+        "record": 75,
+        "sec_frame": 96
+      },
+      "name": "ble12/r_stream-bps"
+    },
+    {
+      "expected": "8a000000",
+      "inputs": {
+        "mesh_packet": 113,
+        "on_air": 138,
+        "opus_bytes": 100,
+        "record": 115,
+        "sec_frame": 136
+      },
+      "name": "ble-dred/on-air-bytes"
+    },
+    {
+      "expected": "d06b0000",
+      "inputs": {
+        "mesh_packet": 113,
+        "on_air": 138,
+        "opus_bytes": 100,
+        "record": 115,
+        "sec_frame": 136
+      },
+      "name": "ble-dred/r_stream-bps"
+    },
+    {
+      "expected": "56000000",
+      "inputs": {
+        "mesh_packet": 63,
+        "on_air": 86,
+        "opus_bytes": 50,
+        "record": 65,
+        "sec_frame": 86
+      },
+      "name": "wifi20/on-air-bytes"
+    },
+    {
+      "expected": "60860000",
+      "inputs": {
+        "mesh_packet": 63,
+        "on_air": 86,
+        "opus_bytes": 50,
+        "record": 65,
+        "sec_frame": 86
+      },
+      "name": "wifi20/r_stream-bps"
+    },
+    {
+      "expected": "18c40000",
+      "inputs": {
+        "c_ctrl_bps": 3000,
+        "k": 2
+      },
+      "name": "ble16/cost-2-bps"
+    },
+    {
+      "expected": "68a60000",
+      "inputs": {
+        "k": 2
+      },
+      "name": "ble16/coalesced-2-bps"
+    },
+    {
+      "expected": "19000000",
+      "inputs": {
+        "payload": 14
+      },
+      "name": "presence/record-bytes"
+    },
+    {
+      "expected": "19000000",
+      "inputs": {
+        "payload": 14
+      },
+      "name": "position/record-bytes"
+    }
+  ]
+}

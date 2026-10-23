@@ -1,0 +1,24 @@
+# mesh-routing (owned by WP-09, DESIGN §5, §6, §4.8, §9.3-§9.5).
+# Stub created by WP-01 (DESIGN §3.1, §16.2 stub hand-off).
+[package]
+name = "mesh-routing"
+description = "Neighbor table, managed flooding, pacing, floor table, presence, reachability."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mesh-wire = { path = "../mesh-wire" }
+# Floor hash smear h = SHA-256("cvic/v1/floor" ‖ …)[0..4] (DESIGN §6.2).
+sha2.workspace = true
+# Injected deterministic RNG (control relay jitter, DESIGN §3.1, §5.2).
+rand_chacha.workspace = true
+rand_core.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

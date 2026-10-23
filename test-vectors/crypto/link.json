@@ -1,0 +1,92 @@
+{
+  "description": "Per-link Noise_XXpsk1_25519_ChaChaPoly_SHA256 (DESIGN §4.3, §8.4) with fixed static and ephemeral keys: HS LinkFrames (lf_type 0x00 · hs_step · proto_ver · noise_msg), prologue \"cvic/v1\" ‖ group_id ‖ u32 epoch, PSK psk_e at position 1. Raw split: c1 seals initiator→responder, c2 responder→initiator. SEC LinkFrame = 0x01 · kp_ctr u32 LE · ciphertext · tag; nonce 0^4 ‖ u64 LE(kp_ctr); AAD lf_type ‖ kp_ctr. The first SEC record each way is IDPROOF (rtype 0x0C) over \"cvic/v1/idproof\" ‖ role ‖ handshake_hash. Key update: k_next = HKDF-Expand(PRK = k_cur, \"cvic/v1/keyupdate\", 32), phase bit 31 set, ctr restarts at 0.",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": {
+        "c1_initiator_to_responder": "d7a3df751826e8fc60dbb73bb2ee2f37aa0b739ea9824789865c3ab418126810",
+        "c2_responder_to_initiator": "b61cc1d3fcdde3f513a86c2edb86c36ab360afeaeebe94e83b9200cd310472eb",
+        "handshake_hash": "4b263a308291c5af5b40df1ffb2ed43f01181dc74ae8151a2347985488e3dbd1",
+        "msg1": "0001011bed18070c7cfd641cc3195150d91d4b4dbf7a10e4159665fe3fde7e52cc481081321375827a0abaae1fea794ca71de3",
+        "msg2": "000201a3f7957e947f53df472fd9cbf0e043c4eb1bbe3106da07d8d097c7a6630ffa51f59e3f2f736df5cee588c64decc7f3b5c1add0365b1ed3a33975255931c28e68972c8ded8033c5ca0e6c5cd10b3ffbc232dc4140d3458950b8f63fc249459a82",
+        "msg3": "000301271a7b8151579f2b337117a0540c1e80a9f85416a95cb4699c230c36d891811069d0712f6da49eb975b111554fb78739e9d0bd4c1e71402858786ce15b3e64d8",
+        "prologue": "637669632f7631102f4e6d8cabcae90827466584a3c2e107000000"
+      },
+      "inputs": {
+        "epoch": 7,
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "initiator_ephemeral_sk": "506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211",
+        "initiator_static_sk": "41607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e302",
+        "proto_ver": 1,
+        "psk": "240cbcc3071a1d172e07733448bfeb3c1fd7d1dd3df97990b6a6d0af914560fe",
+        "responder_ephemeral_sk": "51708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f312",
+        "responder_static_sk": "31506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2"
+      },
+      "name": "handshake"
+    },
+    {
+      "expected": {
+        "aad": "0100000000",
+        "frame": "010000000020c182dad90944b6f0613e4f528e3ec10b7c8740cbdd53fc960b07fb28d3172b99dd699f8adb5bf400bc200bb15734a7af4dd24310ff7be7384643acb02e89c74062934a1f1c8833497352b83fd7e69b27ba34127ef885c74f6bdefb037d6e4506d335033898c54614b4ec4ec0e2ffe6ba14ce7936171db531b7202df62ee9cc268848fe45b512fc499d10886c7dd557934190",
+        "idproof_sig": "641c1c72386285b171bb1dcae5475baf2e8c72606b869c6f68086463b24a68fdaf54722c73366bb3c7770f7ae68a08781a21288d1acf9b92efbc91df7b0ae005",
+        "nonce": "000000000000000000000000"
+      },
+      "inputs": {
+        "key": "d7a3df751826e8fc60dbb73bb2ee2f37aa0b739ea9824789865c3ab418126810",
+        "kp_ctr": 0,
+        "plaintext": "0c8001b9842517baac4e1ea8dfe5452e47f6754c7a37a4602626fa2d7fdf574b036f8e524b7b0e079f70db89e45066e5b234a086a2406e50b2e69efa1a4f45e8068077641c1c72386285b171bb1dcae5475baf2e8c72606b869c6f68086463b24a68fdaf54722c73366bb3c7770f7ae68a08781a21288d1acf9b92efbc91df7b0ae005"
+      },
+      "name": "sec/first-initiator"
+    },
+    {
+      "expected": {
+        "aad": "0100000000",
+        "frame": "0100000000ac686779a95f21f0622bb90431509903d9c1f9cb23b2e1e37ebb0285f36014e71be9ec08f63552a8529d6e9a5d7e1774e894c0f3cf7e638942bcb5f1bea91df2cb5ede4d659c4af39b0425f739a2001512fbad7f453eebee5438941bb1cf607d8bc88bf11d1ccc4d04d688e90844fae395a349ca8ed7419185987257685710b6be6e5ddd2c8746dd1ac0274474d1c7592e9d59",
+        "idproof_sig": "155cd49a5a2fe264f728ec70071d73352a249a5b7c83344bf0f155536b83b70716329f309847aac3886de2c887355308e97842579cd068d4a9095437b7cda802",
+        "nonce": "000000000000000000000000"
+      },
+      "inputs": {
+        "key": "b61cc1d3fcdde3f513a86c2edb86c36ab360afeaeebe94e83b9200cd310472eb",
+        "kp_ctr": 0,
+        "plaintext": "0c8001832292f559492b6909c155c98d490a7fc95dd2c8f43fa12b2682745b0762d77c57f5984dbe1a3284a17df26f10b73b918fd25e5f1423a82fed0be9b26eef1152155cd49a5a2fe264f728ec70071d73352a249a5b7c83344bf0f155536b83b70716329f309847aac3886de2c887355308e97842579cd068d4a9095437b7cda802"
+      },
+      "name": "sec/first-responder"
+    },
+    {
+      "expected": {
+        "frame": "010100000040e7c0cde0c7b2b292d6d18a5ce8e63031c88e169c3eebce"
+      },
+      "inputs": {
+        "key": "d7a3df751826e8fc60dbb73bb2ee2f37aa0b739ea9824789865c3ab418126810",
+        "kp_ctr": 1,
+        "plaintext": "0206010010203040"
+      },
+      "name": "sec/phase0-ctr1"
+    },
+    {
+      "expected": {
+        "aad": "0100000080",
+        "frame": "0100000080415298293169e779954c55939d6e4fedb8a2c4fdd4c065f5",
+        "next_key": "d98a81e35081ba3d7c8b3001db4e5b391897d96b247369139c7905f65f73a242",
+        "nonce": "000000000000008000000000"
+      },
+      "inputs": {
+        "kp_ctr": 2147483648,
+        "plaintext": "0206010010203040",
+        "previous_key": "d7a3df751826e8fc60dbb73bb2ee2f37aa0b739ea9824789865c3ab418126810"
+      },
+      "name": "sec/key-update-phase1-ctr0"
+    },
+    {
+      "expected": {
+        "k1": "d98a81e35081ba3d7c8b3001db4e5b391897d96b247369139c7905f65f73a242",
+        "k2": "d02c67596246a1f8b5388e949f0697704f92b7da03d7ffde9af455ebecce391c"
+      },
+      "inputs": {
+        "k0": "d7a3df751826e8fc60dbb73bb2ee2f37aa0b739ea9824789865c3ab418126810"
+      },
+      "name": "keyupdate/chain"
+    }
+  ]
+}

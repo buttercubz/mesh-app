@@ -1,0 +1,32 @@
+/* App stylesheet (WP-18): Tailwind v4 + the @meshapp/ui-kit theme (tokens, components,
+   dark variant). Feature styles use utilities; no remote fonts (CSP font-src 'self'). */
+@import "tailwindcss";
+@import "@meshapp/ui-kit/theme.css";
+
+/* Tailwind scans the app sources (features included); the ui-kit ships its own CSS. */
+@source "./";
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  /* Riders never select text by accident while gloved; inputs re-enable it. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}

@@ -1,0 +1,442 @@
+[
+  {
+    "name": "snapshot ride",
+    "event": {
+      "type": "snapshot",
+      "s": {
+        "engine": "running",
+        "session": {
+          "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e",
+          "groupName": "Sunday ride",
+          "role": "leader",
+          "myNodeId": 1,
+          "live": true,
+          "mode": "vox",
+          "talk": "talking",
+          "ride": "riding",
+          "ladder": "L0",
+          "shareDistance": true
+        },
+        "audio": {
+          "route": "hfpWideband",
+          "captureOk": true,
+          "renderOk": true,
+          "inputLevel": 0.42,
+          "txMutedNoHeadset": false
+        },
+        "talkers": [
+          {
+            "nodeId": 1,
+            "name": "Ana",
+            "hops": 0,
+            "level": 0.6,
+            "sinceMs": 1200
+          },
+          {
+            "nodeId": 7,
+            "name": "Carla",
+            "hops": 3,
+            "level": 0.3,
+            "sinceMs": 300
+          }
+        ],
+        "members": [
+          {
+            "nodeId": 1,
+            "name": "Ana",
+            "role": "leader",
+            "platform": "ios",
+            "status": "me",
+            "hops": 0,
+            "quality": 100,
+            "linkKinds": [],
+            "hearsMe": true,
+            "voice": "kpi",
+            "lastHeardMs": 0,
+            "battery": 0.81,
+            "ready": {
+              "live": true,
+              "mic": true,
+              "route": "hfpWideband"
+            },
+            "flags": [],
+            "distanceM": null,
+            "bearingDeg": null
+          },
+          {
+            "nodeId": 3,
+            "name": "Beto",
+            "role": "member",
+            "platform": "android",
+            "status": "direct",
+            "hops": 1,
+            "quality": 72,
+            "linkKinds": [
+              "ble"
+            ],
+            "hearsMe": true,
+            "voice": "kpi",
+            "lastHeardMs": 400,
+            "battery": 0.55,
+            "ready": {
+              "live": true,
+              "mic": true,
+              "route": "hfpNarrowband"
+            },
+            "flags": [
+              "noHeadset"
+            ],
+            "distanceM": 42.5,
+            "bearingDeg": 181.0
+          },
+          {
+            "nodeId": 7,
+            "name": "Carla",
+            "role": "member",
+            "platform": "ios",
+            "status": "relayed",
+            "hops": 3,
+            "quality": 48,
+            "linkKinds": [
+              "ble",
+              "aware"
+            ],
+            "hearsMe": false,
+            "voice": "bestEffort",
+            "lastHeardMs": 1800,
+            "battery": null,
+            "ready": {
+              "live": true,
+              "mic": false,
+              "route": null
+            },
+            "flags": [
+              "onCall",
+              "micLost",
+              "radioOff"
+            ],
+            "distanceM": null,
+            "bearingDeg": null
+          },
+          {
+            "nodeId": 9,
+            "name": "Luis",
+            "role": "member",
+            "platform": "ios",
+            "status": "unconfirmed",
+            "hops": 0,
+            "quality": 0,
+            "linkKinds": [],
+            "hearsMe": false,
+            "voice": "no",
+            "lastHeardMs": 61000,
+            "battery": null,
+            "ready": {
+              "live": false,
+              "mic": false,
+              "route": null
+            },
+            "flags": [],
+            "distanceM": null,
+            "bearingDeg": null
+          }
+        ],
+        "mesh": {
+          "links": 2,
+          "neighbors": 2,
+          "islands": 1,
+          "reachable": 3,
+          "total": 4,
+          "capBle": 2,
+          "capWifi": 4,
+          "profile": "ble"
+        },
+        "device": {
+          "battery": 0.81,
+          "thermal": "fair",
+          "background": true,
+          "bluetooth": "on"
+        },
+        "latency": {
+          "p50Ms": 95.5,
+          "p95Ms": 141.0,
+          "byHops": [
+            88.0,
+            120.5,
+            151.0
+          ]
+        }
+      }
+    }
+  },
+  {
+    "name": "snapshot lab idle",
+    "event": {
+      "type": "snapshot",
+      "s": {
+        "engine": "starting",
+        "session": null,
+        "audio": {
+          "route": "none",
+          "captureOk": false,
+          "renderOk": false,
+          "inputLevel": 0.0,
+          "txMutedNoHeadset": false
+        },
+        "talkers": [],
+        "members": [],
+        "mesh": {
+          "links": 0,
+          "neighbors": 0,
+          "islands": 0,
+          "reachable": 0,
+          "total": 0,
+          "capBle": 2,
+          "capWifi": 4,
+          "profile": "bleDegraded"
+        },
+        "device": {
+          "battery": null,
+          "thermal": "nominal",
+          "background": false,
+          "bluetooth": "unauthorized"
+        },
+        "latency": null
+      }
+    }
+  },
+  {
+    "name": "snapshot lobby degraded",
+    "event": {
+      "type": "snapshot",
+      "s": {
+        "engine": "degraded",
+        "session": {
+          "groupId": "5f2c9a0d4b7e41c8a3d6e9f01b2c3d4e",
+          "groupName": "Sunday ride",
+          "role": "member",
+          "myNodeId": 3,
+          "live": false,
+          "mode": "muted",
+          "talk": "muted",
+          "ride": "lobby",
+          "ladder": "L2",
+          "shareDistance": false
+        },
+        "audio": {
+          "route": "builtinSpeaker",
+          "captureOk": false,
+          "renderOk": true,
+          "inputLevel": 0.0,
+          "txMutedNoHeadset": true
+        },
+        "talkers": [],
+        "members": [
+          {
+            "nodeId": 1,
+            "name": "Ana",
+            "role": "leader",
+            "platform": "ios",
+            "status": "me",
+            "hops": 0,
+            "quality": 100,
+            "linkKinds": [],
+            "hearsMe": true,
+            "voice": "kpi",
+            "lastHeardMs": 0,
+            "battery": 0.81,
+            "ready": {
+              "live": true,
+              "mic": true,
+              "route": "hfpWideband"
+            },
+            "flags": [],
+            "distanceM": null,
+            "bearingDeg": null
+          }
+        ],
+        "mesh": {
+          "links": 1,
+          "neighbors": 1,
+          "islands": 2,
+          "reachable": 1,
+          "total": 2,
+          "capBle": 2,
+          "capWifi": 4,
+          "profile": "wifi"
+        },
+        "device": {
+          "battery": 0.12,
+          "thermal": "critical",
+          "background": false,
+          "bluetooth": "off"
+        },
+        "latency": null
+      }
+    }
+  },
+  {
+    "name": "talkDenied",
+    "event": {
+      "type": "talkDenied",
+      "reason": "cap"
+    }
+  },
+  {
+    "name": "notice memberLost",
+    "event": {
+      "type": "notice",
+      "key": "memberLost",
+      "params": {
+        "count": 2,
+        "names": "Beto, Carla"
+      }
+    }
+  },
+  {
+    "name": "notice bluetoothOff",
+    "event": {
+      "type": "notice",
+      "key": "bluetoothOff",
+      "params": {}
+    }
+  },
+  {
+    "name": "notice leaderChanged",
+    "event": {
+      "type": "notice",
+      "key": "leaderChanged",
+      "params": {
+        "name": "Beto"
+      }
+    }
+  },
+  {
+    "name": "notice liveActivityRenewed",
+    "event": {
+      "type": "notice",
+      "key": "liveActivityRenewed",
+      "params": {}
+    }
+  },
+  {
+    "name": "routeChanged",
+    "event": {
+      "type": "routeChanged",
+      "route": "carBluetooth"
+    }
+  },
+  {
+    "name": "audioCheckSample",
+    "event": {
+      "type": "audioCheckSample",
+      "level": 0.35,
+      "vadP": 0.92,
+      "gate": "open",
+      "route": "hfpWideband",
+      "inputRate": 16000,
+      "phase": "record"
+    }
+  },
+  {
+    "name": "labProgress",
+    "event": {
+      "type": "labProgress",
+      "runId": "r-20261023-0912-ab12",
+      "elapsedS": 12.5,
+      "sample": {
+        "links": 1,
+        "peers": 1,
+        "txKbps": 93.4,
+        "rxKbps": 93.1,
+        "loss": 0.004,
+        "rttP50Ms": 38.0,
+        "rttP95Ms": 61.5,
+        "rssi": -61,
+        "distM": 12.4,
+        "stalls": 0,
+        "anchorOk": true
+      }
+    }
+  },
+  {
+    "name": "labProgress first",
+    "event": {
+      "type": "labProgress",
+      "runId": "r-20261023-0912-ab12",
+      "elapsedS": 0.5,
+      "sample": {
+        "links": 0,
+        "peers": 0,
+        "txKbps": 0.0,
+        "rxKbps": 0.0,
+        "loss": 0.0,
+        "rttP50Ms": null,
+        "rttP95Ms": null,
+        "rssi": null,
+        "distM": null,
+        "stalls": 0,
+        "anchorOk": false
+      }
+    }
+  },
+  {
+    "name": "labFinished",
+    "event": {
+      "type": "labFinished",
+      "runId": "r-20261023-0912-ab12",
+      "summary": {
+        "durationS": 60.0,
+        "txKbps": {
+          "mean": 92.8
+        },
+        "loss": 0.006,
+        "owdMs": {
+          "p50": 19.1,
+          "p95": 31.2,
+          "p99": 44.0
+        },
+        "rttMs": {
+          "p50": 38.0,
+          "p95": 61.5,
+          "p99": 70.2
+        },
+        "stalls": 0,
+        "verdict": "go"
+      },
+      "files": [
+        "lab/r-20261023-0912-ab12-4711.jsonl",
+        "lab/r-20261023-0912-ab12-summary.csv"
+      ]
+    }
+  },
+  {
+    "name": "labFinished inconclusive",
+    "event": {
+      "type": "labFinished",
+      "runId": "r-20261023-1001-cd34",
+      "summary": {
+        "durationS": 14400.0,
+        "txKbps": {
+          "mean": 0.0
+        },
+        "loss": 1.0,
+        "owdMs": null,
+        "rttMs": null,
+        "stalls": 3,
+        "verdict": "inconclusive"
+      },
+      "files": []
+    }
+  },
+  {
+    "name": "error",
+    "event": {
+      "type": "error",
+      "code": "audioUnavailable",
+      "params": {
+        "route": "hfpWideband"
+      }
+    }
+  }
+]

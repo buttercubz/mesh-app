@@ -1,0 +1,38 @@
+{
+  "name": "@meshapp/engine-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser simulator engine (WP-13, DESIGN §11.2): loads mesh_wasm.wasm (mesh-core + mesh-sim, raw extern \"C\" JSON ABI) in the browser and in Node, drives a simulated convoy every 20 ms and exposes an EngineBackend for the MeshIntercom web implementation.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./wasm/mesh_wasm.wasm": "./wasm/mesh_wasm.wasm",
+    "./wasm/mesh_wasm.json": "./wasm/mesh_wasm.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "wasm"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "tsc -p tsconfig.json --noEmit && vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@meshapp/engine-api": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

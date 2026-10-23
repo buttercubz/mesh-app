@@ -1,0 +1,253 @@
+{
+  "description": "LinkFrame (DESIGN §4.3): lf_type 0x00 HS (hs_step, proto_ver, noise_msg), 0x01 SEC (kp_ctr u32 LE: b31 key phase, b30-0 ctr; ciphertext; tag[16]; nonce 0^4 || u64 LE kp_ctr; AAD lf_type || kp_ctr), 0x02 LAB (lab_tag u16 LE, records, PAD to SEC size), 0x03 REJECT (reason). Noise messages and ciphertexts here are fixed filler: real handshake bytes and sealed frames are in test-vectors/crypto/.",
+  "format": 1,
+  "protocol": 1,
+  "vectors": [
+    {
+      "expected": "00010131506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e2",
+      "inputs": {
+        "hs_step": 1,
+        "noise_msg": "31506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e2",
+        "proto_ver": 1
+      },
+      "name": "hs/msg1"
+    },
+    {
+      "expected": "0002013251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3",
+      "inputs": {
+        "hs_step": 2,
+        "noise_msg": "3251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f211304f6e8daccbea0928476685a4c3e201203f5e7d9cbbdaf91837567594b3",
+        "proto_ver": 1
+      },
+      "name": "hs/msg2"
+    },
+    {
+      "expected": "00030133527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4",
+      "inputs": {
+        "hs_step": 3,
+        "noise_msg": "33527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4",
+        "proto_ver": 1
+      },
+      "name": "hs/msg3"
+    },
+    {
+      "expected": "0100000000a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2",
+      "inputs": {
+        "aad": "0100000000",
+        "ctr": 0,
+        "key_phase": 0,
+        "kp_ctr": 0,
+        "nonce": "000000000000000000000000",
+        "sealed": "a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2"
+      },
+      "name": "sec/phase0-ctr0"
+    },
+    {
+      "expected": "0100000000",
+      "inputs": {
+        "kp_ctr": 0
+      },
+      "name": "sec/phase0-ctr0/aad"
+    },
+    {
+      "expected": "000000000000000000000000",
+      "inputs": {
+        "kp_ctr": 0
+      },
+      "name": "sec/phase0-ctr0/nonce"
+    },
+    {
+      "expected": "0101000000a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a69",
+      "inputs": {
+        "aad": "0101000000",
+        "ctr": 1,
+        "key_phase": 0,
+        "kp_ctr": 1,
+        "nonce": "000000000100000000000000",
+        "sealed": "a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a69"
+      },
+      "name": "sec/phase0-ctr1"
+    },
+    {
+      "expected": "0101000000",
+      "inputs": {
+        "kp_ctr": 1
+      },
+      "name": "sec/phase0-ctr1/aad"
+    },
+    {
+      "expected": "000000000100000000000000",
+      "inputs": {
+        "kp_ctr": 1
+      },
+      "name": "sec/phase0-ctr1/nonce"
+    },
+    {
+      "expected": "0100000080a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2",
+      "inputs": {
+        "aad": "0100000080",
+        "ctr": 0,
+        "key_phase": 1,
+        "kp_ctr": 2147483648,
+        "nonce": "000000000000008000000000",
+        "sealed": "a0bfdefd1c3b5a7998b7d6f51433527190afceed0c2b4a6988a7c6e504234261809fbeddfc1b3a597897b6d5f4133251708faecdec0b2a496887a6c5e4032241607f9ebddcfb1a39587796b5d4f31231506f8eadcceb0a29486786a5c4e30221405f7e9dbcdbfa1938577695b4d3f2"
+      },
+      "name": "sec/phase1-ctr0-after-key-update"
+    },
+    {
+      "expected": "0100000080",
+      "inputs": {
+        "kp_ctr": 2147483648
+      },
+      "name": "sec/phase1-ctr0-after-key-update/aad"
+    },
+    {
+      "expected": "000000000000008000000000",
+      "inputs": {
+        "kp_ctr": 2147483648
+      },
+      "name": "sec/phase1-ctr0-after-key-update/nonce"
+    },
+    {
+      "expected": "01ffffffffa0bfdefd1c3b5a7998b7d6f51433527190",
+      "inputs": {
+        "aad": "01ffffffff",
+        "ctr": 2147483647,
+        "key_phase": 1,
+        "kp_ctr": 4294967295,
+        "nonce": "00000000ffffffff00000000",
+        "sealed": "a0bfdefd1c3b5a7998b7d6f51433527190"
+      },
+      "name": "sec/phase1-ctr-max"
+    },
+    {
+      "expected": "01ffffffff",
+      "inputs": {
+        "kp_ctr": 4294967295
+      },
+      "name": "sec/phase1-ctr-max/aad"
+    },
+    {
+      "expected": "00000000ffffffff00000000",
+      "inputs": {
+        "kp_ctr": 4294967295
+      },
+      "name": "sec/phase1-ctr-max/nonce"
+    },
+    {
+      "expected": "ebfe",
+      "inputs": {
+        "lab_code": 0,
+        "rule": "SHA-256(\"cvic/lab\" || u16 LE lab_code)[0..2], read LE"
+      },
+      "name": "lab_tag/0000"
+    },
+    {
+      "expected": "b2bb",
+      "inputs": {
+        "lab_code": 1234,
+        "rule": "SHA-256(\"cvic/lab\" || u16 LE lab_code)[0..2], read LE"
+      },
+      "name": "lab_tag/1234"
+    },
+    {
+      "expected": "7457",
+      "inputs": {
+        "lab_code": 9999,
+        "rule": "SHA-256(\"cvic/lab\" || u16 LE lab_code)[0..2], read LE"
+      },
+      "name": "lab_tag/9999"
+    },
+    {
+      "expected": "02b2bb020607000403020107492a00000040420f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e1000000000000000000000000000000000",
+      "inputs": {
+        "lab_code": 1234,
+        "lab_tag": 48050,
+        "note": "PAD record (0x0e, len 16) appended: LAB size = SEC size of the same records",
+        "records": "020607000403020107492a00000040420f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "name": "lab/ping-lprobe-padded"
+    },
+    {
+      "expected": "02b2bb020607000403020107492a00000040420f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inputs": {
+        "lab_tag": 48050,
+        "records": "020607000403020107492a00000040420f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "name": "lab/unpadded"
+    },
+    {
+      "expected": "0301",
+      "inputs": {
+        "meaning": "Version",
+        "reason": 1
+      },
+      "name": "reject/1"
+    },
+    {
+      "expected": "0302",
+      "inputs": {
+        "meaning": "GroupEpochMismatch",
+        "reason": 2
+      },
+      "name": "reject/2"
+    },
+    {
+      "expected": "0303",
+      "inputs": {
+        "meaning": "AtMaxLinks",
+        "reason": 3
+      },
+      "name": "reject/3"
+    },
+    {
+      "expected": "0304",
+      "inputs": {
+        "meaning": "DuplicateLink",
+        "reason": 4
+      },
+      "name": "reject/4"
+    },
+    {
+      "expected": "0305",
+      "inputs": {
+        "meaning": "MemberRemovedOrDenied",
+        "reason": 5
+      },
+      "name": "reject/5"
+    },
+    {
+      "expected": "0306",
+      "inputs": {
+        "meaning": "LabCodeMismatch",
+        "reason": 6
+      },
+      "name": "reject/6"
+    },
+    {
+      "expected": "0307",
+      "inputs": {
+        "meaning": "HandshakeFailure",
+        "reason": 7
+      },
+      "name": "reject/7"
+    },
+    {
+      "expected": "0308",
+      "inputs": {
+        "meaning": "NodeIdCollision",
+        "reason": 8
+      },
+      "name": "reject/8"
+    },
+    {
+      "expected": "637669632f7631102f4e6d8cabcae90827466584a3c2e107000000",
+      "inputs": {
+        "epoch": 7,
+        "group_id": "102f4e6d8cabcae90827466584a3c2e1",
+        "rule": "\"cvic/v1\" || group_id || u32 LE epoch"
+      },
+      "name": "noise/prologue"
+    }
+  ]
+}

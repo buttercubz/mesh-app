@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- convLink Voice native chrome colours (ui-kit dark tokens, WP-20 brand accent). -->
+<resources>
+    <color name="convlink_background">#08080A</color>
+    <color name="convlink_surface">#1C1C1E</color>
+    <color name="convlink_brand">#8B7BFF</color>
+</resources>

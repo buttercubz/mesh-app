@@ -1,0 +1,8 @@
+{
+  "android_arm64_so": "native/android/meshengine/src/main/jniLibs/arm64-v8a/libmesh_ffi.so",
+  "comment": "Size gate of DESIGN §2.3, read by `cargo xtask size`. Record ios_staticlib_bytes with `cargo xtask size --update-baseline` after `cargo xtask build-ios`.",
+  "ios_staticlib": "target/aarch64-apple-ios/release/libmesh_ffi.a",
+  "ios_staticlib_bytes": 113382984,
+  "max_android_arm64_stripped_bytes": 9000000,
+  "max_ios_growth_percent": 10
+}

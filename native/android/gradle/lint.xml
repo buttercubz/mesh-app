@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Lint configuration of :meshengine (WP-16). The UniFFI bindings under
+     src/main/kotlin/com/convlink/voice/core are generated (cargo xtask gen-bindings) and
+     committed; they are not linted. -->
+<lint>
+    <issue id="all">
+        <ignore path="**/com/convlink/voice/core/mesh_ffi.kt" />
+    </issue>
+</lint>
