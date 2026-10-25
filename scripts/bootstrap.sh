@@ -18,6 +18,9 @@
 #   MESH_PNPM_WRAPPER  optional command prefix for pnpm mutations (e.g. a lock wrapper)
 #   MESH_SKIP_MSRV=1   skip the MSRV probe (not recommended)
 set -euo pipefail
+# With pipefail, never pipe a command into a reader that may exit early (head, grep -q):
+# the writer can die of SIGPIPE (exit 141) and fail the check (xcodebuild -version writes
+# its two lines ~8 ms apart; CI reported Xcode MISSING). Match on captured output instead.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -46,14 +49,14 @@ command -v rustup >/dev/null 2>&1 \
   || die "rustup not found. Fix: install rustup from https://rustup.rs, then re-run bash scripts/bootstrap.sh"
 [ -f rust-toolchain.toml ] || die "rust-toolchain.toml missing"
 
-PIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml | head -n1)"
+PIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml | sed -n 1p)"
 [ -n "$PIN" ] || die "could not read the channel from rust-toolchain.toml"
 TARGETS=()
 while IFS= read -r t; do [ -n "$t" ] && TARGETS+=("$t"); done < <(toml_array targets)
 COMPONENTS=()
 while IFS= read -r c; do [ -n "$c" ] && COMPONENTS+=("$c"); done < <(toml_array components)
 
-if rustup toolchain list | grep -q "^$PIN-"; then
+if grep -q "^$PIN-" <<<"$(rustup toolchain list)"; then
   ok "toolchain $PIN"
 else
   act "toolchain $PIN (rustup toolchain install $PIN --profile minimal)"
@@ -62,7 +65,7 @@ fi
 
 installed_components="$(rustup component list --installed --toolchain "$PIN")"
 for c in "${COMPONENTS[@]}"; do
-  if printf '%s\n' "$installed_components" | grep -Eq "^$c(-|$)"; then
+  if grep -Eq "^$c(-|$)" <<<"$installed_components"; then
     ok "component $c"
   else
     act "component $c"
@@ -72,7 +75,7 @@ done
 
 installed_targets="$(rustup target list --installed --toolchain "$PIN")"
 for t in "${TARGETS[@]}"; do
-  if printf '%s\n' "$installed_targets" | grep -qx "$t"; then
+  if grep -qx "$t" <<<"$installed_targets"; then
     ok "target $t"
   else
     act "target $t"
@@ -116,13 +119,13 @@ if [ -x "$ANDROID_HOME/cmake/$MESH_ANDROID_CMAKE_VERSION/bin/cmake" ] && [ -x "$
 else
   problem "SDK cmake $MESH_ANDROID_CMAKE_VERSION" "$sdkm \"cmake;$MESH_ANDROID_CMAKE_VERSION\""
 fi
-if [ -n "${JAVA_HOME:-}" ] && "$JAVA_HOME/bin/java" -version 2>&1 | grep -q "version \"$MESH_JAVA_VERSION[.\"]"; then
+if [ -n "${JAVA_HOME:-}" ] && grep -q "version \"$MESH_JAVA_VERSION[.\"]" <<<"$("$JAVA_HOME/bin/java" -version 2>&1)"; then
   ok "JDK $MESH_JAVA_VERSION at $JAVA_HOME"
 else
   problem "JDK $MESH_JAVA_VERSION" "brew install openjdk@$MESH_JAVA_VERSION (must be listed by /usr/libexec/java_home -V)"
 fi
 if command -v xcodebuild >/dev/null 2>&1 && xcodebuild -version >/dev/null 2>&1; then
-  ok "$(xcodebuild -version | head -n1)"
+  ok "$(xcodebuild -version | sed -n 1p)"
 else
   problem "Xcode" "install Xcode 27.1 and run: sudo xcode-select -s /Applications/Xcode.app"
 fi
@@ -133,7 +136,7 @@ if sim="$(bash scripts/pick-sim.sh 2>/dev/null)"; then ok "iPhone simulator $sim
 # ------------------------------------------------------------------ Node / pnpm
 section "Node and pnpm"
 version_ge() { # dotted $1 >= $2
-  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)" = "$2" ]
+  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | sed -n 1p)" = "$2" ]
 }
 NODE_MIN="22.18.0"
 if command -v node >/dev/null 2>&1; then

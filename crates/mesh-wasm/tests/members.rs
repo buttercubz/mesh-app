@@ -124,10 +124,13 @@ fn p_member_ok(s: &Value, node_id: u64) -> bool {
 
 #[test]
 fn roaming_bots_drop_out_and_come_back() {
-    let mut p = Page::new(
-        r#"{"preset":"cluster15","nodes":4,"botsTalk":false,"seed":9,"roam":true,"roamMeanS":10}"#,
-    );
+    let mut p =
+        Page::new(r#"{"preset":"cluster15","nodes":4,"botsTalk":false,"seed":9,"roamMeanS":10}"#);
+    // Roaming starts once the ride has formed: a stay lasts at least 5 s, while forming
+    // a 4-phone ride takes ~8 s, so roaming from t = 0 would keep it from ever forming.
     formed(&mut p);
+    p.ok(json!({"type": "sim.roam", "on": true}));
+    assert_eq!(p.ok(json!({"type": "sim.info"}))["roam"], true);
     let (mut saw_away, mut saw_back) = (false, false);
     for _ in 0..240 {
         p.run_ms(500);

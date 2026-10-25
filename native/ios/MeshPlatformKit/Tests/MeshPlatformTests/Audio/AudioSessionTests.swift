@@ -122,14 +122,19 @@ final class AudioSessionControllerTests: XCTestCase {
         let c = AudioSessionController(port: FakeSessionPort(), center: center)
         let seen = Recorder<AudioSessionEvent>()
         c.startObserving { seen.add($0) }
+        var observesIOS27 = false
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
+            observesIOS27 = true
             // iOS 27: the deprecated notification is not observed (no double events).
             center.post(name: AVAudioSession.interruptionNotification, object: nil,
                         userInfo: [AVAudioSessionInterruptionTypeKey: NSNumber(value: 1)])
             XCTAssertTrue(seen.values.isEmpty)
             center.post(name: AVAudioSession.resumptionRecommendationNotification, object: nil, userInfo: [:])
             XCTAssertEqual(seen.values, [.interruptionEnded(shouldResume: false)], "no context → do not resume")
-        } else {
+        }
+        #endif
+        if !observesIOS27 {
             center.post(name: AVAudioSession.interruptionNotification, object: nil,
                         userInfo: [AVAudioSessionInterruptionTypeKey: NSNumber(value: 1)])
             XCTAssertEqual(seen.values, [.interruptionBegan(.otherSession)])

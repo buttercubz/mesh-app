@@ -11,6 +11,9 @@
 #
 # Usage: bash scripts/pick-sim.sh            (e.g. xcodebuild -destination "id=$(bash scripts/pick-sim.sh)")
 set -euo pipefail
+# With pipefail, never pipe a command into a reader that may exit early (head, grep -q):
+# the writer can die of SIGPIPE (exit 141) and fail the check (xcodebuild -version writes
+# its two lines ~8 ms apart; CI reported Xcode MISSING). Match on captured output instead.
 
 MIN_IOS="${MESH_SIM_MIN_IOS:-26.0}"
 min_major="${MIN_IOS%%.*}"
@@ -46,11 +49,11 @@ candidates="$(printf '%s' "$json" | jq -r \
   || fail "no available iPhone simulator with iOS >= $MIN_IOS. Fix: Xcode > Settings > Components (install an iOS runtime), or: xcrun simctl create \"iPhone\" <device-type> <runtime>"
 
 if [ -n "${MESH_SIM_UDID:-}" ]; then
-  if printf '%s\n' "$candidates" | cut -f1 | grep -qx "$MESH_SIM_UDID"; then
+  if grep -qx "$MESH_SIM_UDID" <<<"$(cut -f1 <<<"$candidates")"; then
     printf '%s\n' "$MESH_SIM_UDID"
     exit 0
   fi
   printf 'pick-sim: MESH_SIM_UDID=%s is not an available iPhone simulator; picking another\n' "$MESH_SIM_UDID" >&2
 fi
 
-printf '%s\n' "$candidates" | head -n1 | cut -f1
+sed -n 1p <<<"$candidates" | cut -f1

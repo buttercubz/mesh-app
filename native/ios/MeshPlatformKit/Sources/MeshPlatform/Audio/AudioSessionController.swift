@@ -136,7 +136,12 @@ public final class AudioSessionController: Sendable {
             guard let e, let l = self?.state.withLock({ $0.listener }) else { return }
             l(e)
         }
+        var observesIOS27 = false
+        // The iOS 27 notifications need the iOS 27 SDK (Xcode 27, Swift 6.4). Older SDKs
+        // (CI's macos-26 runner ships Xcode 26) compile only the legacy path.
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
+            observesIOS27 = true
             tokens.list.append(center.addObserver(forName: AVAudioSession.didBecomeInactiveNotification,
                                              object: nil, queue: nil) { n in
                 let ctx = n.userInfo?[AVAudioSession.deactivationContextKey] as? AVAudioSession.DeactivationContext
@@ -148,7 +153,9 @@ public final class AudioSessionController: Sendable {
                 let ctx = n.userInfo?[AVAudioSession.resumptionContextKey] as? AVAudioSession.ResumptionContext
                 emit(.interruptionEnded(shouldResume: ctx?.recommendation == .shouldResume))
             })
-        } else {
+        }
+        #endif
+        if !observesIOS27 {
             tokens.list.append(center.addObserver(forName: AVAudioSession.interruptionNotification,
                                              object: nil, queue: nil) { n in
                 emit(Self.legacyInterruptionEvent(n.userInfo ?? [:]))

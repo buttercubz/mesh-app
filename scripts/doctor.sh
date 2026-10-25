@@ -7,6 +7,9 @@
 #
 # Usage: bash scripts/doctor.sh
 set -uo pipefail
+# With pipefail, never pipe a command into a reader that may exit early (head, grep -q):
+# the writer can die of SIGPIPE (exit 141) and fail the check (xcodebuild -version writes
+# its two lines ~8 ms apart; CI reported Xcode MISSING). Match on captured output instead.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
@@ -20,7 +23,7 @@ warn()    { printf '  warn     %s\n           fix: %s\n' "$1" "$2"; warnings=$((
 info()    { printf '  info     %s\n' "$*"; }
 section() { printf '\n== %s\n' "$*"; }
 version_ge() { # dotted $1 >= $2
-  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | head -n1)" = "$2" ]
+  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | sed -n 1p)" = "$2" ]
 }
 toml_array() {
   awk -v key="$1" '
@@ -34,30 +37,30 @@ source scripts/env.sh
 
 # ------------------------------------------------------------------------- Rust
 section "Rust"
-PIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml 2>/dev/null | head -n1)"
+PIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml 2>/dev/null | sed -n 1p)"
 if ! command -v rustup >/dev/null 2>&1; then
   miss "rustup" "install rustup from https://rustup.rs, then bash scripts/bootstrap.sh"
 elif [ -z "$PIN" ]; then
   miss "rust-toolchain.toml channel" "restore rust-toolchain.toml (WP-00)"
-elif ! rustup toolchain list | grep -q "^$PIN-"; then
+elif ! grep -q "^$PIN-" <<<"$(rustup toolchain list)"; then
   miss "Rust toolchain $PIN (pinned by rust-toolchain.toml)" "bash scripts/bootstrap.sh (or: rustup toolchain install $PIN --profile minimal)"
 else
   ok "Rust toolchain $PIN ($(rustc "+$PIN" --version 2>/dev/null))"
   comps="$(rustup component list --installed --toolchain "$PIN" 2>/dev/null)"
   while IFS= read -r c; do
     [ -n "$c" ] || continue
-    if printf '%s\n' "$comps" | grep -Eq "^$c(-|$)"; then ok "component $c"
+    if grep -Eq "^$c(-|$)" <<<"$comps"; then ok "component $c"
     else miss "component $c ($PIN)" "rustup component add $c --toolchain $PIN"; fi
   done < <(toml_array components)
   tgts="$(rustup target list --installed --toolchain "$PIN" 2>/dev/null)"
   while IFS= read -r t; do
     [ -n "$t" ] || continue
-    if printf '%s\n' "$tgts" | grep -qx "$t"; then ok "target $t"
+    if grep -qx "$t" <<<"$tgts"; then ok "target $t"
     else miss "target $t ($PIN)" "rustup target add $t --toolchain $PIN"; fi
   done < <(toml_array targets)
 fi
 ndk_bin="$(command -v cargo-ndk 2>/dev/null || echo "$HOME/.cargo/bin/cargo-ndk")"
-if [ -x "$ndk_bin" ] && [ -n "$PIN" ] && rustup toolchain list | grep -q "^$PIN-"; then
+if [ -x "$ndk_bin" ] && [ -n "$PIN" ] && grep -q "^$PIN-" <<<"$(rustup toolchain list)"; then
   ndk_v="$(PATH="$(dirname "$ndk_bin"):$PATH" cargo ndk --version 2>/dev/null | awk '/^cargo-ndk /{print $2}')"
   if [ "${ndk_v%%.*}" = "4" ]; then ok "cargo-ndk $ndk_v"
   else miss "cargo-ndk ^4 (found ${ndk_v:-unknown})" "cargo install cargo-ndk --version ^4 --locked"; fi
@@ -88,7 +91,7 @@ else miss "SDK cmake $MESH_ANDROID_CMAKE_VERSION (+ ninja)" "$sdkm \"cmake;$MESH
 
 # ------------------------------------------------------------------------- Java
 section "Java"
-if [ -n "${JAVA_HOME:-}" ] && "$JAVA_HOME/bin/java" -version 2>&1 | grep -q "version \"$MESH_JAVA_VERSION[.\"]"; then
+if [ -n "${JAVA_HOME:-}" ] && grep -q "version \"$MESH_JAVA_VERSION[.\"]" <<<"$("$JAVA_HOME/bin/java" -version 2>&1)"; then
   ok "JDK $MESH_JAVA_VERSION (JAVA_HOME=$JAVA_HOME)"
 else
   miss "JDK $MESH_JAVA_VERSION (via /usr/libexec/java_home -v $MESH_JAVA_VERSION)" "brew install openjdk@$MESH_JAVA_VERSION"
@@ -96,7 +99,7 @@ fi
 
 # ------------------------------------------------------------------------ Apple
 section "Xcode / iOS simulators"
-if command -v xcodebuild >/dev/null 2>&1 && xv="$(xcodebuild -version 2>/dev/null | head -n1)"; then ok "$xv"
+if command -v xcodebuild >/dev/null 2>&1 && xv="$(xcodebuild -version 2>/dev/null | sed -n 1p)"; then ok "$xv"
 else miss "Xcode" "install Xcode 27.1, then: sudo xcode-select -s /Applications/Xcode.app"; fi
 if command -v jq >/dev/null 2>&1; then ok "jq"; else miss "jq" "brew install jq"; fi
 if udid="$(bash scripts/pick-sim.sh 2>/dev/null)"; then ok "iPhone simulator (scripts/pick-sim.sh): $udid"
@@ -125,7 +128,7 @@ fi
 
 # ------------------------------------------------------------------- MSRV probe
 section "MSRV probe (scripts/msrv-probe.sh --offline)"
-if [ -z "$PIN" ] || ! rustup toolchain list 2>/dev/null | grep -q "^$PIN-"; then
+if [ -z "$PIN" ] || ! grep -q "^$PIN-" <<<"$(rustup toolchain list 2>/dev/null)"; then
   miss "MSRV probe (pinned toolchain absent)" "bash scripts/bootstrap.sh"
 elif ! command -v jq >/dev/null 2>&1; then
   miss "MSRV probe (needs jq)" "brew install jq"
@@ -166,7 +169,7 @@ fi
 
 # ---------------------------------------------------------------- Optional items
 section "Optional (nightly fuzz job only)"
-if rustup toolchain list 2>/dev/null | grep -q '^nightly-'; then info "nightly toolchain present"
+if grep -q '^nightly-' <<<"$(rustup toolchain list 2>/dev/null)"; then info "nightly toolchain present"
 else info "nightly toolchain absent (optional: rustup toolchain install nightly)"; fi
 if command -v cargo-fuzz >/dev/null 2>&1; then info "cargo-fuzz present"
 else info "cargo-fuzz absent (optional: cargo install cargo-fuzz --locked)"; fi
