@@ -32,12 +32,14 @@ public enum InviteScanResult: Sendable, Equatable {
 
 /// QR invite scanner (`scanInviteQr`, DESIGN §10.1.1): VisionKit
 /// `DataScannerViewController` with `.barcode([.qr])`, presented full screen by the
-/// bridge. The first payload that passes the filter finishes the scan.
+/// bridge inside an `InviteScannerHost` that adds the close button VisionKit lacks.
+/// The first payload that passes the filter finishes the scan.
 @MainActor
 public final class InviteScanner: NSObject, DataScannerViewControllerDelegate {
     private let filter: InvitePayloadFilter
     var completion: ((InviteScanResult) -> Void)?
     private weak var scanner: DataScannerViewController?
+    private weak var host: UIViewController?
 
     public init(filter: InvitePayloadFilter = .invite()) {
         self.filter = filter
@@ -46,8 +48,9 @@ public final class InviteScanner: NSObject, DataScannerViewControllerDelegate {
     public static var isSupported: Bool { DataScannerViewController.isSupported }
     public static var isAvailable: Bool { DataScannerViewController.isAvailable }
 
-    /// Presents the scanner over `presenter`; `completion` runs once.
-    public func present(from presenter: UIViewController,
+    /// Presents the scanner over `presenter`; `completion` runs once. `closeLabel` is the
+    /// accessibility label of the close button (the bridge passes it localized).
+    public func present(from presenter: UIViewController, closeLabel: String = "Cancel",
                         completion: @escaping (InviteScanResult) -> Void) {
         guard Self.isSupported else { return completion(.unsupported) }
         guard Self.isAvailable else { return completion(.unavailable) }
@@ -61,9 +64,10 @@ public final class InviteScanner: NSObject, DataScannerViewControllerDelegate {
             isGuidanceEnabled: true,
             isHighlightingEnabled: true)
         vc.delegate = self
-        vc.modalPresentationStyle = .fullScreen
         scanner = vc
-        presenter.present(vc, animated: true) {
+        let host = InviteScannerHost(content: vc, closeLabel: closeLabel) { [weak self] in self?.cancel() }
+        self.host = host
+        presenter.present(host, animated: true) {
             do {
                 try vc.startScanning()
             } catch {
@@ -86,9 +90,9 @@ public final class InviteScanner: NSObject, DataScannerViewControllerDelegate {
     private func finish(_ r: InviteScanResult) {
         guard let done = completion else { return }
         completion = nil
-        if let s = scanner {
-            s.stopScanning()
-            s.dismiss(animated: true)
+        scanner?.stopScanning()
+        if let h = host, h.presentingViewController != nil {
+            h.dismiss(animated: true)
         }
         done(r)
     }
@@ -110,5 +114,61 @@ public final class InviteScanner: NSObject, DataScannerViewControllerDelegate {
     static func payload(_ item: RecognizedItem) -> String? {
         if case .barcode(let b) = item { return b.payloadStringValue }
         return nil
+    }
+}
+
+/// Full-screen container for the scanner: the scanner fills it as a child view
+/// controller and the close button sits above it as a sibling. VisionKit's own views
+/// (`overlayContainerView` included) swallow touches, so a button placed inside the
+/// scanner never fires (field report 2026-10-25: the scanner could not be closed).
+@MainActor
+final class InviteScannerHost: UIViewController {
+    private let content: UIViewController
+    private let closeLabel: String
+    private let onClose: () -> Void
+    private(set) var closeButton: UIButton?
+
+    init(content: UIViewController, closeLabel: String, onClose: @escaping () -> Void) {
+        self.content = content
+        self.closeLabel = closeLabel
+        self.onClose = onClose
+        super.init(nibName: nil, bundle: nil)
+        modalPresentationStyle = .fullScreen
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        addChild(content)
+        content.view.frame = view.bounds
+        content.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(content.view)
+        content.didMove(toParent: self)
+
+        var config = UIButton.Configuration.filled()
+        config.image = UIImage(systemName: "xmark")
+        config.cornerStyle = .capsule
+        config.baseBackgroundColor = UIColor.black.withAlphaComponent(0.6)
+        config.baseForegroundColor = .white
+        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in self?.onClose() })
+        button.accessibilityLabel = closeLabel
+        button.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(button)
+        NSLayoutConstraint.activate([
+            button.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            button.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            button.widthAnchor.constraint(equalToConstant: 44),
+            button.heightAnchor.constraint(equalToConstant: 44),
+        ])
+        closeButton = button
+    }
+
+    /// VoiceOver's two-finger scrub closes the scanner too.
+    override func accessibilityPerformEscape() -> Bool {
+        onClose()
+        return true
     }
 }

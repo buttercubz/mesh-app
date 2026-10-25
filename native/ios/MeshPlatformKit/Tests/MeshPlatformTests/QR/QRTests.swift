@@ -59,3 +59,41 @@ final class InviteScannerTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class InviteScannerHostTests: XCTestCase {
+    /// The close button must sit above the scanner as a sibling, never inside it: views
+    /// inside VisionKit's scanner do not receive taps (field report 2026-10-25).
+    func testCloseButtonIsOnTopOfTheScannerAndCloses() throws {
+        let content = UIViewController()
+        var closes = 0
+        let host = InviteScannerHost(content: content, closeLabel: "Cancelar") { closes += 1 }
+        host.loadViewIfNeeded()
+        let button = try XCTUnwrap(host.closeButton)
+        XCTAssertTrue(button.superview === host.view)
+        XCTAssertTrue(host.view.subviews.last === button, "button is the topmost view")
+        XCTAssertFalse(button.isDescendant(of: content.view))
+        XCTAssertTrue(content.parent === host)
+        XCTAssertEqual(button.accessibilityLabel, "Cancelar")
+        XCTAssertEqual(host.modalPresentationStyle, .fullScreen)
+        button.sendActions(for: .primaryActionTriggered)
+        XCTAssertEqual(closes, 1)
+        XCTAssertTrue(host.accessibilityPerformEscape())
+        XCTAssertEqual(closes, 2)
+    }
+
+    /// A tap at the button's centre hit-tests to the button, not to the scanner's views.
+    func testTapOnCloseButtonHitsTheButton() throws {
+        let content = UIViewController()
+        let host = InviteScannerHost(content: content, closeLabel: "Cancel") {}
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+        let button = try XCTUnwrap(host.closeButton)
+        let centre = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: host.view)
+        let hit = try XCTUnwrap(host.view.hitTest(centre, with: nil))
+        XCTAssertTrue(hit === button || hit.isDescendant(of: button))
+    }
+}
+

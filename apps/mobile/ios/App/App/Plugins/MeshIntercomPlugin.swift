@@ -7,7 +7,6 @@ import MeshEngineKit
 import MeshPlatform
 import UIKit
 import UserNotifications
-import VisionKit
 import os
 
 /// App-local MeshIntercom bridge (contract C6, DESIGN §2.4, §11.1; WP-19).
@@ -405,7 +404,8 @@ extension MeshIntercomPlugin {
             let scan = InviteScanner()
             self.scanner = scan
             // The plugin lives as long as the bridge: strong captures are fine here.
-            scan.present(from: presenter) { result in
+            let closeLabel = BuiltinNotificationCatalog.isSpanish ? "Cancelar" : "Cancel"
+            scan.present(from: presenter, closeLabel: closeLabel) { result in
                 if self.scanner === scan { self.scanner = nil }
                 switch result {
                 case .payload(let url): call.resolve(["url": url, "cancelled": false])
@@ -414,7 +414,6 @@ extension MeshIntercomPlugin {
                 case .unavailable: self.reject(call, "notSupported", detail: "camera unavailable or denied")
                 }
             }
-            ScannerChrome.addCloseButton(to: presenter.presentedViewController) { [weak scan] in scan?.cancel() }
         }
     }
 
@@ -668,32 +667,6 @@ final class PermissionCenter: NSObject, CBCentralManagerDelegate, CLLocationMana
             locationWaiters = []
             waiters.forEach { $0.resume() }
         }
-    }
-}
-
-// MARK: - Scanner chrome
-
-/// A close button over VisionKit's scanner, which has no cancel control of its own.
-@MainActor
-enum ScannerChrome {
-    static func addCloseButton(to presented: UIViewController?, onClose: @escaping () -> Void) {
-        guard let scanner = presented as? DataScannerViewController else { return }
-        var config = UIButton.Configuration.filled()
-        config.image = UIImage(systemName: "xmark")
-        config.cornerStyle = .capsule
-        config.baseBackgroundColor = UIColor.black.withAlphaComponent(0.6)
-        config.baseForegroundColor = .white
-        let button = UIButton(configuration: config, primaryAction: UIAction { _ in onClose() })
-        button.accessibilityLabel = BuiltinNotificationCatalog.isSpanish ? "Cancelar" : "Cancel"
-        button.translatesAutoresizingMaskIntoConstraints = false
-        let overlay = scanner.overlayContainerView
-        overlay.addSubview(button)
-        NSLayoutConstraint.activate([
-            button.topAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.topAnchor, constant: 12),
-            button.trailingAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            button.widthAnchor.constraint(equalToConstant: 44),
-            button.heightAnchor.constraint(equalToConstant: 44),
-        ])
     }
 }
 
