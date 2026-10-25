@@ -17,6 +17,7 @@ export { promptLang, promptTemplates, setPromptsCommand } from "./prompts";
 export type { SetPromptsCommand } from "./prompts";
 export { isOk, requiresGesture } from "@meshapp/engine-api";
 export type {
+  AwareStatus,
   DiagExportScope,
   DiagMarkLabel,
   DiagStatus,

@@ -85,6 +85,8 @@ impl Router {
     /// Voice on each target link through per-link admission. When any link refuses the
     /// burst with a reason, the burst is rejected (FLOOR_REJECT, tombstone) and this frame
     /// goes nowhere: hard enforcement never lets a doomed frame overfill another link.
+    /// BLE edge links of a backbone node refuse without a reason (the burst is shed on
+    /// that edge only and keeps flowing on the other links).
     fn send_voice(
         &mut self,
         now: Instant,
@@ -102,9 +104,10 @@ impl Router {
         for &(_, link) in targets {
             let cap = self.link_cap(link);
             let congestion = self.congestion(link);
+            let edge = self.is_edge_link(link);
             let d = self
                 .admission
-                .admits(now, link, b, &mut self.floor, cap, congestion);
+                .admits_at(now, link, b, &mut self.floor, cap, congestion, edge);
             match d {
                 AdmitDecision::Admitted => admitted.push(link),
                 AdmitDecision::AdmittedEvicting { victim, reason } => {

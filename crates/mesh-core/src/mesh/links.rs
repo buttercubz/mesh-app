@@ -198,6 +198,27 @@ impl Mesh {
         }
     }
 
+    /// Publishes the Wi-Fi backbone neighbors to `Ctx::aware_backbone` (hybrid groups:
+    /// the media module's per-segment near-talker cap).
+    pub fn refresh_backbone(&self, ctx: &mut Ctx) {
+        use mesh_routing::LinkKind as K;
+        let set: std::collections::BTreeSet<u16> = self
+            .router
+            .neighbors
+            .neighbors()
+            .filter(|n| {
+                n.links.get(K::Aware).is_some()
+                    || n.nbr
+                        .as_ref()
+                        .is_some_and(|r| r.entries.iter().any(|e| e.kind == Some(K::Aware)))
+            })
+            .map(|n| n.node_id)
+            .collect();
+        if ctx.aware_backbone != set {
+            ctx.aware_backbone = set;
+        }
+    }
+
     /// An NBR record from the neighbor on `link`.
     pub fn on_nbr(&mut self, ctx: &Ctx, link: LinkId, nbr: &Nbr) {
         if !self.links.contains_key(&link) {

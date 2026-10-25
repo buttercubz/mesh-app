@@ -2,7 +2,8 @@
 //! in-memory link, run the Noise XXpsk1 handshake and IDPROOF and reach link Up; frames
 //! with a tampered AAD byte or tag are dropped; a stranger without the PSK is refused
 //! before IDPROOF; simultaneous connects resolve to one link kept by the lower
-//! initiator `node_id`.
+//! initiator `node_id`; on a Wi-Fi Aware (datagram) link a reordered or lost IDPROOF
+//! is repaired by its retransmission and the Up end's answer.
 
 #[path = "../links/harness.rs"]
 mod harness;
@@ -253,4 +254,359 @@ fn a_third_nodes_collision_report_makes_the_newcomer_regenerate() {
     both.sort_unstable();
     assert_eq!(up_peers(&w, 0), both);
     assert!(roster(&w, 0, &g).contains(&after));
+}
+
+/// How the hand-driven Wi-Fi Aware link of [`aware_pair`] disturbs the datagrams.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AwareFault {
+    /// The initiator's IDPROOF overtakes its last handshake message (UDP reordering):
+    /// the responder cannot open it yet and drops it.
+    IdProofOvertakesMsg3,
+    /// The responder's IDPROOF datagram is lost. The initiator's IDPROOF is held back
+    /// until then so the responder's IDPROOF goes out alone (a datagram
+    /// that also carried its CAPS and JOIN_REQ would be a plain control-traffic loss,
+    /// repaired by the 30 s JOIN_REQ re-flood, not by IDPROOF).
+    ResponderIdProofLost,
+}
+
+/// Leader 0 (initiator) and member 1 (responder) over one Wi-Fi Aware link whose
+/// datagrams this test delivers by hand (1 ms per hop) with `fault` applied. Returns
+/// the world, the group, the link ids `(initiator, responder)` and whether the fault
+/// was actually exercised.
+fn aware_pair(salt: u8, fault: AwareFault) -> (harness::World, String, LinkId, LinkId, bool) {
+    use mesh_core::{LinkInfo, LinkKind, LinkRole, PlatformEvent};
+    use mesh_wire::frame::LinkFrame;
+
+    let mut w = harness::World::new(2, Platform::Android, salt);
+    let g = create(&mut w, 0, "Ana");
+    let url = invite_url(&w, 0, &g);
+    join(&mut w, 1, &url, "Ben");
+    start(&mut w, 0, &g);
+    start(&mut w, 1, &g);
+    // Link ids outside the harness's own range: the harness does not route them, so
+    // every datagram lands in `tx_log` and is delivered below.
+    let (la, lb) = (LinkId(7_000), LinkId(7_001));
+    let now = w.now;
+    for (i, link, role) in [(0, la, LinkRole::Initiator), (1, lb, LinkRole::Responder)] {
+        let info = LinkInfo::new(LinkKind::WifiAware, role);
+        w.nodes[i]
+            .engine
+            .handle_event(now, PlatformEvent::Up { link, info });
+        w.collect(i);
+    }
+    let mut cursor = [0usize; 2];
+    let mut exercised = false;
+    let mut held: Vec<Vec<u8>> = Vec::new();
+    let mut hold_done = false;
+    for _ in 0..5_000 {
+        let t = w.now.plus_ms(1);
+        w.run_until(t);
+        for (from, to, own, peer) in [(0, 1, la, lb), (1, 0, lb, la)] {
+            let mut batch: Vec<Vec<u8>> = w.nodes[from].tx_log[cursor[from]..]
+                .iter()
+                .filter(|(_, l, _)| *l == own.0)
+                .map(|(_, _, b)| b.clone())
+                .collect();
+            cursor[from] = w.nodes[from].tx_log.len();
+            let is_hs = |b: &[u8]| matches!(LinkFrame::decode(b), Ok(LinkFrame::Hs { .. }));
+            let is_sec = |b: &[u8]| matches!(LinkFrame::decode(b), Ok(LinkFrame::Sec { .. }));
+            if from == 0 && exercised {
+                batch.splice(0..0, std::mem::take(&mut held));
+            }
+            match fault {
+                AwareFault::ResponderIdProofLost if from == 0 && !hold_done => {
+                    if batch.iter().any(|b| is_hs(b)) && batch.iter().any(|b| is_sec(b)) {
+                        held = batch.iter().filter(|b| is_sec(b)).cloned().collect();
+                        batch.retain(|b| !is_sec(b));
+                        hold_done = true;
+                    }
+                }
+                AwareFault::IdProofOvertakesMsg3 if from == 0 && !exercised => {
+                    if batch.iter().any(|b| is_hs(b)) && batch.iter().any(|b| is_sec(b)) {
+                        // SEC datagrams (IDPROOF first) before the HS message 3.
+                        batch.sort_by_key(|b| is_hs(b));
+                        exercised = true;
+                    }
+                }
+                AwareFault::ResponderIdProofLost if from == 1 && hold_done && !exercised => {
+                    if let Some(pos) = batch.iter().position(|b| is_sec(b)) {
+                        batch.remove(pos);
+                        exercised = true;
+                    }
+                }
+                _ => {}
+            }
+            let now = w.now;
+            for b in batch {
+                w.nodes[to].engine.handle_packet(now, peer, &b);
+                w.collect(to);
+            }
+        }
+    }
+    (w, g, la, lb, exercised)
+}
+
+fn link_state(w: &harness::World, i: usize, link: LinkId) -> Option<LinkState> {
+    w.nodes[i].engine.ctx().links.get(link).map(|l| l.state)
+}
+
+#[test]
+fn aware_idproof_overtaking_the_last_handshake_message_still_completes() {
+    let (w, g, la, lb, exercised) = aware_pair(41, AwareFault::IdProofOvertakesMsg3);
+    assert!(exercised, "the IDPROOF never overtook message 3");
+    assert!(
+        bad_frames(&w, 1, lb) >= 1,
+        "the early IDPROOF reached the responder before its keys"
+    );
+    assert_eq!(link_state(&w, 0, la), Some(LinkState::Up));
+    assert_eq!(
+        link_state(&w, 1, lb),
+        Some(LinkState::Up),
+        "the responder re-sent its IDPROOF and the Up initiator answered with its own"
+    );
+    // Control traffic flows both ways: the member's JOIN_REQ reached the leader and
+    // the roster with both came back.
+    let both = {
+        let mut v = vec![node_id(&w, 0, &g), node_id(&w, 1, &g)];
+        v.sort_unstable();
+        v
+    };
+    assert_eq!(roster(&w, 0, &g), both);
+    assert_eq!(roster(&w, 1, &g), both);
+}
+
+#[test]
+fn aware_lost_responder_idproof_is_answered_and_the_link_comes_up() {
+    let (w, g, la, lb, exercised) = aware_pair(42, AwareFault::ResponderIdProofLost);
+    assert!(exercised, "no responder IDPROOF was dropped");
+    assert_eq!(link_state(&w, 0, la), Some(LinkState::Up));
+    assert_eq!(link_state(&w, 1, lb), Some(LinkState::Up));
+    let both = {
+        let mut v = vec![node_id(&w, 0, &g), node_id(&w, 1, &g)];
+        v.sort_unstable();
+        v
+    };
+    assert_eq!(roster(&w, 0, &g), both);
+    assert_eq!(roster(&w, 1, &g), both);
+    // Bounded: once both ends are Up nobody keeps re-sending IDPROOF (two Up ends
+    // never answer each other; the CAPS of each stops the other's answers).
+    let sec_after = |i: usize, link: LinkId| {
+        w.nodes[i]
+            .tx_log
+            .iter()
+            .filter(|(t, l, _)| *l == link.0 && *t >= 3_000_000)
+            .count()
+    };
+    let idle_tx = sec_after(0, la) + sec_after(1, lb);
+    assert!(
+        idle_tx < 200,
+        "{idle_tx} datagrams in the last 2 s of an idle pair"
+    );
+}
+
+/// Faults of [`aware_timed`], a hand-driven Wi-Fi Aware pair (leader 0 initiator,
+/// member 1 responder) with per-datagram delivery times at 100 µs resolution.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TimedFault {
+    /// Nothing is lost: the responder's first SEC datagram (its IDPROOF) is delivered
+    /// 0.3 ms *behind* its next datagram (CAPS and JOIN_REQ, sent once it is Up), well
+    /// inside the ±2 ms Aware jitter. The leader is still in IdProof when the JOIN_REQ
+    /// arrives.
+    JoinOvertakesIdProof,
+    /// The initiator's IDPROOF overtakes its message 3 (so the responder re-sends its
+    /// IDPROOF every 250 ms), the Up initiator's first answer is lost, and the
+    /// responder→initiator delay shrinks by 0.1 ms per resend (4 ms at first): the
+    /// repeated IDPROOFs arrive 249.9 ms apart.
+    ShrinkingDelayLostAnswer,
+}
+
+struct TimedRun {
+    w: harness::World,
+    g: String,
+    la: LinkId,
+    lb: LinkId,
+    exercised: bool,
+    /// First repeated responder IDPROOF seen at the Up initiator (µs).
+    first_repeat_at: Option<u64>,
+    /// When the responder's link went Up (µs).
+    responder_up_at: Option<u64>,
+}
+
+fn aware_timed(salt: u8, fault: TimedFault, run_us: u64) -> TimedRun {
+    use mesh_core::{Instant, LinkInfo, LinkKind, LinkRole, PlatformEvent};
+    use mesh_wire::frame::LinkFrame;
+
+    let mut w = harness::World::new(2, Platform::Android, salt);
+    let g = create(&mut w, 0, "Ana");
+    let url = invite_url(&w, 0, &g);
+    join(&mut w, 1, &url, "Ben");
+    start(&mut w, 0, &g);
+    start(&mut w, 1, &g);
+    let (la, lb) = (LinkId(7_000), LinkId(7_001));
+    let now = w.now;
+    for (i, link, role) in [(0, la, LinkRole::Initiator), (1, lb, LinkRole::Responder)] {
+        let info = LinkInfo::new(LinkKind::WifiAware, role);
+        w.nodes[i]
+            .engine
+            .handle_event(now, PlatformEvent::Up { link, info });
+        w.collect(i);
+    }
+    let t0 = w.now.0;
+    let is_hs = |b: &[u8]| matches!(LinkFrame::decode(b), Ok(LinkFrame::Hs { .. }));
+    let is_sec = |b: &[u8]| matches!(LinkFrame::decode(b), Ok(LinkFrame::Sec { .. }));
+    let mut cursor = [0usize; 2];
+    // (deliver at, to, link at the receiver, datagram)
+    let mut queue: Vec<(u64, usize, LinkId, Vec<u8>)> = Vec::new();
+    let mut held: Option<Vec<u8>> = None;
+    let mut hs_from_initiator = 0u32;
+    let mut exercised = false;
+    let mut first_repeat_at = None;
+    let mut responder_up_at = None;
+    // Length of the responder's first SEC datagram (its IDPROOF): its repeats have the
+    // same length, which tells them apart from PING / LSTAT without decrypting.
+    let mut idproof_len: Option<usize> = None;
+    let mut t = t0;
+    while t < t0 + run_us {
+        t += 100;
+        w.run_until(Instant(t));
+        let now = w.now.0;
+        for (from, to, own, peer) in [(0usize, 1usize, la, lb), (1, 0, lb, la)] {
+            let batch: Vec<Vec<u8>> = w.nodes[from].tx_log[cursor[from]..]
+                .iter()
+                .filter(|(_, l, _)| *l == own.0)
+                .map(|(_, _, b)| b.clone())
+                .collect();
+            cursor[from] = w.nodes[from].tx_log.len();
+            for b in batch {
+                if from == 1 && idproof_len.is_none() && is_sec(&b) {
+                    idproof_len = Some(b.len());
+                }
+                let mut at = now + 1_000;
+                match fault {
+                    TimedFault::JoinOvertakesIdProof if from == 1 && !exercised && is_sec(&b) => {
+                        match held.take() {
+                            None => {
+                                held = Some(b);
+                                continue;
+                            }
+                            Some(idproof) => {
+                                queue.push((now + 1_300, to, peer, idproof));
+                                exercised = true;
+                            }
+                        }
+                    }
+                    TimedFault::ShrinkingDelayLostAnswer if from == 0 && !exercised => {
+                        if is_hs(&b) {
+                            hs_from_initiator += 1;
+                            if hs_from_initiator == 2 {
+                                held = Some(b);
+                                continue;
+                            }
+                        } else if let Some(m3) = held.take() {
+                            // The IDPROOF first, message 3 right behind it.
+                            queue.push((at, to, peer, b));
+                            queue.push((at, to, peer, m3));
+                            exercised = true;
+                            continue;
+                        }
+                    }
+                    TimedFault::ShrinkingDelayLostAnswer if from == 1 && exercised => {
+                        // 4 ms, minus 0.4 ms per second since the start (0.1 ms per resend).
+                        at = now
+                            + 4_000u64
+                                .saturating_sub((now - t0) * 400 / 1_000_000)
+                                .max(500);
+                    }
+                    TimedFault::ShrinkingDelayLostAnswer
+                        if from == 0
+                            && first_repeat_at.is_some_and(|f| now >= f && now < f + 10_000) =>
+                    {
+                        // The Up initiator's first answer is lost.
+                        continue;
+                    }
+                    _ => {}
+                }
+                queue.push((at, to, peer, b));
+            }
+        }
+        queue.sort_by_key(|q| q.0);
+        let due: Vec<_> = queue.iter().filter(|q| q.0 <= t).cloned().collect();
+        queue.retain(|q| q.0 > t);
+        for (_, to, peer, b) in due {
+            if fault == TimedFault::ShrinkingDelayLostAnswer
+                && first_repeat_at.is_none()
+                && to == 0
+                && is_sec(&b)
+                && Some(b.len()) == idproof_len
+                && link_state(&w, 0, la) == Some(LinkState::Up)
+                && link_state(&w, 1, lb) == Some(LinkState::IdProof)
+            {
+                first_repeat_at = Some(w.now.0);
+            }
+            let now = w.now;
+            w.nodes[to].engine.handle_packet(now, peer, &b);
+            w.collect(to);
+        }
+        if responder_up_at.is_none() && link_state(&w, 1, lb) == Some(LinkState::Up) {
+            responder_up_at = Some(w.now.0);
+        }
+    }
+    TimedRun {
+        w,
+        g,
+        la,
+        lb,
+        exercised,
+        first_repeat_at,
+        responder_up_at,
+    }
+}
+
+/// Regression: a member JOIN_REQ that overtakes its own IDPROOF on an Aware link (no
+/// loss, a 0.3 ms reorder) was dropped by the leader still in IdProof and only came back
+/// with the 30 s JOIN_REQ re-flood. The leader now keeps it and replays it once Up.
+#[test]
+fn aware_join_req_overtaking_its_idproof_is_replayed_once_up() {
+    let r = aware_timed(45, TimedFault::JoinOvertakesIdProof, 3_000_000);
+    assert!(
+        r.exercised,
+        "the member's IDPROOF never fell behind its JOIN_REQ"
+    );
+    assert_eq!(link_state(&r.w, 0, r.la), Some(LinkState::Up));
+    assert_eq!(link_state(&r.w, 1, r.lb), Some(LinkState::Up));
+    let mut both = vec![node_id(&r.w, 0, &r.g), node_id(&r.w, 1, &r.g)];
+    both.sort_unstable();
+    assert_eq!(
+        roster(&r.w, 0, &r.g),
+        both,
+        "leader roster 3 s after link-up"
+    );
+    assert_eq!(
+        roster(&r.w, 1, &r.g),
+        both,
+        "member roster 3 s after link-up"
+    );
+}
+
+/// Regression: the answer gate equalled the resend period, so a repeated IDPROOF that
+/// arrived 249.9 ms after the last answered one (network delay shrinking by 0.1 ms) was
+/// ignored and, after a lost answer, completion slipped a full extra period. The second
+/// repeat is answered now: the responder is Up within one resend period of the first.
+#[test]
+fn aware_repeated_idproof_with_shrinking_delay_is_answered_every_period() {
+    let r = aware_timed(41, TimedFault::ShrinkingDelayLostAnswer, 2_000_000);
+    assert!(
+        r.exercised,
+        "the initiator's IDPROOF never overtook message 3"
+    );
+    let first = r
+        .first_repeat_at
+        .expect("a repeated responder IDPROOF reached the initiator");
+    let up = r.responder_up_at.expect("the responder came Up");
+    assert!(
+        up < first + 400_000,
+        "responder Up {} µs after the first repeat (the second repeat went unanswered)",
+        up - first
+    );
+    assert_eq!(link_state(&r.w, 0, r.la), Some(LinkState::Up));
 }

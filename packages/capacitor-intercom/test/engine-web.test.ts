@@ -88,7 +88,7 @@ describe("default backend", () => {
 describe("MeshIntercomWeb over @meshapp/engine-web", () => {
   it("runs a ride through the C6 surface with native gating", async () => {
     const h = await harness();
-    expect(await h.plugin.getInfo()).toMatchObject({ platform: "web", engine: "full", apiVersion: "1.1" });
+    expect(await h.plugin.getInfo()).toMatchObject({ platform: "web", engine: "full", apiVersion: "1.2" });
     expect(await h.plugin.getStatus()).toEqual({ engine: "idle", live: false, uiAttached: true });
 
     expect((await h.send({ type: "setDisplayName", name: "Me" })).ok).toBe(true);

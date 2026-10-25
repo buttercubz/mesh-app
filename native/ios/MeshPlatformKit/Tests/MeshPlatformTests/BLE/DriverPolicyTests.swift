@@ -30,6 +30,16 @@ final class ScanPolicyTests: XCTestCase {
         XCTAssertEqual(decide(.stable, links: 0, armed: 3, hint: .hunt),
                        ScanPolicy(scan: true, allowDuplicates: false))
     }
+
+    func testFilteredScanIsRefreshedPeriodically() {
+        // Range edge: a filtered scan reports a peer once, so it is restarted to re-report.
+        let filtered = ScanPolicy(scan: true, allowDuplicates: false)
+        XCTAssertFalse(filtered.needsRefresh(startedAt: 10, now: 13.9))
+        XCTAssertTrue(filtered.needsRefresh(startedAt: 10, now: 10 + ScanPolicy.refreshInterval))
+        XCTAssertLessThan(ScanPolicy.refreshInterval, 10) // under the core's candidate TTL
+        XCTAssertFalse(ScanPolicy(scan: true, allowDuplicates: true).needsRefresh(startedAt: 0, now: 60))
+        XCTAssertFalse(ScanPolicy(scan: false, allowDuplicates: false).needsRefresh(startedAt: 0, now: 60))
+    }
 }
 
 final class RepublishBackoffTests: XCTestCase {

@@ -136,13 +136,15 @@ impl Mesh {
             .neighbors
             .link(link)
             .is_some_and(|l| cap < self.router.cfg.limits.s_max(l.kind));
-        let d = self.router.admission.admits(
+        let edge = self.router.is_edge_link(link);
+        let d = self.router.admission.admits_at(
             ctx.now.routing(),
             link,
             b,
             &mut self.router.floor,
             cap,
             congestion,
+            edge,
         );
         if d.admitted() {
             self.router.neighbors.mark_voice_tx(ctx.now.routing(), link);

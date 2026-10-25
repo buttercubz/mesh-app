@@ -1,7 +1,7 @@
 // @meshapp/ui-kit public API (WP-20, DESIGN §11.5). Styles ship as separate entry
 // points: "@meshapp/ui-kit/theme.css" (Tailwind v4 apps) or "@meshapp/ui-kit/styles.css".
 export { cx } from "./cx.js";
-export { DURATION_UI_MS, INTERCOM_TOKENS, PTT_SIZE_PX, TARGET_MIN_PX, type IntercomToken } from "./constants.js";
+export { DURATION_UI_MS, INTERCOM_TOKENS, PTT_SIZE_PX, TARGET_MIN_PX, TARGET_RIDE_PX, type IntercomToken } from "./constants.js";
 export {
   applyTheme,
   resolveTheme,
@@ -37,6 +37,7 @@ export {
 } from "./components/SegmentedControl.js";
 export { ListRow, ListSection, type ListRowProps, type ListSectionProps } from "./components/ListRow.js";
 export { Badge, type BadgeProps, type BadgeTone } from "./components/Badge.js";
+export { Avatar, avatarHue, initials, type AvatarDotTone, type AvatarProps } from "./components/Avatar.js";
 export {
   QualityBars,
   clampBars,

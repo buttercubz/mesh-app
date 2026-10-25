@@ -34,6 +34,8 @@ pub struct GroupCore {
     /// Display name / vehicle set without a group (used at create/join).
     pub(crate) display_name: String,
     pub(crate) vehicle: Option<Vehicle>,
+    /// `group_cap_override` to restore when the open channel ends.
+    pub(crate) saved_cap: Option<Option<u8>>,
 }
 
 impl GroupCore {
@@ -67,6 +69,13 @@ impl GroupCore {
     /// Writes `group/<hex>` and `groups/index`, and mirrors the blob into
     /// `cfg.stored_groups` so `Engine::start` finds the group.
     pub(crate) fn persist(&mut self, ctx: &mut Ctx, id: [u8; 16]) {
+        if let Some(g) = self.groups.get(&id)
+            && g.open.is_some()
+        {
+            // Open channels are never persisted: only the in-memory mirror changes.
+            super::open::mirror(ctx, g);
+            return;
+        }
         let blob = if let Some(g) = self.groups.get(&id) {
             Some(store::encode(g))
         } else {
@@ -84,7 +93,9 @@ impl GroupCore {
         }
         let ids: Vec<[u8; 16]> = self
             .groups
-            .keys()
+            .values()
+            .filter(|g| g.open.is_none())
+            .map(|g| &g.id)
             .chain(self.closed.keys())
             .copied()
             .collect();
@@ -213,6 +224,11 @@ impl CoreModule for GroupCore {
     fn on_mode(&mut self, ctx: &mut Ctx, mode: EngineMode) {
         self.ensure_loaded(ctx);
         self.stop_session(ctx);
+        let keep = match mode {
+            EngineMode::Session { group_id } => Some(group_id),
+            _ => None,
+        };
+        self.drop_open(ctx, keep);
         if let EngineMode::Session { group_id } = mode {
             self.start_session(ctx, group_id);
         }
@@ -283,6 +299,9 @@ impl CoreModule for GroupCore {
         if !g.in_roster() {
             t = t.min(act.join_next.max(self.now.plus_us(1)));
         }
+        if let Some(r) = crate::secure::admit::next_resend(self) {
+            t = t.min(r.max(self.now.plus_us(1)));
+        }
         Some(t)
     }
 
@@ -309,5 +328,6 @@ impl CoreModule for GroupCore {
         if let Some(g) = self.groups.get(&act.group_id) {
             crate::session::view::fill(&act.session, ctx, g, s);
         }
+        self.fill_open(s);
     }
 }

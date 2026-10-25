@@ -49,6 +49,7 @@ impl Rig {
             rt_flags: 0,
             media_bus: Vec::new(),
             media_latency: None,
+            aware_backbone: std::collections::BTreeSet::new(),
             mesh_seq: 0,
             originated: Vec::new(),
             diag: mesh_core::diag::DiagTracker::default(),

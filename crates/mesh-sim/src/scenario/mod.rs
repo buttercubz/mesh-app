@@ -14,6 +14,9 @@ pub mod common;
 pub mod lab;
 pub mod s1;
 pub mod s10;
+pub mod s14;
+pub mod s15;
+pub mod s16;
 pub mod s2;
 pub mod s3;
 pub mod s4;
@@ -157,6 +160,36 @@ pub fn registry() -> Vec<Scenario> {
             title: "lab-bench-sim: T0/T0b/T0c/T3 against simulated peers, each audio path and anchor",
             phase: 0,
             run: s10::run,
+        },
+        Scenario {
+            id: "S14",
+            title: "fading-pair: iPhone + Android tablet, 10.5 m in a fading null, 21 m, edge of range",
+            phase: 1,
+            run: s14::run,
+        },
+        Scenario {
+            id: "S15",
+            title: "distance-sweep: S14 pair at 5-60 m, shadowing on the PDR cliff, null at 10.5 m",
+            phase: 1,
+            run: s15::run,
+        },
+        Scenario {
+            id: "S16",
+            title: "hybrid: 4 Android on Wi-Fi Aware + 2 iPhones on BLE only, Aware backbone, BLE edge",
+            phase: 4,
+            run: s16::run,
+        },
+        Scenario {
+            id: "S16b",
+            title: "hybrid at 60 kbps BLE: the two top island talkers have Aware-only egress, BLE edges carry their streams",
+            phase: 4,
+            run: s16::run_ble60,
+        },
+        Scenario {
+            id: "S16c",
+            title: "hybrid star: Aware island shaped as a star on one hub, leaves are the 3rd and 4th island talkers",
+            phase: 4,
+            run: s16::run_star,
         },
     ]
 }

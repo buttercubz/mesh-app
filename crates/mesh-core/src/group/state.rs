@@ -43,7 +43,18 @@ pub struct Group {
     /// Leader-local invite expiry (unix minutes).
     pub expires_at: Option<u32>,
     pub aware_pairing: bool,
+    /// Open channel number (1-9) of a public open channel: deterministic keys, no
+    /// leader, no roster, never persisted (`None` for a private group).
+    pub open: Option<u8>,
 }
+
+/// Policy byte of open channels: voice TTL 2 (below the invite range 3-6: public
+/// channels stay local), 40 ms BLE frames, no leader priority (there is no leader).
+pub const OPEN_POLICY: InvitePolicy = InvitePolicy((2 - 1) << 5);
+
+/// Leader key of open channels: no Ed25519 key, so no roster, rekey or group control
+/// ever verifies and nobody is leader.
+pub const OPEN_NO_LEADER: [u8; 32] = [0u8; 32];
 
 /// A closed group kept only for the group list (its secrets are deleted, §8.6 step 6).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,9 +97,43 @@ impl Group {
             book: BTreeMap::new(),
             expires_at: None,
             aware_pairing: false,
+            open: None,
         };
         g.remember(*g.identity.public(), platform, display_name);
         g
+    }
+
+    /// Open channel `channel` (1-9): keys derived from the public channel context, a
+    /// fresh ephemeral identity per session (no stable identity on air), no leader.
+    pub fn open_channel(
+        channel: u8,
+        display_name: &str,
+        vehicle: Vehicle,
+        platform: u8,
+        rng: &mut ChaCha20Rng,
+    ) -> Option<Group> {
+        let keys = mesh_crypto::open_channel::derive(channel)?;
+        let id = keys.group_id;
+        let identity = GroupIdentity::generate(rng);
+        let keyring = EpochKeyring::new(KeySchedule::new(id, 0, keys.epoch_secret.clone()));
+        let mut g = Group {
+            id,
+            name: format!("#{channel}"),
+            vehicle,
+            policy: OPEN_POLICY,
+            display_name: display_name.to_owned(),
+            control: Control::new(id, OPEN_NO_LEADER, 0),
+            invite_leader: OPEN_NO_LEADER,
+            identity,
+            keyring,
+            unverified_leader: false,
+            book: BTreeMap::new(),
+            expires_at: None,
+            aware_pairing: false,
+            open: Some(channel),
+        };
+        g.remember(*g.identity.public(), platform, display_name);
+        Some(g)
     }
 
     /// F2 Join from a parsed invite: a fresh per-group identity, the invite's epoch.
@@ -114,6 +159,7 @@ impl Group {
             book: BTreeMap::new(),
             expires_at: None,
             aware_pairing: invite.aware_pairing(),
+            open: None,
         }
     }
 

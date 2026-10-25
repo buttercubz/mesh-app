@@ -9,6 +9,14 @@
 //! (lowest) raw value seen during the hold. If `grant` stays below `cost(1)` for 3 s, the
 //! relay floods `PATH_HINT{BLE12}` (and re-floods every 20 s while the condition holds,
 //! so the origins' 30 s BLE12 hold never lapses).
+//!
+//! **One stream of the lowest profile.** When not even one stream of the current profile
+//! fits but one stream of the lowest profile does (BLE12 on BLE), the raw cap is 1, not
+//! 0: the link degrades (PATH_HINT, origins at 12 kbps) instead of refusing every burst
+//! with `FLOOR_REJECT{CONGESTION}`. The PATH_HINT trigger always compares the grant with
+//! `cost(1)` of the **default** profile ([`CapModels::hint`]), so while a relay itself
+//! runs the BLE12 cost model the hint keeps being re-flooded and the hold never lapses
+//! into a BLE16 → BLE12 flap.
 
 use crate::consts::{CAP_DOWN_US, CAP_UP_US, PATH_HINT_REFLOOD_US, PATH_HINT_TRIGGER_US};
 use crate::cost::CostModel;
@@ -25,6 +33,38 @@ pub struct CapUpdate {
     pub changed: bool,
     /// Flood `PATH_HINT{BLE12}` now.
     pub path_hint: bool,
+}
+
+/// The cost models one cap update uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CapModels {
+    /// The profile streams use now (`cap_pacing`).
+    pub cap: CostModel,
+    /// The lowest profile streams can degrade to: one stream of it keeps the cap at 1.
+    pub fallback: CostModel,
+    /// The default profile the PATH_HINT trigger is measured against.
+    pub hint: CostModel,
+}
+
+impl CapModels {
+    /// One profile for everything (no degradation).
+    pub const fn single(model: CostModel) -> Self {
+        CapModels {
+            cap: model,
+            fallback: model,
+            hint: model,
+        }
+    }
+
+    /// `cap_pacing` with the one-stream fallback.
+    pub const fn cap_pacing(&self, grant_bps: u32, s_max: u8) -> u8 {
+        let raw = self.cap.cap_pacing(grant_bps, s_max);
+        if raw == 0 && s_max > 0 && self.fallback.cap_pacing(grant_bps, 1) == 1 {
+            1
+        } else {
+            raw
+        }
+    }
 }
 
 /// Cap estimator of one link.
@@ -57,7 +97,18 @@ impl CapEstimator {
         s_max: u8,
         model: &CostModel,
     ) -> CapUpdate {
-        let raw = model.cap_pacing(grant_bps, s_max);
+        self.update_with(now, grant_bps, s_max, &CapModels::single(*model))
+    }
+
+    /// [`Self::update`] with a fallback profile and a separate PATH_HINT reference.
+    pub fn update_with(
+        &mut self,
+        now: Instant,
+        grant_bps: u32,
+        s_max: u8,
+        models: &CapModels,
+    ) -> CapUpdate {
+        let raw = models.cap_pacing(grant_bps, s_max);
         let mut changed = false;
         let published = match self.published {
             None => {
@@ -103,7 +154,7 @@ impl CapEstimator {
                 p
             }
         };
-        let path_hint = self.path_hint_due(now, grant_bps, model);
+        let path_hint = self.path_hint_due(now, grant_bps, &models.hint);
         CapUpdate {
             raw,
             published,
@@ -186,6 +237,52 @@ mod tests {
             raised_at.map(|r| r.since(dropped_at.unwrap_or(t))),
             Some(5_500_000)
         );
+    }
+
+    #[test]
+    fn one_ble12_stream_keeps_cap_one() {
+        let models = CapModels {
+            cap: CostModel::new(mesh_wire::mesh::EncoderProfile::Ble16),
+            fallback: CostModel::new(mesh_wire::mesh::EncoderProfile::Ble12),
+            hint: CostModel::new(mesh_wire::mesh::EncoderProfile::Ble16),
+        };
+        // 25.1 kbps: no BLE16 stream fits (29.6 kbps), one BLE12 stream does.
+        assert_eq!(models.cap.cap_pacing(25_112, 2), 0);
+        assert_eq!(models.cap_pacing(25_112, 2), 1);
+        assert_eq!(models.cap_pacing(25_111, 2), 0);
+        assert_eq!(models.cap_pacing(60_000, 2), 2);
+        let mut c = CapEstimator::new();
+        let t = Instant::from_secs(1);
+        assert_eq!(c.update_with(t, G60, 2, &models).published, 2);
+        let mut hints = Vec::new();
+        let mut published = Vec::new();
+        for i in 1..=100u64 {
+            let now = t.plus_ms(500 * i);
+            let u = c.update_with(now, 25_112, 2, &models);
+            published.push(u.published);
+            if u.path_hint {
+                hints.push(now.since(t) / 1_000);
+            }
+        }
+        // Down to 1 after 2 s, never 0; the BLE12 hint at 3 s and every 20 s after.
+        assert!(published.iter().all(|p| *p >= 1));
+        assert_eq!(published.last(), Some(&1));
+        assert_eq!(hints, vec![3_500, 23_500, 43_500]);
+        // While the relay runs the BLE12 cost model itself, the hint reference stays
+        // BLE16: the hold is refreshed, not left to lapse.
+        let held = CapModels {
+            cap: CostModel::new(mesh_wire::mesh::EncoderProfile::Ble12),
+            ..models
+        };
+        let mut c = CapEstimator::new();
+        let mut n = 0;
+        for i in 0..=100u64 {
+            n += usize::from(
+                c.update_with(t.plus_ms(500 * i), 25_112, 2, &held)
+                    .path_hint,
+            );
+        }
+        assert_eq!(n, 3);
     }
 
     #[test]

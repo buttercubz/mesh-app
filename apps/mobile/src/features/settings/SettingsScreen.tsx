@@ -3,7 +3,8 @@
 // Diagnostics (ridelog/1 recorder) and about with the honest range promise.
 import type { Vehicle } from "@meshapp/engine-api";
 import type { ThemePreference } from "@meshapp/ui-kit";
-import { Button, ListSection, SegmentedControl } from "@meshapp/ui-kit";
+import { Avatar, Button, ListSection, SegmentedControl } from "@meshapp/ui-kit";
+import { Bike, Car, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
 import type { ScreenProps } from "../../app/router";
@@ -18,9 +19,30 @@ import { NameField } from "../group/NameField";
 import { runCommand } from "../group/session";
 import { FieldTestRow } from "../lab/entry";
 import { ONBOARDING_SCREEN } from "../onboarding/ids";
+import { AwareSection } from "./AwareSection";
 import { SettingRow, SettingsGroup, Switch } from "./controls";
 import { DiagnosticsSection } from "./DiagnosticsSection";
 import { TalkSettings } from "./TalkSettings";
+
+/** Who this phone is to the group: avatar, name and vehicle at a glance. */
+function ProfileHeader() {
+  const { t: tc } = useT("common");
+  const name = useSettingsStore((s) => s.displayName);
+  const vehicle = useSettingsStore((s) => s.vehicle);
+  const VehicleIcon = vehicle === "car" ? Car : Bike;
+  return (
+    <div className="flex items-center gap-4 px-1 pt-2" data-testid="settings-profile">
+      <Avatar name={name.trim() === "" ? "?" : name} size={64} />
+      <div className="min-w-0">
+        <p className="truncate text-2xl font-bold tracking-tight">{name}</p>
+        <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+          <VehicleIcon aria-hidden="true" className="size-4" />
+          {tc(`vehicle.${vehicle}`)}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function ProfileSettings() {
   const { t } = useT("settings");
@@ -149,6 +171,7 @@ function AboutSettings() {
       </div>
       <div className="px-4 py-3">
         <Button variant="secondary" block onClick={() => useRouter.getState().push(ONBOARDING_SCREEN)}>
+          <RotateCcw aria-hidden="true" />
           {t("about.setupAgain")}
         </Button>
       </div>
@@ -160,17 +183,19 @@ export function SettingsScreen(_props: ScreenProps) {
   const { t } = useT("settings");
   return (
     <ScreenLayout title={t("title")}>
-      <div className="mx-auto flex max-w-xl flex-col gap-6 pb-8" data-testid="settings-screen">
+      <div className="mx-auto flex max-w-xl flex-col gap-7 pb-8" data-testid="settings-screen">
+        <ProfileHeader />
         <ProfileSettings />
         <TalkSettings />
         <DisplaySettings />
         <PrivacySettings />
-        <section className="flex flex-col gap-1.5">
-          <h2 className="px-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t("fieldTest.title")}</h2>
+        <section className="flex flex-col gap-2">
+          <h2 className="px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{t("fieldTest.title")}</h2>
           <ListSection>
             <FieldTestRow />
           </ListSection>
         </section>
+        <AwareSection />
         <DiagnosticsSection />
         <AboutSettings />
       </div>

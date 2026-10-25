@@ -12,7 +12,10 @@
 //! their age at enqueue and get `age` rewritten at dequeue (local residence added,
 //! §4.5). When the voice backlog overflows, the link sheds the **lowest-ranked burst
 //! entirely** ([`ShedEvent`]); the caller stops admitting it on that link, marks the
-//! link congested and the next NBR advertises the lower vcap.
+//! link congested and the next NBR advertises the lower vcap. Stream-level shedding
+//! settles contention between bursts: with a **single** burst queued there is nothing
+//! to choose between, so the oldest frames go instead and the stream continues (a lone
+//! talker on a slow or fading link loses frames, never the rest of the burst).
 
 use std::collections::VecDeque;
 
@@ -196,7 +199,19 @@ impl LinkQueue {
         self.voice.push_back(p);
         let limit = (u64::from(rate_bps) * VOICE_BACKLOG_US / 8_000_000) as usize;
         while self.voice_bytes() > limit && !self.voice.is_empty() {
-            // Shed the lowest-ranked burst present in the queue, entirely.
+            // Shed the lowest-ranked burst present in the queue, entirely, when bursts
+            // compete; a lone burst only loses its oldest frame.
+            let first = self.voice.iter().find_map(|q| q.burst);
+            let competing = self
+                .voice
+                .iter()
+                .filter_map(|q| q.burst)
+                .any(|k| Some(k) != first);
+            if !competing {
+                let old = self.voice.pop_front();
+                ev.push(ShedEvent::Frame(old.and_then(|o| o.burst)));
+                continue;
+            }
             let victim = self.voice.iter().filter_map(|q| q.burst).max_by(|a, b| {
                 match (table.get(*a), table.get(*b)) {
                     (Some(x), Some(y)) => x.rank.cmp(&y.rank),

@@ -99,10 +99,25 @@ pub enum RadioCommand {
     },
     /// Keep an outstanding reconnect to a lost peer (T3 variant, §9.5).
     ArmReconnect { peer_ref: u32, until_s: u16 },
-    /// Wi-Fi Aware upgrade step (Phase 4).
-    AwareUpgrade { peer: u16, op: u8 },
+    /// Wi-Fi Aware upgrade step (Phase 4). `pmk` is set with op 2 (build the data path)
+    /// on Android: `aware_pmk` salted with the BLE link's Noise handshake hash (§8.3, §9.6).
+    AwareUpgrade {
+        peer: u16,
+        op: u8,
+        pmk: Option<AwarePmk>,
+    },
     /// v2 tunnel hook (designed, not built).
     TunnelOpen { peer: u16 },
+}
+
+/// The 32-byte Wi-Fi Aware data-path PMK (`aware_pmk`, §8.3). `Debug` never prints it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct AwarePmk(pub [u8; 32]);
+
+impl core::fmt::Debug for AwarePmk {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("AwarePmk(..)")
+    }
 }
 
 /// Kind of audio session (`AudioCommand::OpenSession`).

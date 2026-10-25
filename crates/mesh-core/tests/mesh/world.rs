@@ -69,6 +69,10 @@ impl LinkSecurity for TestSec {
     fn overhead(&self) -> usize {
         self.0.overhead()
     }
+    /// The same fixed "handshake hash" on both ends (Aware PMK derivation tests).
+    fn channel_binding(&self) -> Option<[u8; 32]> {
+        Some([7; 32])
+    }
 }
 
 /// A packet a test injects at its origin: `(priority, MESH body, deadline)`.

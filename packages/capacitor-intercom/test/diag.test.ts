@@ -75,7 +75,7 @@ describe("diagnostics (C6 1.1)", () => {
   });
 
   it("declares the C6 version and the fixed mark labels", () => {
-    expect(PLUGIN_API_VERSION).toBe("1.1");
+    expect(PLUGIN_API_VERSION).toBe("1.2");
     expect(DIAG_MARK_LABELS).toEqual(["crackle", "cantHear", "notHeard", "lag", "dropped", "other"]);
   });
 });

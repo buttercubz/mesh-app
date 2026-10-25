@@ -17,19 +17,19 @@
   color-scheme: light;
 
   /* ── convLink surfaces and text (light) ── */
-  --background: #f2f2f7;
+  --background: #f4f4f8;
   --foreground: #1c1c1e;
   --card: #ffffff;
   --card-foreground: #1c1c1e;
   --popover: #ffffff;
   --popover-foreground: #1c1c1e;
   --muted: #e8e8ed;
-  --muted-foreground: #62636b;
+  --muted-foreground: #5d5e6a;
   --border: oklch(0.92 0 0);
   --ring: oklch(0 0 0);
-  --surface-grouped: #f2f2f7;
+  --surface-grouped: #f4f4f8;
   --surface-elevated: #ffffff;
-  --surface-inset: #ededf2;
+  --surface-inset: #ececf2;
   --chrome-background: rgb(250 250 252 / 0.64);
   --chrome-solid: #fafafc;
   --material-highlight: rgb(255 255 255 / 0.86);
@@ -48,6 +48,9 @@
   /* ── Brand accent: deliberately NOT convLink's green (final colour is the user's call) ── */
   --brand: #5e4be0;
   --brand-foreground: #ffffff;
+  --brand-strong: #4a37cf;           /* gradient end, pressed state */
+  --brand-soft: rgb(94 75 224 / 0.12); /* tinted fills: selected rows, icon tiles */
+  --brand-glow: rgb(94 75 224 / 0.34);
 
   /* ── Intercom tokens (DESIGN §11.5) ── */
   --talk-active: #208136;            /* pulsing ring while this phone (or a speaker) is live */
@@ -69,18 +72,20 @@
 
   /* ── Shape: radius and capsules ── */
   --radius: 1rem;
-  --radius-section-size: 1.25rem;
+  --radius-section-size: 1.5rem;
   --capsule: 9999px;
 
-  /* ── Driving targets (DESIGN §11.4): 44 px minimum, PTT 160 px ── */
-  --target-min: 44px;
-  --ptt-size: 160px;
+  /* ── Driving targets (DESIGN §11.4): 48 px minimum (gloves), 64 px ride controls, PTT 200 px ── */
+  --target-min: 48px;
+  --target-ride: 64px;
+  --ptt-size: 200px;
   --ptt-ring-width: 10px;
 
   /* ── Elevation ── */
-  --elevation-surface: 0 2px 8px rgb(25 28 36 / 0.04);
-  --elevation-chrome: 0 8px 28px -12px rgb(20 25 35 / 0.24), 0 1px 4px rgb(20 25 35 / 0.06);
-  --elevation-panel: 0 24px 64px -20px rgb(15 20 30 / 0.25);
+  --elevation-surface: 0 1px 2px rgb(25 28 36 / 0.04), 0 4px 16px -6px rgb(25 28 36 / 0.08);
+  --elevation-chrome: 0 10px 30px -12px rgb(20 25 35 / 0.26), 0 1px 4px rgb(20 25 35 / 0.06);
+  --elevation-panel: 0 24px 64px -20px rgb(15 20 30 / 0.28);
+  --hero-glow: radial-gradient(120% 80% at 50% 0%, rgb(94 75 224 / 0.14), transparent 70%);
 
   /* ── Motion ── */
   --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
@@ -98,21 +103,21 @@
 .dark {
   color-scheme: dark;
 
-  --background: #08080a;
-  --foreground: #f5f5f7;
-  --card: #1c1c1e;
+  --background: #0a0a0f;
+  --foreground: #f4f4f8;
+  --card: #16161d;
   --card-foreground: #ffffff;
-  --popover: #242427;
+  --popover: #1f1f28;
   --popover-foreground: #ffffff;
-  --muted: #2c2c2e;
-  --muted-foreground: #a1a1a8;
-  --border: oklch(0.26 0 0);
-  --ring: oklch(0.72 0 0);
-  --surface-grouped: #08080a;
-  --surface-elevated: #1c1c1e;
-  --surface-inset: #2c2c2e;
-  --chrome-background: rgb(36 36 39 / 0.58);
-  --chrome-solid: #242427;
+  --muted: #262630;
+  --muted-foreground: #a6a6b4;
+  --border: oklch(0.27 0.01 285);
+  --ring: oklch(0.75 0.08 285);
+  --surface-grouped: #0a0a0f;
+  --surface-elevated: #16161d;
+  --surface-inset: #22222b;
+  --chrome-background: rgb(31 31 40 / 0.62);
+  --chrome-solid: #1f1f28;
   --material-highlight: transparent;
   --material-edge: transparent;
   --material-shade: transparent;
@@ -127,6 +132,9 @@
 
   --brand: #8b7bff;
   --brand-foreground: #0b0b10;
+  --brand-strong: #6f5cf6;
+  --brand-soft: rgb(139 123 255 / 0.16);
+  --brand-glow: rgb(139 123 255 / 0.4);
 
   --talk-active: #30d158;
   --talk-active-foreground: #04210c;
@@ -141,9 +149,10 @@
   --danger: #ff453a;
   --danger-foreground: #1f0000;
 
-  --elevation-surface: 0 2px 8px rgb(0 0 0 / 0.12);
-  --elevation-chrome: 0 8px 28px -10px rgb(0 0 0 / 0.5), 0 1px 4px rgb(0 0 0 / 0.22);
-  --elevation-panel: 0 24px 64px -16px rgb(0 0 0 / 0.64);
+  --elevation-surface: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 2px 10px rgb(0 0 0 / 0.24);
+  --elevation-chrome: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 10px 30px -10px rgb(0 0 0 / 0.6);
+  --elevation-panel: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+  --hero-glow: radial-gradient(120% 80% at 50% 0%, rgb(139 123 255 / 0.2), transparent 70%);
 }
 
 /* A small, damped settle on UI surfaces where linear() easing is supported (convLink). */
@@ -179,6 +188,11 @@
   50% {
     box-shadow: 0 0 0 14px color-mix(in srgb, var(--talk-active) 0%, transparent);
   }
+}
+
+@keyframes mk-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes mk-fade-in {

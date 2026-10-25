@@ -80,6 +80,8 @@ pub struct RadioParams {
     /// links pay it in retransmissions and Aware datagrams in losses. Discovery and
     /// supervision are not affected.
     pub extra_loss: f64,
+    /// A ground-reflection fading null on BLE links ([`FadeNull`]); `None` = none.
+    pub fade_null: Option<FadeNull>,
     /// What scanning and advertising cost the links ([`crate::scan`]).
     pub scan: crate::scan::ScanCost,
 }
@@ -111,8 +113,39 @@ impl Default for RadioParams {
             gatt_buffer_units: 4,
             open_delay_us: 120_000,
             extra_loss: 0.0,
+            fade_null: None,
             scan: crate::scan::ScanCost::default(),
         }
+    }
+}
+
+/// A distance-local fading null on BLE links: the two-ray ground reflection of
+/// phones held 0.7-1.2 m above the ground cancels the direct ray where the path
+/// difference `2·h1·h2/d` is one wavelength (12.5 cm at 2.4 GHz), i.e. its last null
+/// sits at `d ≈ 16·h1·h2` m (≈ 10-13 m in the hand or on a table), while 20 m, past
+/// the null, is clean again. The field test of 2026-10-24 (Android tablet ↔ iPhone 15
+/// Plus: trouble at ~10-11 m, fine at twice the distance) matches that shape. Inside
+/// the null each BLE attempt succeeds with a lower probability, so the reliable link
+/// layer pays it in retransmissions (delay) rather than in losses.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FadeNull {
+    /// Distance of the deepest point (m).
+    pub center_m: f64,
+    /// Half width of the null (m); outside `center ± half_width` it has no effect.
+    pub half_width_m: f64,
+    /// PDR multiplier at the deepest point (raised-cosine shape towards 1 at the edges).
+    pub depth_pdr: f64,
+}
+
+impl FadeNull {
+    /// PDR multiplier at distance `d`.
+    pub fn factor(&self, d: f64) -> f64 {
+        let x = (d - self.center_m).abs() / self.half_width_m.max(1e-6);
+        if x >= 1.0 {
+            return 1.0;
+        }
+        let w = 0.5 * (1.0 + (std::f64::consts::PI * x).cos());
+        1.0 - (1.0 - self.depth_pdr.clamp(0.0, 1.0)) * w
     }
 }
 
@@ -176,7 +209,8 @@ impl RadioModel {
     pub fn ble_pdr(&self, a: usize, b: usize, ma: Mount, mb: Mount, d: f64, t_us: u64) -> f64 {
         let r50 = self.pair_r50(ma, mb);
         let de = self.effective_distance(d, self.pdr_shadow_db(a, b, t_us));
-        logistic_pdr(de, r50, r50 * self.params.pdr_width_frac)
+        let fade = self.params.fade_null.map_or(1.0, |f| f.factor(d));
+        logistic_pdr(de, r50, r50 * self.params.pdr_width_frac) * fade
     }
 
     /// Wi-Fi Aware PDR of the pair.
@@ -287,5 +321,25 @@ mod tests {
         // Same shadowing at both distances: the difference is 25·log10(20) ≈ 32.5 dB.
         let diff = m.rssi(0, 1, 3.0, 0) - m.rssi(0, 1, 60.0, 0);
         assert!((32..=33).contains(&diff), "{diff}");
+    }
+
+    #[test]
+    fn fade_null_is_local() {
+        let f = FadeNull {
+            center_m: 10.5,
+            half_width_m: 2.5,
+            depth_pdr: 0.6,
+        };
+        assert!((f.factor(10.5) - 0.6).abs() < 1e-12);
+        assert_eq!(f.factor(20.0), 1.0);
+        assert_eq!(f.factor(5.0), 1.0);
+        let p = RadioParams {
+            fade_null: Some(f),
+            ..RadioParams::default()
+        };
+        let m = RadioModel::new(p, 1);
+        let at10 = m.ble_pdr(0, 1, Mount::Pocket, Mount::Pocket, 10.5, 0);
+        let at20 = m.ble_pdr(0, 1, Mount::Pocket, Mount::Pocket, 21.0, 0);
+        assert!(at10 < 0.61 && at20 > 0.99, "{at10} {at20}");
     }
 }

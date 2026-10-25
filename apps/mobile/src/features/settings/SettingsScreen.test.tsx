@@ -6,6 +6,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { useEngineStore } from "../../store/useEngineStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { calls, emit, fixtureEvent, mountWith, resetAll, settle } from "../group/testing";
 import { SettingsScreen } from "./SettingsScreen";
@@ -94,6 +95,21 @@ describe("SettingsScreen", () => {
     await settle();
     expect(confirm).toHaveBeenCalledTimes(2);
     expect(calls(plugin, "diagClear")).toHaveLength(1);
+  });
+
+  it("Wi-Fi Aware beta: Android only, off by default, asks for nearby Wi-Fi then enables", async () => {
+    const { plugin } = mountWith(<SettingsScreen params={{}} />);
+    await settle();
+    expect(screen.queryByTestId("aware-row")).toBeNull(); // no platform info: hidden
+    useEngineStore.getState().setInfo({ platform: "android", engine: "full", apiVersion: "1.1", protocolVersion: 1, appVersion: "1" });
+    await settle();
+    const toggle = screen.getByRole("switch", { name: "Wi-Fi Aware (beta, Android)" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(toggle);
+    await settle();
+    expect(calls(plugin, "requestPermissions")).toEqual([{ permissions: ["nearbyWifi"] }]);
+    expect(calls(plugin, "awareSetEnabled")).toEqual([{ enabled: true }]);
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
   });
 
   it("keeps the Field test visible", () => {

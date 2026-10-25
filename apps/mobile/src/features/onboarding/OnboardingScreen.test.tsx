@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// Onboarding (WP-22 acceptance): language, 24-byte name, vehicle defaults, permissions
-// in the foreground, Share my distance with location, the headset check through
+// Onboarding (WP-22 acceptance): language, 24-byte name and vehicle defaults in one step,
+// permissions in the foreground with Share my distance (location) beside them, the headset check through
 // gestureCommand(audioCheck) rendering the audioCheckSample fixture, the "don't swipe"
 // and honest-promise step.
 import { fireEvent, screen } from "@testing-library/react";
@@ -24,13 +24,14 @@ describe("OnboardingScreen", () => {
     onTestFinished(stopEffects);
     const { plugin } = mountWith(<OnboardingScreen params={{}} />);
     await settle();
-    expect(step()).toBe("language");
+    // Language, name and vehicle share one step; the language applies at once.
+    expect(step()).toBe("profile");
     fireEvent.click(screen.getByRole("button", { name: "Español" }));
     expect(useSettingsStore.getState().language).toBe("es");
     expect(step()).toBe("profile");
-    expect(screen.getByText("Paso 2 de 6")).toBeTruthy();
+    expect(screen.getByText("Paso 1 de 4")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Español" }).getAttribute("aria-pressed")).toBe("true");
     // Back to English for the rest of the assertions.
-    fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
     fireEvent.click(screen.getByRole("button", { name: "English" }));
 
     // Name: limited to 24 UTF-8 bytes at a grapheme boundary.
@@ -43,21 +44,19 @@ describe("OnboardingScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(useSettingsStore.getState().displayName.startsWith("Ñandú")).toBe(true);
 
+    // Permissions and Share my distance are one step.
     expect(step()).toBe("permissions");
+    expect(screen.getByText(/keeps the intercom running/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Allow" }));
     await settle();
     expect(calls(plugin, "requestPermissions")).toEqual([{ permissions: ["microphone", "bluetooth", "notifications"] }]);
-    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(step()).toBe("distance");
-    expect(screen.getByText(/keeps the intercom running/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Share my distance" }));
     await settle();
     // The fake plugin denies location: sharing stays off and the screen says why.
     expect(calls(plugin, "requestPermissions").at(-1)).toEqual({ permissions: ["location"] });
     expect(useSettingsStore.getState().shareDistance).toBe(false);
     expect(screen.getByText(/Location was not allowed/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(step()).toBe("headset");
     fireEvent.click(screen.getByTestId("check-tone"));
@@ -85,7 +84,7 @@ describe("OnboardingScreen", () => {
     const { plugin, unmount } = mountWith(<OnboardingScreen params={{}} />);
     fireEvent.click(screen.getByRole("button", { name: "English" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+    // "Not now" skips the permissions and distance sharing in one go.
     fireEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(step()).toBe("headset");
     fireEvent.click(screen.getByTestId("check-echo"));

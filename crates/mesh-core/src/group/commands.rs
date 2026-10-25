@@ -35,6 +35,9 @@ fn group_id_result(id: &[u8; 16]) -> CommandResult {
 
 impl GroupCore {
     pub(crate) fn command(&mut self, ctx: &mut Ctx, cmd: &UiCommand) -> Option<CommandResult> {
+        if let Some(r) = self.open_command(ctx, cmd) {
+            return Some(r);
+        }
         match cmd {
             UiCommand::CreateGroup { name, vehicle } => Some(self.create(ctx, name, *vehicle)),
             UiCommand::ParseInvite { url } => Some(self.parse_invite(ctx, url)),
@@ -121,6 +124,7 @@ impl GroupCore {
         let mut groups: Vec<GroupSummary> = self
             .groups
             .values()
+            .filter(|g| g.open.is_none())
             .map(|g| GroupSummary {
                 group_id: store::hex(&g.id),
                 name: g.name.clone(),

@@ -3,8 +3,8 @@
 //! the floor table ranks every burst from the first packet this node saw (age +
 //! burst-relative time, no wall clock); VOICE goes to the jitter buffer of its
 //! `(origin, sess)` stream, which resets its timeline on a new burst; the mixer takes
-//! the ≤ 4 best-ranked streams. A burst outside the global top `group_cap` heard within
-//! two hops gets one near-talker FLOOR_REJECT{OUTRANKED} and is not played.
+//! the ≤ 4 best-ranked streams. A burst outside the global top `group_cap` (per segment:
+//! 4 from the Wi-Fi backbone, 2 inside a BLE segment) heard within two hops gets one near-talker FLOOR_REJECT{OUTRANKED} and is not played.
 
 use mesh_api::TalkDeniedReason;
 use mesh_routing::{BurstKey, DedupVerdict, FloorEvent};
@@ -83,7 +83,7 @@ impl Media {
                 if !self.floor.get(key).is_some_and(|e| e.live()) {
                     return;
                 }
-                let cap = self.group_cap(ctx);
+                let cap = self.near_talker_cap(ctx, link);
                 if self.floor.near_talker_reject(key, h.hops, cap) {
                     self.outbox.push(
                         now,
@@ -201,6 +201,10 @@ impl Media {
                 reason: reject_reason(reason),
             },
         );
+        // The reason belongs to this reject's `talkDenied` only (emitted synchronously
+        // above): a later refusal by `local_admit` is a full channel (`cap`), not a
+        // stale "congestion" from a burst that ended long ago.
+        self.last_reject = None;
         self.floor_events(ctx, &ev);
         self.update_ranks();
         self.ui_dirty = true;

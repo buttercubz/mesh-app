@@ -23,6 +23,14 @@
     }
   },
   {
+    "name": "groupId joinOpenChannel",
+    "for": "joinOpenChannel",
+    "result": {
+      "ok": true,
+      "groupId": "c1c13b68546591c798f558aff95c28ab"
+    }
+  },
+  {
     "name": "inviteInfo valid",
     "for": "parseInvite",
     "result": {

@@ -124,10 +124,17 @@ impl Mesh {
                 .neighbors
                 .link(link)
                 .is_some_and(|s| cap < self.router.cfg.limits.s_max(s.kind));
-            let d =
-                self.router
-                    .admission
-                    .admits(now, link, b, &mut self.router.floor, cap, congestion);
+            // A full BLE edge of a backbone node sheds my burst there only (§6.3, hybrid).
+            let edge = self.router.is_edge_link(link);
+            let d = self.router.admission.admits_at(
+                now,
+                link,
+                b,
+                &mut self.router.floor,
+                cap,
+                congestion,
+                edge,
+            );
             match d {
                 AdmitDecision::Admitted => admitted.push(link),
                 AdmitDecision::AdmittedEvicting { victim, reason } => {

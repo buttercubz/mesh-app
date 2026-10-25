@@ -34,6 +34,9 @@ public final class BleCentralDriver: NSObject, LinkDriver, @unchecked Sendable {
     var timer: DispatchSourceTimer?
     var scanHint: ScanHint = .auto
     var lastScan: ScanPolicy?
+    /// When the current scan session started (filtered scans are restarted, see
+    /// `ScanPolicy.refreshInterval`).
+    var scanStartedAt: TimeInterval = 0
     /// `Connect` received while the previous connection was still being torn down: issued
     /// from `didDisconnectPeripheral`.
     var deferredConnect: Set<UUID> = []
@@ -134,12 +137,26 @@ public final class BleCentralDriver: NSObject, LinkDriver, @unchecked Sendable {
         if d == lastScan, central.isScanning == d.scan { return }
         lastScan = d
         if d.scan {
-            central.scanForPeripherals(withServices: [constants.meshService],
-                                       options: [CBCentralManagerScanOptionAllowDuplicatesKey: d.allowDuplicates])
+            startScan(d)
+            if !d.allowDuplicates { armTimer() } // drives the periodic refresh
         } else if central.isScanning {
             central.stopScan()
         }
         emit(.scan(mode: mode, on: d.scan, allowDuplicates: d.allowDuplicates))
+    }
+
+    func startScan(_ d: ScanPolicy) {
+        central?.scanForPeripherals(withServices: [constants.meshService],
+                                    options: [CBCentralManagerScanOptionAllowDuplicatesKey: d.allowDuplicates])
+        scanStartedAt = clock()
+    }
+
+    /// Restarts a filtered scan so peers in range are reported again (range edge).
+    func refreshScan(now: TimeInterval) {
+        guard let central, central.state == .poweredOn, central.isScanning, let d = lastScan,
+              d.needsRefresh(startedAt: scanStartedAt, now: now) else { return }
+        central.stopScan()
+        startScan(d)
     }
 
     func connect(_ discId: UInt32, now: TimeInterval) {
@@ -233,8 +250,9 @@ public final class BleCentralDriver: NSObject, LinkDriver, @unchecked Sendable {
         central?.cancelPeripheralConnection(p)
     }
 
-    /// 1 s housekeeping while attempts or links exist: 8 s connect timeout, armed windows,
-    /// RSSI reads for link metrics (Lab samples at 1 Hz).
+    /// 1 s housekeeping while attempts, links or a filtered scan exist: 8 s connect
+    /// timeout, armed windows, RSSI reads for link metrics (Lab samples at 1 Hz), and the
+    /// filtered-scan refresh.
     func armTimer() {
         guard timer == nil else { return }
         let t = DispatchSource.makeTimerSource(queue: q.queue)
@@ -255,12 +273,14 @@ public final class BleCentralDriver: NSObject, LinkDriver, @unchecked Sendable {
         cancel += tracker.expiredPending(now: now)
         for d in cancel { disconnect(d) }
         applyScan() // armed windows may have closed
+        refreshScan(now: now)
         tracker.prune(now: now)
         for peer in linksByPeer.keys {
             if let p = peripherals[peer], p.state == .connected { p.readRSSI() }
         }
+        let filteredScan = lastScan.map { $0.scan && !$0.allowDuplicates } ?? false
         if tracker.nextDeadline(now: now) == nil, linksByPeer.isEmpty,
-           tracker.armedPeers(now: now).isEmpty {
+           tracker.armedPeers(now: now).isEmpty, !filteredScan {
             timer?.cancel()
             timer = nil
         }

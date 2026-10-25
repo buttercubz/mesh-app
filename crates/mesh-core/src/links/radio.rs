@@ -464,7 +464,11 @@ impl RadioPolicy {
                     mode: mode_str(mode),
                     scan: Some(code),
                     adv: Some(if next.1.is_some() { "on" } else { "off" }),
-                    duty: Some(if mode == DiscoveryMode::Off { 0.0 } else { duty }),
+                    duty: Some(if mode == DiscoveryMode::Off {
+                        0.0
+                    } else {
+                        duty
+                    }),
                 });
             }
             fx.radio(RadioCommand::SetDiscovery {
@@ -683,8 +687,8 @@ impl RadioPolicy {
         };
         if self.diag.on() {
             self.diag_seen.retain(|_, t| now.since(*t) < PEER_SEEN_US);
-            if !self.diag_seen.contains_key(&d.disc_id) {
-                self.diag_seen.insert(d.disc_id, now);
+            if let std::collections::btree_map::Entry::Vacant(e) = self.diag_seen.entry(d.disc_id) {
+                e.insert(now);
                 self.diag.push(DiagEvent::PeerSeen {
                     disc: d.disc_id,
                     rssi: d.rssi,
@@ -1044,10 +1048,15 @@ impl RadioPolicy {
             };
             self.diag_fail(now, disc, key, "handshake");
         }
+        // An established link that died (supervision timeout, link death, a platform
+        // error) is a walk-away at the edge of range, not a failed connect: a short
+        // settle hold without backoff growth, so a rider oscillating at the fringe
+        // rejoins in seconds instead of escalating to 60 s (bitchat #1338 measured
+        // 15.0 s → 7.4 s for the same change). Failed connects keep the doubling.
         if let Some(key) = self.linked.remove(&link)
             && matches!(reason, LinkDownReason::Timeout | LinkDownReason::Error(_))
         {
-            self.fail(now, key, limits);
+            self.hold(now, key, limits);
         }
         if reason == LinkDownReason::LimitReached {
             self.limit_until.push(now.plus_us(limits.limit_backoff_us));

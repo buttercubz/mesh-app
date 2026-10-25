@@ -14,7 +14,7 @@ fn free_functions_export_the_contract_constants() {
     assert_eq!(c.max_datagram_frame, 1200);
     assert_eq!((c.ble_links_target, c.ble_links_max), (2, 3));
     assert_eq!(protocol_version(), 1);
-    assert_eq!(api_version(), 0x0101);
+    assert_eq!(api_version(), 0x0102);
     assert_eq!(rt_abi_version(), 1);
 }
 

@@ -18,6 +18,7 @@ export function snapshotFixture(overrides: Partial<Snapshot> = {}): Snapshot {
       ride: "riding",
       ladder: "L0",
       shareDistance: false,
+      openChannel: null,
     },
     audio: { route: "hfpWideband", captureOk: true, renderOk: true, inputLevel: 0.2, txMutedNoHeadset: false },
     talkers: [{ nodeId: 9, name: "Ana", hops: 1, level: 0.6, sinceMs: 1200 }],

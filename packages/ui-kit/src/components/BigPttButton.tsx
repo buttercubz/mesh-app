@@ -26,6 +26,8 @@ export interface BigPttButtonProps {
   readonly label: ReactNode;
   /** Accessible name when `label` is not plain text. */
   readonly ariaLabel?: string;
+  /** Optional decorative icon drawn above the label (e.g. a microphone). */
+  readonly icon?: ReactNode;
   readonly status?: PttStatus;
   readonly disabled?: boolean;
   readonly className?: string;
@@ -159,7 +161,14 @@ export function BigPttButton(props: BigPttButtonProps) {
           strokeDashoffset={dashOffset}
         />
       </svg>
-      <span className="mk-ptt-label">{label}</span>
+      <span className="mk-ptt-label">
+        {props.icon !== undefined && (
+          <span className="mk-ptt-icon" aria-hidden="true">
+            {props.icon}
+          </span>
+        )}
+        <span>{label}</span>
+      </span>
     </button>
   );
 }

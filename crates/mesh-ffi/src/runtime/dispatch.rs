@@ -1,6 +1,6 @@
 //! Engine outputs → `PlatformHooks` (runs on the engine thread only).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use mesh_api::{EngineState, ErrorCode, Params, PromptKey, Snapshot, UiEvent};
@@ -38,7 +38,13 @@ pub struct Dispatcher {
     demo_pending: BTreeSet<PromptKey>,
     /// The diagnostics recorder (log counts; `Effect::Diag` records).
     diag: Option<Arc<DiagHub>>,
+    /// Wi-Fi Aware data-path PMKs per peer `node_id`, handed out once through
+    /// `MeshEngine::take_aware_pmk` (never through `radio`, never logged).
+    aware_pmks: Option<AwarePmks>,
 }
+
+/// Shared slot of pending Aware PMKs (engine thread writes, platform takes).
+pub type AwarePmks = Arc<Mutex<BTreeMap<u16, [u8; 32]>>>;
 
 impl Dispatcher {
     pub fn new(hooks: Arc<dyn PlatformHooks>, store: Arc<Mutex<PersistStore>>) -> Self {
@@ -51,6 +57,31 @@ impl Dispatcher {
             open_links: BTreeSet::new(),
             demo_pending: BTreeSet::new(),
             diag: None,
+            aware_pmks: None,
+        }
+    }
+
+    /// Attaches the Aware PMK slot (`take_aware_pmk`).
+    pub fn set_aware_pmks(&mut self, slot: AwarePmks) {
+        self.aware_pmks = Some(slot);
+    }
+
+    /// Stores the PMK of op 2 before the command reaches the platform; drops it again
+    /// when the attempt is abandoned (3) or retired (5).
+    fn stash_aware_pmk(&self, cmd: &RadioCommand) {
+        let (RadioCommand::AwareUpgrade { peer, op, pmk }, Some(slot)) = (cmd, &self.aware_pmks)
+        else {
+            return;
+        };
+        let Ok(mut m) = slot.lock() else { return };
+        match (op, pmk) {
+            (2, Some(p)) => {
+                m.insert(*peer, p.0);
+            }
+            (3 | 5, _) => {
+                m.remove(peer);
+            }
+            _ => {}
         }
     }
 
@@ -180,6 +211,7 @@ impl Dispatcher {
                 if let RadioCommand::Close { link, .. } = &cmd {
                     self.open_links.remove(&link.0);
                 }
+                self.stash_aware_pmk(&cmd);
                 h.radio(cmd.into());
             }
             Effect::Audio(cmd) => {

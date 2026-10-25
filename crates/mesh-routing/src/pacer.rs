@@ -6,22 +6,41 @@
 //! `R ← R + 4 kbps` (BLE, Tunnel) or `R × 1.1` (Aware). BLE is reliable at the link layer,
 //! so overload shows up as delay. The bucket drains at `min(R, grant)`.
 //!
+//! **Voice floor (fading is not congestion).** The decrease never takes `R` below the
+//! airtime of **one stream of the lowest profile** of the link kind
+//! ([`PacerPath::voice_floor_bps`]: BLE12 `cost(1) / 0.9` = 25.1 kbps on BLE). A weak
+//! link (edge of range, a ground-reflection null) also shows up as delay and
+//! `WouldBlock`: every lost attempt costs the reliable link layer a connection interval.
+//! That delay is not ours to remove: at one stream or less our own demand is not what
+//! builds the queue, and pacing below one stream only guarantees that no voice gets
+//! through (cap 0, `FLOOR_REJECT{CONGESTION}` for a lone talker, field test
+//! 2026-10-24). Congestion from too many streams is still fully answered above the floor:
+//! at the floor `cap_pacing` is 1, so every extra stream is shed (§6.3).
+//!
 //! Interpretation of "the queue was non-empty" (reported as a design note), chosen so
 //! that the §5.6 steady-state guarantee holds:
-//! - **Recovery** (`R` below the initial rate of its path): any traffic in the period is
-//!   enough, so a single multiplicative decrease (60 → 51 kbps) is undone within ~1.5 s
-//!   "when the queue is not building".
+//! - **Recovery** (`R` below the initial rate of its path): any traffic in a period
+//!   without a congestion signal (`qd ≤ 40 ms`, no `WouldBlock`) is enough, so a single
+//!   multiplicative decrease (60 → 51 kbps) is undone within ~1.5 s "when the queue is
+//!   not building". Recovery deliberately does not wait for `qd < 15 ms`: on a 30 ms
+//!   iOS-central connection interval the RTT phase alone keeps `srtt − min_rtt` (min
+//!   over 30 s, a lucky in-phase sample) around 15-30 ms, and a link cut once at the
+//!   edge of range then stayed at the voice floor for the rest of the ride (mesh-sim
+//!   S15, field test 2026-10-24).
 //! - **Probing above the initial rate** needs real backlog (a send had to wait for
 //!   tokens in the period) **and** `R ≤ grant(L)`. A link whose demand fits never inflates
 //!   `R`, so idle and voice links keep comparable `R` values and the proportional airtime
 //!   scaling (§5.6) never squeezes a link that starts carrying voice; probing above the
 //!   airtime the node budget grants would be pointless.
 
+use mesh_wire::mesh::EncoderProfile;
+
 use crate::consts::{
     PACER_PERIOD_US, QD_HIGH_US, QD_LOW_US, R_ADD_BPS, R_AWARE_INCREASE_PERMILLE,
     R_DECREASE_PERMILLE, R_INIT_AWARE_BPS, R_INIT_GATT_BPS, R_INIT_L2CAP_BPS, R_INIT_TUNNEL_BPS,
     R_MAX_BPS, R_MIN_BPS,
 };
+use crate::cost::CostModel;
 use crate::types::{Instant, LinkKind};
 
 /// Data path of a link (the initial rate depends on it).
@@ -49,6 +68,21 @@ impl PacerPath {
             PacerPath::Aware => LinkKind::Aware,
             PacerPath::Tunnel => LinkKind::Tunnel,
         }
+    }
+
+    /// The lowest voice profile a link of this path can carry (BLE12 on BLE, WIFI20 on
+    /// Aware and Tunnel).
+    pub const fn lowest_profile(self) -> EncoderProfile {
+        match self.kind() {
+            LinkKind::Ble => EncoderProfile::Ble12,
+            LinkKind::Aware | LinkKind::Tunnel => EncoderProfile::Wifi20,
+        }
+    }
+
+    /// The multiplicative decrease stops here: the grant that sustains one stream of the
+    /// lowest profile (`cost(1) / 0.9`; BLE 25 112 bps, Aware/Tunnel 41 556 bps).
+    pub const fn voice_floor_bps(self) -> u32 {
+        CostModel::new(self.lowest_profile()).min_grant_bps(1)
     }
 }
 
@@ -204,13 +238,15 @@ impl Pacer {
             increased: false,
         };
         if qd_us > QD_HIGH_US || self.would_block {
-            self.rate_bps =
-                (u64::from(self.rate_bps) * u64::from(R_DECREASE_PERMILLE) / 1_000) as u32;
-            s.decreased = true;
-        } else if qd_us < QD_LOW_US
-            && self.had_traffic
-            && (self.rate_bps < self.path.initial_bps()
-                || (self.backlogged && self.rate_bps <= self.grant_bps))
+            let cut = (u64::from(self.rate_bps) * u64::from(R_DECREASE_PERMILLE) / 1_000) as u32;
+            // Never below one stream of the lowest profile (fading is not congestion);
+            // a rate already below the floor is never raised by a decrease.
+            let floor = self.path.voice_floor_bps().min(self.rate_bps);
+            self.rate_bps = cut.max(floor);
+            s.decreased = self.rate_bps < s.rate_bps;
+        } else if self.had_traffic
+            && ((self.rate_bps < self.path.initial_bps())
+                || (qd_us < QD_LOW_US && self.backlogged && self.rate_bps <= self.grant_bps))
         {
             self.rate_bps = match self.path.kind() {
                 LinkKind::Aware => {

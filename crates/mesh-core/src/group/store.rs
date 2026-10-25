@@ -270,6 +270,7 @@ pub fn decode(blob: &[u8]) -> Result<Stored, BadBlob> {
         book,
         expires_at,
         aware_pairing: flags & 2 != 0,
+        open: mesh_crypto::open_channel::channel_of(&id),
     })))
 }
 

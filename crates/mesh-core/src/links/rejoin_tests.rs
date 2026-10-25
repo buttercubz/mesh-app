@@ -295,3 +295,29 @@ fn an_android_phone_keeps_a_spare_slot_while_a_member_is_lost() {
     p.on_timer(Instant(64 * S), max, &l, &mut fx);
     assert_eq!(accepting(&radio(&mut fx)), Some(false));
 }
+
+#[test]
+fn a_walk_away_drop_settles_briefly_without_backoff_growth() {
+    let (mut p, mut fx, l) = policy(ME);
+    p.on_discovered(Instant(0), &android(10, A, -50), 0, &l, &mut fx);
+    p.on_hello_read(Instant(S), 10, &hello(A, true), &l, &mut fx);
+    radio(&mut fx);
+    let mut info = LinkInfo::new(LinkKind::BleL2cap, LinkRole::Initiator);
+    info.disc_id = Some(10);
+    p.on_link_opened(LinkId(7), &info);
+    p.on_link_up(LinkId(7), &info);
+    // Supervision timeout at the edge of range, peer still advertising.
+    let down = 2 * S;
+    p.on_link_down(Instant(down), LinkId(7), LinkDownReason::Timeout, &l);
+    let mut first = None;
+    for k in 1..=20 {
+        let now = Instant(down + k * 250_000);
+        p.on_discovered(now, &android(10, A, -80), 0, &l, &mut fx);
+        if !connects(&radio(&mut fx)).is_empty() {
+            first = Some(now.0 - down);
+            break;
+        }
+    }
+    // A failed connect would have held it 5 s; the settle hold is 3 s.
+    assert_eq!(first, Some(FULL_RETRY_US));
+}

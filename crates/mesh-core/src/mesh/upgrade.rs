@@ -19,7 +19,7 @@ use mesh_wire::record::{Caps, Record, Upgrade, UpgradeOp, UpgradeTransport};
 
 use super::state::Mesh;
 use crate::config::Platform;
-use crate::effects::RadioCommand;
+use crate::effects::{AwarePmk, RadioCommand};
 use crate::engine::Ctx;
 use crate::links::{LinkKind, Prio, RadioAvail};
 use crate::{Instant, LinkId};
@@ -64,7 +64,11 @@ impl Upgrades {
             a.step = None;
             a.last = ctx.now;
         }
-        ctx.fx.radio(RadioCommand::AwareUpgrade { peer, op: 5 });
+        ctx.fx.radio(RadioCommand::AwareUpgrade {
+            peer,
+            op: 5,
+            pmk: None,
+        });
     }
 }
 
@@ -100,8 +104,27 @@ fn send(ctx: &mut Ctx, link: LinkId, op: UpgradeOp, transport: UpgradeTransport,
 }
 
 impl Mesh {
+    /// Android↔Android Aware needs no lobby pairing (the data path is secured with
+    /// `aware_pmk`, §9.6); iOS needs the group's DeviceDiscoveryUI pairing.
     fn upgrade_allowed(&self, ctx: &Ctx) -> bool {
-        self.policy.aware_upgrade && self.id.aware_pairing && ctx.radio.aware == RadioAvail::On
+        let paired = self.id.aware_pairing || ctx.cfg.platform == Platform::Android;
+        self.policy.aware_upgrade && paired && ctx.radio.aware == RadioAvail::On
+    }
+
+    /// `aware_pmk` for the data path with the neighbor on BLE `link` (Android only):
+    /// the current epoch's schedule salted with that link's Noise handshake hash, so
+    /// both ends derive the same key and nobody outside the link can.
+    fn aware_pmk(&self, ctx: &Ctx, link: LinkId) -> Option<AwarePmk> {
+        if ctx.cfg.platform != Platform::Android {
+            return None;
+        }
+        let hh = ctx.links.get(link)?.security.channel_binding()?;
+        let sched = self
+            .id
+            .keyring
+            .get(self.id.epoch)
+            .unwrap_or_else(|| self.id.keyring.newest());
+        Some(AwarePmk(*sched.aware_pmk(&hh).expose()))
     }
 
     fn ble_link_of(&self, peer: u16) -> Option<LinkId> {
@@ -164,7 +187,11 @@ impl Mesh {
                 },
             );
             send(ctx, link, UpgradeOp::Offer, transport, nonce);
-            ctx.fx.radio(RadioCommand::AwareUpgrade { peer, op: 1 });
+            ctx.fx.radio(RadioCommand::AwareUpgrade {
+                peer,
+                op: 1,
+                pmk: None,
+            });
             // One new attempt per tick.
             break;
         }
@@ -197,7 +224,9 @@ impl Mesh {
                         },
                     );
                     send(ctx, link, UpgradeOp::Accept, u.transport, u.nonce);
-                    ctx.fx.radio(RadioCommand::AwareUpgrade { peer, op: 2 });
+                    let pmk = self.aware_pmk(ctx, link);
+                    ctx.fx
+                        .radio(RadioCommand::AwareUpgrade { peer, op: 2, pmk });
                 } else {
                     send(ctx, link, UpgradeOp::Reject, u.transport, u.nonce);
                 }
@@ -208,7 +237,9 @@ impl Mesh {
                     && a.nonce == u.nonce
                 {
                     a.step = Some(Step::Accepted);
-                    ctx.fx.radio(RadioCommand::AwareUpgrade { peer, op: 2 });
+                    let pmk = self.aware_pmk(ctx, link);
+                    ctx.fx
+                        .radio(RadioCommand::AwareUpgrade { peer, op: 2, pmk });
                 }
             }
             UpgradeOp::Reject => {
@@ -217,7 +248,11 @@ impl Mesh {
                 {
                     a.step = None;
                     a.last = now;
-                    ctx.fx.radio(RadioCommand::AwareUpgrade { peer, op: 3 });
+                    ctx.fx.radio(RadioCommand::AwareUpgrade {
+                        peer,
+                        op: 3,
+                        pmk: None,
+                    });
                 }
             }
             UpgradeOp::Ready => {
@@ -230,7 +265,11 @@ impl Mesh {
                     a.step = None;
                     a.last = now;
                 }
-                ctx.fx.radio(RadioCommand::AwareUpgrade { peer, op: 5 });
+                ctx.fx.radio(RadioCommand::AwareUpgrade {
+                    peer,
+                    op: 5,
+                    pmk: None,
+                });
             }
         }
     }
@@ -254,12 +293,17 @@ impl Mesh {
             ),
         };
         send(ctx, ble, UpgradeOp::Ready, transport, nonce);
-        ctx.fx.radio(RadioCommand::AwareUpgrade { peer, op: 4 });
+        ctx.fx.radio(RadioCommand::AwareUpgrade {
+            peer,
+            op: 4,
+            pmk: None,
+        });
     }
 
     /// Aware → BLE for one neighbor: re-evaluate the bursts admitted on the Aware link
     /// with the BLE link's cap; the excess, lowest rank first, gets
-    /// `FLOOR_REJECT{congestion}` (§9.7).
+    /// `FLOOR_REJECT{congestion}` (§9.7), unless the BLE link is an edge of the Wi-Fi
+    /// backbone (another Aware neighbor remains): then the excess is only shed on it.
     pub fn on_downgrade(
         &mut self,
         ctx: &mut Ctx,
@@ -274,6 +318,14 @@ impl Mesh {
             let rb = self.router.floor.get(*b).map(|e| e.rank);
             ra.cmp(&rb)
         });
+        // Hybrid groups: when I still hold an Aware link to another neighbor, the BLE
+        // link is an edge of the backbone. Its admission carries the top `cap(L)` bursts
+        // by rank and keeps the rest waiting there only (§6.3), so nothing is shed
+        // permanently and nothing is rejected: a waiting burst returns when it ranks
+        // inside the cap again.
+        if self.router.is_edge_link(to) {
+            return;
+        }
         for k in admitted.into_iter().skip(cap) {
             self.router.admission.shed(to, k);
             let r = FloorReject {

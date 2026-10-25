@@ -14,6 +14,7 @@ pub mod control;
 pub mod core;
 pub mod flood;
 pub mod leader;
+pub mod open;
 pub mod png;
 pub mod qr;
 pub mod radio;

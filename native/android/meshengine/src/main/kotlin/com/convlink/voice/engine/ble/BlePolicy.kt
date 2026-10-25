@@ -1,8 +1,30 @@
 package com.convlink.voice.engine.ble
 
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.le.ScanSettings
 import com.convlink.voice.core.FfiDiscoveryMode
 import com.convlink.voice.core.FfiLinkDownReason
+
+/**
+ * LE PHY preference for every BLE link Android takes part in (field test 2026-10-24: the
+ * forced 2M PHY cost ~3-5 dB of sensitivity and the link degraded from ~10 m). 1M is
+ * requested for TX and RX on both roles (client after connect, server when a central such
+ * as an iPhone connects); the PHY update uses the intersection of both sides' preferences,
+ * so a 1M-only preference keeps the link off 2M. 1M with DLE carries far more than our
+ * 60 kbps per-link pacing. Coded PHY is not used: iPhones cannot scan or connect on it.
+ */
+object PhyPolicy {
+    const val PREFERRED_MASK = BluetoothDevice.PHY_LE_1M_MASK
+    const val OPTIONS = BluetoothDevice.PHY_OPTION_NO_PREFERRED
+
+    /** Log label of a `BluetoothDevice.PHY_LE_*` value from onPhyUpdate / onPhyRead. */
+    fun label(phy: Int): String = when (phy) {
+        BluetoothDevice.PHY_LE_1M -> "1M"
+        BluetoothDevice.PHY_LE_2M -> "2M"
+        BluetoothDevice.PHY_LE_CODED -> "Coded"
+        else -> "?$phy"
+    }
+}
 
 /**
  * Maps Android GATT / L2CAP failures onto the core's link-down reasons (DESIGN §3.2, §9.5).

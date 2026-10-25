@@ -37,7 +37,7 @@ export interface IntercomInfo {
   platform: "ios" | "android" | "web";
   /** `platform-only` when the Rust engine is not linked (Swift-only debugging, web fake). */
   engine: "platform-only" | "full";
-  /** UI contract version (`API_VERSION`, "1.1"); the UI refuses a different major. */
+  /** UI contract version (`API_VERSION`, "1.2"); the UI refuses a different major. */
   apiVersion: string;
   /** Wire protocol version (Appendix A: 1). */
   protocolVersion: number;
@@ -125,6 +125,14 @@ export interface DiagSessionSummary {
 /** `diagExport()` scope: the most recent session, or every stored session. */
 export type DiagExportScope = "last" | "all";
 
+/** `awareStatus()` answer (C6 1.2). */
+export interface AwareStatus {
+  /** The device has Wi-Fi Aware (Android FEATURE_WIFI_AWARE). */
+  supported: boolean;
+  /** The user turned the beta on (off by default). */
+  enabled: boolean;
+}
+
 /** One `event` notification: a serialized mesh-api `UiEvent` (C1). */
 export interface IntercomEvent {
   json: string;
@@ -194,15 +202,23 @@ export interface MeshIntercomPlugin {
   diagSetEnabled(opts: { enabled: boolean }): Promise<void>;
   /** A user marker ("problem now") with a fixed label; rejects `invalidParams` otherwise. */
   diagMark(opts: { label: DiagMarkLabel }): Promise<void>;
+  /**
+   * Wi-Fi Aware beta (Android↔Android link upgrade, WP-24). Added in C6 1.2. `supported`
+   * is false on iOS and the web; the toggle is persisted natively (a plain flag).
+   */
+  awareStatus(): Promise<AwareStatus>;
+  /** Turns the Wi-Fi Aware beta on/off; rejects `notSupported` where Aware is unsupported. */
+  awareSetEnabled(opts: { enabled: boolean }): Promise<void>;
   /** UiEvent stream. */
   addListener(event: "event", cb: (e: { json: string }) => void): Promise<PluginListenerHandle>;
 }
 
 /**
  * Version of this plugin API (contract C6). 1.0: Phase 0-1 surface; 1.1: the `diag*`
- * methods (diagnostics flight recorder). Additive minor bumps only within a major.
+ * methods (diagnostics flight recorder); 1.2: `awareStatus` / `awareSetEnabled` (Wi-Fi
+ * Aware beta, Android). Additive minor bumps only within a major.
  */
-export const PLUGIN_API_VERSION = "1.1";
+export const PLUGIN_API_VERSION = "1.2";
 
 /** Capacitor jsName of the plugin (native bridges register under the same name). */
 export const MESH_INTERCOM_JS_NAME = "MeshIntercom";

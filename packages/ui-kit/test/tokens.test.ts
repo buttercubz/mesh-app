@@ -11,17 +11,17 @@ const light = ruleBodies(tokens, ":root").slice(0, 1);
 const dark = ruleBodies(tokens, ".dark");
 
 describe("convLink tokens", () => {
-  it("light surfaces are #f2f2f7 / #1c1c1e / #ffffff", () => {
-    expect(declared(light, "--background")).toBe("#f2f2f7");
+  it("light surfaces are #f4f4f8 / #1c1c1e / #ffffff", () => {
+    expect(declared(light, "--background")).toBe("#f4f4f8");
     expect(declared(light, "--foreground")).toBe("#1c1c1e");
     expect(declared(light, "--card")).toBe("#ffffff");
   });
 
-  it("dark surfaces are #08080a / #f5f5f7 / #1c1c1e", () => {
+  it("dark surfaces are #0a0a0f / #f4f4f8 / #16161d", () => {
     expect(dark.length).toBe(1);
-    expect(declared(dark, "--background")).toBe("#08080a");
-    expect(declared(dark, "--foreground")).toBe("#f5f5f7");
-    expect(declared(dark, "--card")).toBe("#1c1c1e");
+    expect(declared(dark, "--background")).toBe("#0a0a0f");
+    expect(declared(dark, "--foreground")).toBe("#f4f4f8");
+    expect(declared(dark, "--card")).toBe("#16161d");
   });
 
   it("radius, capsules and the UI duration", () => {

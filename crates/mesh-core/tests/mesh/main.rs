@@ -7,6 +7,7 @@ mod talk;
 mod world;
 
 mod caps;
+mod fading;
 mod media_e2e;
 mod nbr;
 mod own;

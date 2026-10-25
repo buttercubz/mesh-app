@@ -819,6 +819,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_mesh_ffi_checksum_method_meshengine_stop(
     ): Int
+    external fun uniffi_mesh_ffi_checksum_method_meshengine_take_aware_pmk(
+    ): Int
     external fun uniffi_mesh_ffi_checksum_method_meshengine_ui_command(
     ): Int
     external fun uniffi_mesh_ffi_checksum_method_platformhooks_link_send(
@@ -922,6 +924,8 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_mesh_ffi_fn_method_meshengine_stop(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_mesh_ffi_fn_method_meshengine_take_aware_pmk(`ptr`: Long,`peer`: Short,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_mesh_ffi_fn_method_meshengine_ui_command(`ptr`: Long,`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_mesh_ffi_fn_clone_platformhooks(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1163,6 +1167,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_mesh_ffi_checksum_method_meshengine_stop() and 0xFFFF) != 91) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_mesh_ffi_checksum_method_meshengine_take_aware_pmk() and 0xFFFF) != 46719) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_mesh_ffi_checksum_method_meshengine_ui_command() and 0xFFFF) != 27397) {
@@ -1868,6 +1875,13 @@ public interface MeshEngineInterface {
     fun `stop`()
     
     /**
+     * The Wi-Fi Aware data-path PMK for `peer`, set with `AwareUpgrade{op: 2}` on
+     * Android (`aware_pmk`, DESIGN §8.3, §9.6). Taken once: a second call returns
+     * `None` until the next op 2. Added in C4 1.x (WP-24, additive).
+     */
+    fun `takeAwarePmk`(`peer`: kotlin.UShort): kotlin.ByteArray?
+    
+    /**
      * A UI command (JSON) → `CommandResult` (JSON). Works in Idle too.
      */
     fun `uiCommand`(`json`: kotlin.String): kotlin.String
@@ -2368,6 +2382,25 @@ open class MeshEngine: Disposable, AutoCloseable, MeshEngineInterface
 }
     }
     
+    
+
+    
+    /**
+     * The Wi-Fi Aware data-path PMK for `peer`, set with `AwareUpgrade{op: 2}` on
+     * Android (`aware_pmk`, DESIGN §8.3, §9.6). Taken once: a second call returns
+     * `None` until the next op 2. Added in C4 1.x (WP-24, additive).
+     */override fun `takeAwarePmk`(`peer`: kotlin.UShort): kotlin.ByteArray? {
+            return FfiConverterOptionalByteArray.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_mesh_ffi_fn_method_meshengine_take_aware_pmk(
+        it,
+        
+        FfiConverterUShort.lower(`peer`),_status)
+}
+    }
+    )
+    }
     
 
     

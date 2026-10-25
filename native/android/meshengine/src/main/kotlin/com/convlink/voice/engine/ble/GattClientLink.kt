@@ -13,7 +13,7 @@ typealias L2capConnector = (psm: Int, onClosed: (Int) -> Unit, onDone: (Int?) ->
 
 /**
  * Initiator side of one discovery (DESIGN §9.3 connection sequence): `Connect{disc_id}` →
- * connectGatt (LE, 2M PHY preferred) → MTU 517 → discover `MESH_SVC` → read `HELLO` →
+ * connectGatt (LE, 1M PHY preferred for range, [PhyPolicy]) → MTU 517 → discover `MESH_SVC` → read `HELLO` →
  * `on_hello_read`; then the core answers `OpenLink{via}` or `Abort`. Connect timeout 8 s.
  * GATT 133/257 while connecting → `LimitReached`.
  *
@@ -239,7 +239,7 @@ class GattClientLink(
             val o = synchronized(this@GattClientLink) { ops }
             if (connected && status == BluetoothGatt.GATT_SUCCESS) {
                 if (o == null) return
-                o.setPreferredPhy2M()
+                o.setPreferredPhy1M()
                 if (!o.requestMtu(config.preferredAttMtu) && !o.discoverServices()) fail(LinkDownMapper.GATT_FAILURE)
             } else {
                 fail(if (status == BluetoothGatt.GATT_SUCCESS && !connected) LinkDownMapper.GATT_CONN_TERMINATE_PEER_USER else status)

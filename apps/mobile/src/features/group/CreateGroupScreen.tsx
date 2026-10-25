@@ -3,6 +3,7 @@
 // in JS); then the lobby opens.
 import type { Vehicle } from "@meshapp/engine-api";
 import { Button, SegmentedControl } from "@meshapp/ui-kit";
+import { ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 
 import type { ScreenProps } from "../../app/router";
@@ -78,7 +79,7 @@ export function CreateGroupScreen(_props: ScreenProps) {
           </label>
           <input
             id={nameId}
-            className="min-h-target rounded-lg border border-border bg-card px-3 text-lg text-card-foreground"
+            className="min-h-14 rounded-2xl border border-separator bg-card px-4 text-lg text-card-foreground shadow-surface outline-none transition-shadow duration-ui focus:border-brand focus:ring-4 focus:ring-brand/20"
             value={name}
             maxLength={GROUP_NAME_MAX}
             autoComplete="off"
@@ -86,31 +87,33 @@ export function CreateGroupScreen(_props: ScreenProps) {
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-        <NameField value={rider} onChange={setRider} />
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-semibold">{t("create.vehicle")}</span>
-          <SegmentedControl
-            label={t("create.vehicle")}
-            value={vehicle}
-            onChange={setVehicle}
-            options={[
-              { value: "moto", label: tc("vehicle.moto") },
-              { value: "car", label: tc("vehicle.car") },
-            ]}
-          />
-          <p className="text-xs text-muted-foreground">{t(`create.vehicleHint.${vehicle}`)}</p>
-        </div>
-        <details className="rounded-lg bg-card p-3 text-card-foreground">
-          <summary className="min-h-target cursor-pointer content-center text-sm font-semibold">
+        <details className="group rounded-section border border-separator bg-card px-4 py-1 text-card-foreground shadow-surface">
+          <summary className="flex min-h-target cursor-pointer list-none items-center justify-between text-base font-semibold [&::-webkit-details-marker]:hidden">
             {t("create.advanced")}
+            <ChevronDown aria-hidden="true" className="size-5 text-muted-foreground transition-transform duration-ui group-open:rotate-180" />
           </summary>
-          <div className="flex flex-col gap-2 pt-2">
+          <div className="flex flex-col gap-4 pt-2 pb-4">
+            <NameField value={rider} onChange={setRider} />
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold">{t("create.vehicle")}</span>
+              <SegmentedControl
+                label={t("create.vehicle")}
+                value={vehicle}
+                onChange={setVehicle}
+                options={[
+                  { value: "moto", label: tc("vehicle.moto") },
+                  { value: "car", label: tc("vehicle.car") },
+                ]}
+              />
+              <p className="text-xs text-muted-foreground">{t(`create.vehicleHint.${vehicle}`)}</p>
+            </div>
+            <div className="flex flex-col gap-2">
             <label htmlFor={expiryId} className="text-sm">
               {t("create.expiry")}
             </label>
             <select
               id={expiryId}
-              className="min-h-target rounded-lg border border-border bg-background px-3 text-base"
+              className="min-h-target rounded-xl border border-separator bg-background px-3 text-base"
               value={expiry === null ? "never" : String(expiry)}
               onChange={(e) => setExpiry(e.target.value === "never" ? null : Number(e.target.value))}
             >
@@ -122,6 +125,7 @@ export function CreateGroupScreen(_props: ScreenProps) {
             </select>
             <p className="text-xs text-muted-foreground">{t("create.expiryHint")}</p>
             <p className="text-xs text-muted-foreground">{t("create.leaderPriority")}</p>
+            </div>
           </div>
         </details>
       </form>

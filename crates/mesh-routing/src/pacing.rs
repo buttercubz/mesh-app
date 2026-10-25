@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use mesh_wire::mesh::EncoderProfile;
 
 use crate::airtime::{AirtimeBudget, AirtimeInput};
-use crate::cap::CapEstimator;
+use crate::cap::{CapEstimator, CapModels};
 use crate::cost::CostModel;
 use crate::limits::Limits;
 use crate::neighbor::NeighborTable;
@@ -62,6 +62,20 @@ impl NodePacing {
         match kind {
             LinkKind::Ble => CostModel::new(self.ble_profile),
             LinkKind::Aware | LinkKind::Tunnel => CostModel::new(EncoderProfile::Wifi20),
+        }
+    }
+
+    /// The cap models of a link kind: the current profile, one stream of the lowest
+    /// profile as the fallback (BLE12), and the default profile as the PATH_HINT
+    /// reference (BLE16), see [`CapModels`].
+    pub fn cap_models(&self, kind: LinkKind) -> CapModels {
+        match kind {
+            LinkKind::Ble => CapModels {
+                cap: self.model(kind),
+                fallback: CostModel::new(EncoderProfile::Ble12),
+                hint: CostModel::new(EncoderProfile::Ble16),
+            },
+            LinkKind::Aware | LinkKind::Tunnel => CapModels::single(self.model(kind)),
         }
     }
 
@@ -147,11 +161,11 @@ impl NodePacing {
                 self.budget.grants(&prospective)[i].grant_bps
             };
             let kind = inputs[i].kind;
-            let model = self.model(kind);
+            let models = self.cap_models(kind);
             let s_max = self.limits.s_max(kind);
             if let Some(l) = self.links.get_mut(&g.link) {
                 l.pacer.set_grant(now, g.grant_bps);
-                let u = l.cap.update(now, cap_grant, s_max, &model);
+                let u = l.cap.update_with(now, cap_grant, s_max, &models);
                 if u.published != l.published_cap {
                     l.published_cap = u.published;
                     up.cap_changes.push((g.link, u.published));

@@ -36,7 +36,7 @@ use crate::limits::Limits;
 use crate::neighbor::NeighborTable;
 use crate::prune::SegTimeouts;
 use crate::queue::{Priority, QueuedPacket};
-use crate::types::{Instant, LinkId, NodeId};
+use crate::types::{Instant, LinkId, LinkKind, NodeId};
 
 use mesh_wire::mesh::{EncoderProfile, FloorRejectReason, TrafficClass};
 
@@ -155,8 +155,6 @@ pub struct Router {
     pub seg_timeouts: SegTimeouts,
     /// Published `cap_pacing` per link (from the cap estimator).
     link_caps: BTreeMap<LinkId, u8>,
-    /// Whether any BLE link exists in the group (near-talker `group_cap`, §6.3).
-    pub group_has_ble: bool,
     pending: Vec<PendingCtrl>,
     seq: u16,
     rng: ChaCha20Rng,
@@ -175,7 +173,6 @@ impl Router {
             dedup: Dedup::new(),
             seg_timeouts: SegTimeouts::new(),
             link_caps: BTreeMap::new(),
-            group_has_ble: true,
             pending: Vec::new(),
             stats: RouterStats::default(),
             cfg,
@@ -210,13 +207,77 @@ impl Router {
         }
     }
 
-    /// `cap_local`: the cap of my most constrained link (S_MAX BLE without links).
+    /// `cap_local`: the cap of my most constrained voice link (S_MAX BLE without links).
+    /// BLE edge links ([`Router::is_edge_link`]) do not count: a full edge sheds my burst
+    /// on that link only, it never blocks me on the Wi-Fi backbone. BLE fallback links to
+    /// a neighbor I also hold an Aware link to ([`Router::is_ble_fallback_link`]) do not
+    /// count either: the bundle sends voice to that neighbor over Aware only.
     pub fn cap_local(&self) -> u8 {
         self.neighbors
             .link_ids()
+            .filter(|l| !self.is_edge_link(*l) && !self.is_ble_fallback_link(*l))
             .map(|l| self.link_cap(l))
             .min()
             .unwrap_or(self.cfg.limits.s_max_ble)
+    }
+
+    /// `true` when `link` is a BLE link to a neighbor I also hold an Aware link to (the
+    /// fallback of an upgraded link; it carries no voice while the Aware link is up).
+    pub fn is_ble_fallback_link(&self, link: LinkId) -> bool {
+        self.neighbors
+            .link(link)
+            .is_some_and(|l| l.kind == LinkKind::Ble)
+            && self
+                .neighbors
+                .node_of(link)
+                .and_then(|n| self.neighbors.neighbor(n))
+                .is_some_and(|n| n.links.get(LinkKind::Aware).is_some())
+    }
+
+    /// `true` when `link` is a BLE *edge* of a Wi-Fi backbone node: a BLE link while I
+    /// hold an Aware link to another neighbor (hybrid groups: Aware is the backbone,
+    /// BLE-only members hang off it). Admission on an edge is local to it (shed, never
+    /// a group-wide FLOOR_REJECT, see [`crate::floor::Admission::admits_at`]).
+    pub fn is_edge_link(&self, link: LinkId) -> bool {
+        let Some(l) = self.neighbors.link(link) else {
+            return false;
+        };
+        if l.kind != LinkKind::Ble {
+            return false;
+        }
+        let peer = self.neighbors.node_of(link);
+        self.neighbors
+            .neighbors()
+            .any(|m| Some(m.node_id) != peer && m.links.get(LinkKind::Aware).is_some())
+    }
+
+    /// Whether the neighbor behind `link` belongs to the Wi-Fi backbone: the link itself
+    /// is Aware, I hold an Aware link to that neighbor, or its latest NBR lists an Aware
+    /// link of its own.
+    pub fn backbone_peer(&self, link: LinkId) -> bool {
+        if self
+            .neighbors
+            .link(link)
+            .is_some_and(|l| l.kind == LinkKind::Aware)
+        {
+            return true;
+        }
+        self.neighbors
+            .node_of(link)
+            .and_then(|n| self.neighbors.neighbor(n))
+            .is_some_and(|n| {
+                n.links.get(LinkKind::Aware).is_some()
+                    || n.nbr
+                        .as_ref()
+                        .is_some_and(|r| r.entries.iter().any(|e| e.kind == Some(LinkKind::Aware)))
+            })
+    }
+
+    /// The near-talker `group_cap` for VOICE received on `link`, per segment (§6.3): the
+    /// Aware cap when the voice comes from the Wi-Fi backbone, the BLE cap inside a BLE
+    /// segment. A group-wide "any BLE link" cap would throttle an Aware island to 2.
+    pub fn near_talker_cap(&self, link: LinkId) -> u8 {
+        self.cfg.limits.group_cap(!self.backbone_peer(link))
     }
 
     /// The origin's `local_admit` for burst `burst` with priority `prio` (§6.4).

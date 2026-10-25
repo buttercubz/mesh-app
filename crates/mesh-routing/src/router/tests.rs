@@ -409,3 +409,126 @@ fn mesh_probe_trace_is_appended() {
     let p = mesh_wire::mesh::MeshProbe::decode(&o.out[0].packet.payload).expect("p");
     assert_eq!(p.trace(), &[1]);
 }
+
+/// Hybrid node 1: Aware + BLE (fallback) to node 2, Aware to node 3, BLE only to node 4
+/// (a BLE-only member hanging off the Wi-Fi backbone).
+fn hybrid_router() -> Router {
+    let mut r = Router::new(cfg(1));
+    for (l, n, k) in [
+        (1u32, 2u16, LinkKind::Ble),
+        (2, 2, LinkKind::Aware),
+        (3, 3, LinkKind::Aware),
+        (4, 4, LinkKind::Ble),
+    ] {
+        r.neighbors
+            .link_up(Instant::ZERO, n, LinkId(l), k, LinkRole::Initiator, 1024)
+            .expect("up");
+    }
+    r
+}
+
+#[test]
+fn hybrid_edges_caps_and_near_talker_per_segment() {
+    let mut r = hybrid_router();
+    // BLE links of a node holding an Aware link to another neighbor are edges.
+    assert!(r.is_edge_link(LinkId(1)));
+    assert!(r.is_edge_link(LinkId(4)));
+    assert!(!r.is_edge_link(LinkId(2)));
+    // The edge does not bound my own floor admission: the Aware cap does.
+    assert_eq!(r.cap_local(), 4);
+    // Near-talker cap: 4 from the backbone, 2 from a BLE-only neighbor.
+    assert_eq!(r.near_talker_cap(LinkId(2)), 4);
+    assert_eq!(r.near_talker_cap(LinkId(1)), 4);
+    assert_eq!(r.near_talker_cap(LinkId(4)), 2);
+    // A BLE-only neighbor whose NBR lists an Aware link is on the backbone too.
+    let nbr = Nbr::new(
+        1,
+        &[NbrEntry {
+            node_id: 9,
+            q: 90,
+            flags: NbrFlags::new(true, false, NbrFlags::KIND_AWARE),
+            vcap: 4,
+        }],
+    )
+    .expect("nbr");
+    r.neighbors.on_nbr(Instant::ZERO, LinkId(4), &nbr);
+    assert_eq!(r.near_talker_cap(LinkId(4)), 4);
+    // A BLE-only node (no Aware link at all) keeps the BLE rules.
+    let plain = router(1);
+    assert_eq!(plain.cap_local(), 2);
+    assert!(!plain.is_edge_link(LinkId(1)));
+    assert_eq!(plain.near_talker_cap(LinkId(1)), 2);
+}
+
+#[test]
+fn full_ble_edge_sheds_there_and_never_rejects_group_wide() {
+    let mut r = hybrid_router();
+    let t = Instant::from_secs(1);
+    // Four island talkers arrive over the Aware link from node 3 (origins 10..13, two
+    // hops away), 300 ms apart. Every one is relayed on the Aware link to node 2; the
+    // BLE edge to node 4 carries the first two only; nobody gets a FLOOR_REJECT.
+    for (k, origin) in (10u16..14).enumerate() {
+        let mut h = MeshHeader::new(PacketType::Voice, origin, 1, 1);
+        h.hops = 1;
+        let b = MeshPacket {
+            header: h,
+            payload: &voice_payload(1, 0),
+        }
+        .encode()
+        .expect("e");
+        let o = r.on_mesh_packet(t.plus_ms(300 * k as u64), LinkId(3), auth(&b));
+        assert!(
+            !o.out
+                .iter()
+                .any(|x| x.packet.header.ptype == PacketType::FloorReject),
+            "talker {origin} rejected"
+        );
+        let voice: Vec<u32> = o
+            .out
+            .iter()
+            .filter(|x| x.packet.header.ptype == PacketType::Voice)
+            .map(|x| x.link.0)
+            .collect();
+        // The bundle picks Aware or BLE for node 2 later; the router offers the best link.
+        assert!(voice.contains(&2), "talker {origin}: {voice:?}");
+        assert_eq!(voice.contains(&4), k < 2, "talker {origin}: {voice:?}");
+    }
+    assert_eq!(r.admission.admitted(LinkId(4)).len(), 2);
+    assert_eq!(r.admission.admitted(LinkId(2)).len(), 4);
+    assert_eq!(r.stats.rejects_sent, 0);
+}
+
+/// Regression: a leaf of a star-shaped Aware island holds one Aware link and its BLE
+/// fallback link to the same hub. That fallback is not an edge (no other Aware
+/// neighbor) but carries no voice either, so it must not cap my floor admission at the
+/// BLE cap (4 island talkers fit S_MAX_AWARE).
+#[test]
+fn ble_fallback_to_my_only_aware_peer_does_not_bound_cap_local() {
+    let mut r = Router::new(cfg(1));
+    for (l, k) in [(1u32, LinkKind::Ble), (2, LinkKind::Aware)] {
+        r.neighbors
+            .link_up(Instant::ZERO, 2, LinkId(l), k, LinkRole::Initiator, 1024)
+            .expect("up");
+    }
+    assert!(!r.is_edge_link(LinkId(1)));
+    assert!(r.is_ble_fallback_link(LinkId(1)));
+    assert!(!r.is_ble_fallback_link(LinkId(2)));
+    assert_eq!(r.cap_local(), 4);
+    // A BLE-only neighbor next to it (an edge) still does not bound it; once the Aware
+    // link drops the BLE link carries voice again and the BLE cap applies.
+    r.neighbors
+        .link_up(
+            Instant::ZERO,
+            3,
+            LinkId(3),
+            LinkKind::Ble,
+            LinkRole::Initiator,
+            1024,
+        )
+        .expect("up");
+    assert!(r.is_edge_link(LinkId(3)));
+    assert_eq!(r.cap_local(), 4);
+    r.on_link_down(LinkId(2));
+    assert!(!r.is_ble_fallback_link(LinkId(1)));
+    assert_eq!(r.cap_local(), 2);
+}

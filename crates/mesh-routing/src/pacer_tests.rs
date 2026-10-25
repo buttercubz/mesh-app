@@ -47,12 +47,23 @@ fn step_response_delay() {
     assert_eq!(down, vec![51_000, 43_350, 36_847, 31_319]);
     let up = run(&mut p, t.plus_us(4 * PACER_PERIOD_US), 4, 0, true);
     assert_eq!(up, vec![35_319, 39_319, 43_319, 47_319]);
-    // Between the thresholds nothing changes.
-    let hold = run(&mut p, t.plus_us(8 * PACER_PERIOD_US), 3, 20_000, true);
-    assert_eq!(hold, vec![47_319; 3]);
     // No traffic: no increase.
-    let idle = run(&mut p, t.plus_us(11 * PACER_PERIOD_US), 2, 0, false);
+    let idle = run(&mut p, t.plus_us(8 * PACER_PERIOD_US), 2, 0, false);
     assert_eq!(idle, vec![47_319; 2]);
+    // Below the initial rate, recovery continues between the thresholds: on a 30 ms
+    // iOS-central interval the RTT phase alone keeps qd around 15-30 ms (mesh-sim S15).
+    let rec = run(&mut p, t.plus_us(10 * PACER_PERIOD_US), 4, 30_000, true);
+    assert_eq!(rec, vec![51_319, 55_319, 59_319, 63_319]);
+    // At or above it, between the thresholds nothing changes, even backlogged.
+    let hold = run_b(
+        &mut p,
+        t.plus_us(14 * PACER_PERIOD_US),
+        3,
+        20_000,
+        true,
+        true,
+    );
+    assert_eq!(hold, vec![63_319; 3]);
 }
 
 #[test]
@@ -67,9 +78,11 @@ fn would_block_and_bounds() {
     // and no further without backlog.
     let r = run(&mut p, t.plus_us(PACER_PERIOD_US), 4, 0, true);
     assert_eq!(r, vec![55_000, 59_000, 63_000, 63_000]);
-    // Floor at 16 kbps.
+    // Delay never takes R below one BLE12 stream (25.1 kbps), above the 16 kbps bound.
     let low = run(&mut p, t.plus_us(5 * PACER_PERIOD_US), 40, 100_000, true);
-    assert_eq!(*low.last().expect("last"), 16_000);
+    assert_eq!(*low.last().expect("last"), 25_112);
+    assert_eq!(PacerPath::L2cap.voice_floor_bps(), 25_112);
+    assert!(PacerPath::L2cap.voice_floor_bps() > R_MIN_BPS);
     // Aware multiplies and is capped at 4 Mbps.
     let mut a = Pacer::new(t, PacerPath::Aware, 1200);
     a.set_grant(t, u32::MAX);
@@ -120,4 +133,37 @@ fn token_bucket_paces_at_send_rate() {
     }
     let bps = sent * 8 / 10;
     assert!((59_000..=61_000).contains(&bps), "{bps}");
+}
+
+#[test]
+fn fading_never_paces_a_link_below_one_stream() {
+    // Edge of range / fading null: retransmissions keep qd high and WouldBlock frequent
+    // for a minute. The decrease stops at one BLE12 stream (cap_pacing ≥ 1 with the
+    // BLE12 fallback), on both BLE data paths.
+    let t = Instant::ZERO;
+    for path in [PacerPath::L2cap, PacerPath::Gatt] {
+        let mut p = Pacer::new(t, path, 1024);
+        p.set_grant(t, 1_000_000);
+        let mut last = 0;
+        for i in 1..=120u64 {
+            p.on_would_block();
+            if let Some(s) = p.tick(t.plus_us(PACER_PERIOD_US * i), 250_000) {
+                last = s.rate_bps;
+            }
+        }
+        assert_eq!(last, 25_112, "{path:?}");
+        let ble12 = crate::cost::CostModel::new(EncoderProfile::Ble12);
+        assert_eq!(ble12.cap_pacing(last, 2), 1);
+        // A decrease at the floor changes nothing and reports no decrease.
+        p.on_would_block();
+        let s = p
+            .tick(t.plus_us(PACER_PERIOD_US * 121), 250_000)
+            .expect("tick");
+        assert!(!s.decreased);
+        // Recovery is the usual additive increase once the delay is gone.
+        let up = run(&mut p, t.plus_us(PACER_PERIOD_US * 121), 2, 0, true);
+        assert_eq!(up, vec![29_112, 33_112]);
+    }
+    // Aware keeps one WIFI20 stream.
+    assert_eq!(PacerPath::Aware.voice_floor_bps(), 41_556);
 }

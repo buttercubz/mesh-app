@@ -123,4 +123,28 @@ label: string, } | { "type": "labListRuns", } | { "type": "labDeleteRun",
 /**
  * Run id.
  */
-runId: string, };
+runId: string, } | { "type": "joinOpenChannel", 
+/**
+ * Channel number 1-9.
+ */
+channel: number, 
+/**
+ * Display name to announce (optional, may be empty; ≤ 24 UTF-8 bytes).
+ */
+displayName: string, } | { "type": "setMemberMuted", 
+/**
+ * Member node id.
+ */
+nodeId: number, 
+/**
+ * Muted.
+ */
+muted: boolean, } | { "type": "setMemberBlocked", 
+/**
+ * Member node id.
+ */
+nodeId: number, 
+/**
+ * Blocked.
+ */
+blocked: boolean, };

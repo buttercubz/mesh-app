@@ -1,5 +1,5 @@
 {
-  "bytes": 2971619,
+  "bytes": 3130910,
   "comment": "Written by `cargo xtask build-wasm` (WP-13). Do not edit.",
   "exports": [
     "mw_alloc",
@@ -12,5 +12,5 @@
     "mw_world_new"
   ],
   "file": "mesh_wasm.wasm",
-  "rawBytes": 17415727
+  "rawBytes": 18460697
 }

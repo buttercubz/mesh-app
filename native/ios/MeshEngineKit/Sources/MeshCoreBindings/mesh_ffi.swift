@@ -780,6 +780,13 @@ public protocol MeshEngineProtocol: AnyObject, Sendable {
     func stop() 
     
     /**
+     * The Wi-Fi Aware data-path PMK for `peer`, set with `AwareUpgrade{op: 2}` on
+     * Android (`aware_pmk`, DESIGN §8.3, §9.6). Taken once: a second call returns
+     * `None` until the next op 2. Added in C4 1.x (WP-24, additive).
+     */
+    func takeAwarePmk(peer: UInt16)  -> Data?
+    
+    /**
      * A UI command (JSON) → `CommandResult` (JSON). Works in Idle too.
      */
     func uiCommand(json: String)  -> String
@@ -1133,6 +1140,21 @@ open func stop()  {try! rustCall() {
             self.uniffiCloneHandle(),uniffiCallStatus
     )
 }
+}
+    
+    /**
+     * The Wi-Fi Aware data-path PMK for `peer`, set with `AwareUpgrade{op: 2}` on
+     * Android (`aware_pmk`, DESIGN §8.3, §9.6). Taken once: a second call returns
+     * `None` until the next op 2. Added in C4 1.x (WP-24, additive).
+     */
+open func takeAwarePmk(peer: UInt16) -> Data?  {
+    return try!  FfiConverterOptionData.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_mesh_ffi_fn_method_meshengine_take_aware_pmk(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt16.lower(peer),uniffiCallStatus
+    )
+})
 }
     
     /**
@@ -6026,6 +6048,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mesh_ffi_checksum_method_meshengine_stop() != 91) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mesh_ffi_checksum_method_meshengine_take_aware_pmk() != 46719) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mesh_ffi_checksum_method_meshengine_ui_command() != 27397) {

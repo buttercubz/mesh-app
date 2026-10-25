@@ -36,8 +36,8 @@ class FakeGatt : GattOps {
     var acceptWrites = true
     var mtuRequested = 0
     override val hasDataPath: Boolean get() = dataPath
-    override fun setPreferredPhy2M() {
-        calls.add("phy2m")
+    override fun setPreferredPhy1M() {
+        calls.add("phy1m")
     }
 
     override fun requestMtu(mtu: Int): Boolean {
@@ -94,7 +94,7 @@ class GattClientLinkTest {
         link.gattEvents.onMtuChanged(517, 0)
         link.gattEvents.onServicesDiscovered(0)
         link.gattEvents.onHelloRead(hello, 0)
-        assertEquals(listOf("phy2m", "mtu", "discover", "resolve", "readHello"), gatt.calls)
+        assertEquals(listOf("phy1m", "mtu", "discover", "resolve", "readHello"), gatt.calls)
         assertArrayEquals(hello, sink.hellos.single().second)
         assertTrue("connect timeout cancelled after HELLO", scheduler.delayed.isEmpty())
     }

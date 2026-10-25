@@ -4,6 +4,7 @@
 // unmount, and is never stored. A screenshot of the code lets anyone join: the card
 // says so.
 import { Button } from "@meshapp/ui-kit";
+import { QrCode, ShieldAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useT } from "../../i18n/index";
@@ -52,11 +53,21 @@ export function InviteQr({ groupId }: { readonly groupId: string }) {
   };
 
   return (
-    <section className="rounded-section bg-card p-4 text-card-foreground" aria-labelledby="invite-qr-title" data-testid="invite-qr">
-      <div className="flex items-center justify-between gap-3">
-        <h2 id="invite-qr-title" className="text-base font-semibold">
-          {t("lobby.qrTitle")}
-        </h2>
+    <section
+      className="rounded-section border border-separator bg-card p-4 text-card-foreground shadow-surface"
+      aria-labelledby="invite-qr-title"
+      data-testid="invite-qr"
+    >
+      <div className="flex items-center gap-3">
+        <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand">
+          <QrCode className="size-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="invite-qr-title" className="text-base font-semibold">
+            {t("lobby.qrTitle")}
+          </h2>
+          {qr === null && <p className="text-sm text-muted-foreground">{expired ? t("lobby.qrHidden") : t("lobby.qrHint")}</p>}
+        </div>
         {qr !== null && (
           <Button variant="plain" onClick={() => setQr(null)}>
             {t("lobby.qrHide")}
@@ -64,22 +75,20 @@ export function InviteQr({ groupId }: { readonly groupId: string }) {
         )}
       </div>
       {qr === null ? (
-        <div className="mt-3 flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">{expired ? t("lobby.qrHidden") : t("lobby.qrHint")}</p>
-          <Button variant="secondary" size="lg" block disabled={loading} onClick={show}>
-            {expired ? t("lobby.qrShowAgain") : t("lobby.qrShow")}
-          </Button>
-        </div>
+        <Button variant="secondary" size="lg" block disabled={loading} onClick={show} className="mt-4">
+          {expired ? t("lobby.qrShowAgain") : t("lobby.qrShow")}
+        </Button>
       ) : (
-        <div className="mt-3 flex flex-col items-center gap-3">
+        <div className="mt-4 flex animate-rise flex-col items-center gap-3 motion-reduce:animate-none">
           <img
             src={qr.png}
             alt={t("lobby.qrAlt")}
-            className="aspect-square w-full max-w-80 rounded-lg bg-white p-3 [image-rendering:pixelated]"
+            className="aspect-square w-full max-w-72 rounded-2xl bg-white p-3 shadow-chrome [image-rendering:pixelated]"
             data-testid="invite-qr-image"
             draggable={false}
           />
-          <p role="note" className="text-center text-sm font-medium text-ladder-warn">
+          <p role="note" className="flex items-start gap-2 text-sm font-medium">
+            <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ladder-warn" />
             {t("lobby.qrWarning")}
           </p>
           <p className="text-center text-xs text-muted-foreground">

@@ -21,6 +21,10 @@ use crate::session::{self, Cue, Out, view};
 impl GroupCore {
     /// A complete ROSTER / REKEY / GROUP_CTL / JOIN_REQ body, flooded or received as SYNC.
     pub(crate) fn apply_body(&mut self, ctx: &mut Ctx, kind: SyncKind, body: &[u8]) {
+        // Open channels have no leader: only the JOIN_REQ name announcements count.
+        if kind != SyncKind::JoinReq && self.is_open() {
+            return;
+        }
         match kind {
             SyncKind::JoinReq => self.apply_join(ctx, body),
             SyncKind::Roster | SyncKind::Rekey | SyncKind::GroupCtl => {
@@ -77,6 +81,13 @@ impl GroupCore {
         };
         let h = id.id_hash();
         if g.control.deny().is_denied(&h) || h == g.my_id_hash() {
+            return;
+        }
+        // Open channels remember a bounded number of (ephemeral) identities.
+        if g.open.is_some()
+            && g.book.len() >= super::open::OPEN_MAX_KNOWN
+            && !g.book.contains_key(&h)
+        {
             return;
         }
         let fresh = g.remember(id, j.platform, &j.name);

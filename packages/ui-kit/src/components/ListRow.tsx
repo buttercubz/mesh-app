@@ -8,7 +8,7 @@ export interface ListRowProps {
   readonly leading?: ReactNode;
   /** Value, badge, quality bars or chevron on the trailing edge. */
   readonly trailing?: ReactNode;
-  /** Makes the row a 44 px+ button. */
+  /** Makes the row a 48 px+ button. */
   readonly onClick?: () => void;
   readonly disabled?: boolean;
   readonly className?: string;

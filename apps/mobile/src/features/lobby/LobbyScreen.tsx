@@ -1,8 +1,11 @@
-// Lobby (WP-22, DESIGN §1.3 F3, §11.4): invite QR, member ready checks, "voice reaches
-// N of M" (best effort marked), Go live (★, from the tap: capture starts muted and the
-// screen says so) and Start ride (leader; a member may start locally when the leader is
-// out of range). The screen is kept awake: phones must not lock before Go live.
-import { Button } from "@meshapp/ui-kit";
+// Lobby (WP-22, DESIGN §1.3 F3, §11.4): the first half of one continuous flow with the
+// ride screen. The riders gathering (avatars), "voice reaches N of M" (best effort
+// marked), the invite QR and the ready checks scroll; Go live (★, from the tap: capture
+// starts muted and the screen says so) and Start ride (leader; a member may start
+// locally when the leader is out of range) stay pinned where the PTT button will be.
+// The screen is kept awake: phones must not lock before Go live.
+import { Avatar, Button, cx } from "@meshapp/ui-kit";
+import { Flag, Mic, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { ScreenProps } from "../../app/router";
@@ -43,40 +46,37 @@ function LobbyActions() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-2">
+    <div className="mx-auto flex w-full max-w-md flex-col gap-3">
+      {!leader && (
+        <p className="text-center text-sm text-muted-foreground">{leaderAway ? t("lobby.leaderAway") : t("lobby.waitLeader")}</p>
+      )}
       {session.live ? (
-        <p role="status" className="text-center text-sm font-medium" data-testid="mic-muted-status">
-          <span aria-hidden="true" className="text-talk-active">
-            ●{" "}
-          </span>
+        <p
+          role="status"
+          className="flex min-h-target items-center justify-center gap-2 rounded-capsule bg-talk-active/12 px-4 text-center text-sm font-semibold"
+          data-testid="mic-muted-status"
+        >
+          <span aria-hidden="true" className="size-2.5 shrink-0 animate-talk-pulse rounded-full bg-talk-active motion-reduce:animate-none" />
           {t("lobby.liveMuted")}
         </p>
       ) : (
-        <Button variant="primary" size="lg" block disabled={busy} onClick={goLive} data-testid="go-live">
+        <Button variant="primary" size="lg" block disabled={busy} onClick={goLive} data-testid="go-live" className="min-h-16 text-lg">
+          <Mic aria-hidden="true" />
           {t("lobby.goLive")}
         </Button>
       )}
-      {leader ? (
-        <Button
-          variant={session.live ? "primary" : "secondary"}
-          size="lg"
-          block
-          disabled={busy}
-          onClick={startRide}
-          data-testid="start-ride"
-        >
-          {t("lobby.startRide")}
-        </Button>
-      ) : (
-        <>
-          <p className="text-center text-sm text-muted-foreground">
-            {leaderAway ? t("lobby.leaderAway") : t("lobby.waitLeader")}
-          </p>
-          <Button variant="secondary" size="lg" block disabled={busy} onClick={startRide} data-testid="start-ride">
-            {t("lobby.startLocal")}
-          </Button>
-        </>
-      )}
+      <Button
+        variant={leader && session.live ? "primary" : "secondary"}
+        size="lg"
+        block
+        disabled={busy}
+        onClick={startRide}
+        data-testid="start-ride"
+        className={cx(leader && session.live && "min-h-16 text-lg")}
+      >
+        <Flag aria-hidden="true" />
+        {leader ? t("lobby.startRide") : t("lobby.startLocal")}
+      </Button>
     </div>
   );
 }
@@ -102,36 +102,53 @@ export function LobbyScreen({ params }: ScreenProps) {
 
   const reach = voiceReach(snapshot);
   const heard = heardBy(snapshot);
+  const members = snapshot?.members ?? [];
+  const faces = [...members].sort((a, b) => Number(b.status === "me") - Number(a.status === "me")).slice(0, 6);
 
   return (
     <ScreenLayout
       title={session?.groupName ?? t("lobby.title")}
       back
+      glow
       onBack={() => setLeaving(true)}
       action={
-        <Button variant="plain" onClick={() => useRouter.getState().push(SCREEN.members)}>
-          {t("lobby.members")}
+        <Button
+          variant="plain"
+          iconOnly
+          aria-label={t("lobby.members")}
+          className="text-foreground"
+          onClick={() => useRouter.getState().push(SCREEN.members)}
+        >
+          <Users aria-hidden="true" />
         </Button>
       }
+      footer={session !== null ? <LobbyActions /> : undefined}
     >
       {session === null ? (
         <SessionGone />
       ) : (
-        <div className="mx-auto flex max-w-xl flex-col gap-4" data-testid="lobby-screen">
-          <div className="text-center">
-            <p className="text-xl font-semibold tabular-nums" data-testid="lobby-reach">
-              {reach.bestEffort > 0
-                ? t("lobby.voiceReachBestEffort", { n: reach.n, m: reach.m, b: reach.bestEffort })
-                : t("lobby.voiceReach", { n: reach.n, m: reach.m })}
-            </p>
-            <p className="text-sm text-muted-foreground">{t("lobby.heardBy", { k: heard.k, n: heard.n })}</p>
-          </div>
+        <div className="mx-auto flex max-w-xl flex-col gap-5" data-testid="lobby-screen">
+          <section className="flex flex-col items-center gap-4 pt-2 text-center">
+            <ul className="flex -space-x-3" aria-hidden="true">
+              {faces.map((m) => (
+                <li key={m.nodeId} className="rounded-full ring-4 ring-background">
+                  <Avatar name={m.name} size={56} dim={m.status === "lost" || m.status === "unconfirmed"} />
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-col gap-1">
+              <p className="text-2xl font-bold tracking-tight tabular-nums" data-testid="lobby-reach">
+                {reach.bestEffort > 0
+                  ? t("lobby.voiceReachBestEffort", { n: reach.n, m: reach.m, b: reach.bestEffort })
+                  : t("lobby.voiceReach", { n: reach.n, m: reach.m })}
+              </p>
+              <p className="text-sm text-muted-foreground">{t("lobby.heardBy", { k: heard.k, n: heard.n })}</p>
+            </div>
+          </section>
           <RideBanners hide={["notLive", "busy", "preempted", "congestion"]} />
-          {/* Primary actions near the top: thumb-reachable without scrolling past the list. */}
-          <LobbyActions />
           <InviteQr groupId={session.groupId} />
           <ReadyList />
-          <p className="text-center text-xs text-muted-foreground">{t("lobby.keepOpen")}</p>
+          <p className="px-4 text-center text-xs text-muted-foreground">{t("lobby.keepOpen")}</p>
         </div>
       )}
       <LeaveSheet open={leaving} onClose={() => setLeaving(false)} />

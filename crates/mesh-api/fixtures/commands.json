@@ -353,5 +353,32 @@
       "type": "labDeleteRun",
       "runId": "r-20261023-0912-ab12"
     }
+  },
+  {
+    "name": "joinOpenChannel",
+    "requiresGesture": false,
+    "command": {
+      "type": "joinOpenChannel",
+      "channel": 3,
+      "displayName": "Ana"
+    }
+  },
+  {
+    "name": "setMemberMuted",
+    "requiresGesture": false,
+    "command": {
+      "type": "setMemberMuted",
+      "nodeId": 4660,
+      "muted": true
+    }
+  },
+  {
+    "name": "setMemberBlocked",
+    "requiresGesture": false,
+    "command": {
+      "type": "setMemberBlocked",
+      "nodeId": 4660,
+      "blocked": true
+    }
   }
 ]

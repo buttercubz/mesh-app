@@ -256,7 +256,9 @@ impl From<RadioCommand> for FfiRadioCommand {
             RadioCommand::ArmReconnect { peer_ref, until_s } => {
                 FfiRadioCommand::ArmReconnect { peer_ref, until_s }
             }
-            RadioCommand::AwareUpgrade { peer, op } => FfiRadioCommand::AwareUpgrade { peer, op },
+            RadioCommand::AwareUpgrade { peer, op, .. } => {
+                FfiRadioCommand::AwareUpgrade { peer, op }
+            }
             RadioCommand::TunnelOpen { peer } => FfiRadioCommand::TunnelOpen { peer },
         }
     }

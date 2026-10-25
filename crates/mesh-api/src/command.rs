@@ -237,6 +237,29 @@ pub enum UiCommand {
         /// Run id.
         run_id: String,
     },
+    /// Prepare open channel 1-9 (no invite, no leader, nothing persisted); the UI then
+    /// calls `startEngine({ groupId })` with the returned id. → `{ groupId }`.
+    JoinOpenChannel {
+        /// Channel number 1-9.
+        channel: u8,
+        /// Display name to announce (optional, may be empty; ≤ 24 UTF-8 bytes).
+        display_name: String,
+    },
+    /// Locally mute (or unmute) a member's voice. Never sent on air.
+    SetMemberMuted {
+        /// Member node id.
+        node_id: u16,
+        /// Muted.
+        muted: bool,
+    },
+    /// Locally block (or unblock) a member: muted and refused as a direct neighbor.
+    /// Never sent on air.
+    SetMemberBlocked {
+        /// Member node id.
+        node_id: u16,
+        /// Blocked.
+        blocked: bool,
+    },
 }
 
 string_enum! {
@@ -306,6 +329,12 @@ string_enum! {
         LabListRuns = "labListRuns",
         /// `labDeleteRun`.
         LabDeleteRun = "labDeleteRun",
+        /// `joinOpenChannel`.
+        JoinOpenChannel = "joinOpenChannel",
+        /// `setMemberMuted`.
+        SetMemberMuted = "setMemberMuted",
+        /// `setMemberBlocked`.
+        SetMemberBlocked = "setMemberBlocked",
     }
 }
 
@@ -345,6 +374,9 @@ impl UiCommand {
             UiCommand::LabMark { .. } => CommandType::LabMark,
             UiCommand::LabListRuns {} => CommandType::LabListRuns,
             UiCommand::LabDeleteRun { .. } => CommandType::LabDeleteRun,
+            UiCommand::JoinOpenChannel { .. } => CommandType::JoinOpenChannel,
+            UiCommand::SetMemberMuted { .. } => CommandType::SetMemberMuted,
+            UiCommand::SetMemberBlocked { .. } => CommandType::SetMemberBlocked,
         }
     }
 
@@ -371,7 +403,9 @@ impl CommandType {
     /// The payload kind of a successful result of a command of this type.
     pub const fn result_kind(self) -> ResultKind {
         match self {
-            CommandType::CreateGroup | CommandType::JoinGroup => ResultKind::GroupId,
+            CommandType::CreateGroup | CommandType::JoinGroup | CommandType::JoinOpenChannel => {
+                ResultKind::GroupId
+            }
             CommandType::ParseInvite => ResultKind::InviteInfo,
             CommandType::ListGroups => ResultKind::Groups,
             CommandType::GetInvite => ResultKind::Invite,
@@ -401,7 +435,9 @@ impl CommandType {
             | CommandType::RequestSnapshot
             | CommandType::LabStop
             | CommandType::LabMark
-            | CommandType::LabDeleteRun => ResultKind::Done,
+            | CommandType::LabDeleteRun
+            | CommandType::SetMemberMuted
+            | CommandType::SetMemberBlocked => ResultKind::Done,
         }
     }
 

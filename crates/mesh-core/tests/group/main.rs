@@ -15,6 +15,7 @@ mod epochs;
 mod inject;
 mod invites;
 mod leader;
+mod open;
 mod sync;
 
 use mesh_core::links::LinkState;

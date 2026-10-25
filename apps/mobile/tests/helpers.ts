@@ -36,7 +36,7 @@ export function createFakePlugin(): FakePlugin {
     answer: () => ({ ok: true }),
     async getInfo() {
       record("getInfo");
-      return { platform: "web", engine: "platform-only", apiVersion: "1.1", protocolVersion: 1, appVersion: "0.1.0" };
+      return { platform: "web", engine: "platform-only", apiVersion: "1.2", protocolVersion: 1, appVersion: "0.1.0" };
     },
     async getStatus() {
       record("getStatus");
@@ -118,6 +118,13 @@ export function createFakePlugin(): FakePlugin {
     },
     async diagMark(opts) {
       record("diagMark", opts);
+    },
+    async awareStatus() {
+      record("awareStatus");
+      return { supported: true, enabled: false };
+    },
+    async awareSetEnabled(opts) {
+      record("awareSetEnabled", opts);
     },
     async addListener(_event, cb) {
       record("addListener");

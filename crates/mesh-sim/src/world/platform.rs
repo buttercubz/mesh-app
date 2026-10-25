@@ -94,7 +94,7 @@ impl World {
                 self.nodes[i].pending.remove(disc_id);
             }
             RadioCommand::Close { link, .. } => self.close_from(i, *link),
-            RadioCommand::AwareUpgrade { peer, op } => self.aware_upgrade(i, *peer, *op),
+            RadioCommand::AwareUpgrade { peer, op, .. } => self.aware_upgrade(i, *peer, *op),
             // Connection priority, reconnect arming (the T3 variants; §13.2 models
             // the foreground discovery path) and the v2 tunnel are recorded with the
             // effects; the radio model does not act on them.

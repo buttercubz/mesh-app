@@ -114,7 +114,8 @@ pub fn end_live(s: &mut Session, ctx: &mut Ctx) {
         s.live = false;
         s.media_mode = None;
         ctx.fx.audio(AudioCommand::StopCapture);
-        ctx.fx.diag(mesh_lab::ridelog::DiagEvent::CaptureStop { why: "endLive" });
+        ctx.fx
+            .diag(mesh_lab::ridelog::DiagEvent::CaptureStop { why: "endLive" });
         ctx.fx.audio(AudioCommand::CloseSession);
     }
 }

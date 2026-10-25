@@ -13,7 +13,7 @@ import {
   VOX_SENSITIVITIES,
 } from "../generated/index.js";
 import type { Shape, Validator } from "../validate.js";
-import { bool, lit, nullable, obj, oneOf, record, str, tagged, u16, u32 } from "../validate.js";
+import { bool, lit, nullable, obj, oneOf, record, str, tagged, u16, u32, u8 } from "../validate.js";
 import { labBench, labParams } from "./lab.js";
 
 type Cmd<K extends UiCommand["type"]> = Extract<UiCommand, { type: K }>;
@@ -74,4 +74,7 @@ export const uiCommand: Validator<UiCommand> = tagged<UiCommand, "type">("type",
   labMark: cmd("labMark", { label: str() }),
   labListRuns: cmd("labListRuns", {}),
   labDeleteRun: cmd("labDeleteRun", { runId: str() }),
+  joinOpenChannel: cmd("joinOpenChannel", { channel: u8(), displayName: str() }),
+  setMemberMuted: cmd("setMemberMuted", { nodeId: u16(), muted: bool() }),
+  setMemberBlocked: cmd("setMemberBlocked", { nodeId: u16(), blocked: bool() }),
 });

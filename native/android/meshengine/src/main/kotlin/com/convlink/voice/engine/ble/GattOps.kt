@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import android.os.Handler
 
 /** Posting abstraction over the `meshengine-ble` handler (a manual fake in the JVM tests). */
@@ -45,7 +46,8 @@ interface GattEvents {
 
 /** GATT client operations of one connection (DESIGN §9.3), so the link logic is JVM-testable. */
 interface GattOps {
-    fun setPreferredPhy2M()
+    /** Prefer the LE 1M PHY: about 3-5 dB better sensitivity than 2M, i.e. more range (field test 2026-10-24). */
+    fun setPreferredPhy1M()
     fun requestMtu(mtu: Int): Boolean
     fun discoverServices(): Boolean
 
@@ -78,9 +80,8 @@ class AndroidGatt private constructor(private val config: BleConfig) : GattOps {
 
     override val hasDataPath: Boolean get() = rx != null && tx != null
 
-    override fun setPreferredPhy2M() {
-        gatt?.setPreferredPhy(BluetoothDevice.PHY_LE_2M_MASK, BluetoothDevice.PHY_LE_2M_MASK,
-            BluetoothDevice.PHY_OPTION_NO_PREFERRED)
+    override fun setPreferredPhy1M() {
+        gatt?.setPreferredPhy(PhyPolicy.PREFERRED_MASK, PhyPolicy.PREFERRED_MASK, PhyPolicy.OPTIONS)
     }
 
     override fun requestMtu(mtu: Int): Boolean = gatt?.requestMtu(mtu) ?: false
@@ -184,14 +185,19 @@ class AndroidGatt private constructor(private val config: BleConfig) : GattOps {
             events.onRxWritten(status)
 
         override fun onReadRemoteRssi(g: BluetoothGatt, rssi: Int, status: Int) = events.onRssi(rssi, status)
+
+        // Logged so a field run shows which PHY the link really settled on (logcat tag BlePhy).
+        override fun onPhyUpdate(g: BluetoothGatt, txPhy: Int, rxPhy: Int, status: Int) {
+            Log.i("BlePhy", "client ${g.device.address} tx=${PhyPolicy.label(txPhy)} rx=${PhyPolicy.label(rxPhy)} status=$status")
+        }
     }
 
     companion object {
-        /** `connectGatt` (LE, 2M PHY preferred, callbacks on [handler]); null when refused. */
+        /** `connectGatt` (LE, 1M PHY for range, callbacks on [handler]); null when refused. */
         fun connect(context: Context, device: BluetoothDevice, config: BleConfig, handler: Handler, events: GattEvents): GattOps? {
             val ops = AndroidGatt(config)
             ops.gatt = device.connectGatt(context, false, ops.callback(events), BluetoothDevice.TRANSPORT_LE,
-                BluetoothDevice.PHY_LE_2M_MASK or BluetoothDevice.PHY_LE_1M_MASK, handler) ?: return null
+                PhyPolicy.PREFERRED_MASK, handler) ?: return null
             return ops
         }
     }

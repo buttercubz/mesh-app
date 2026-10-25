@@ -19,7 +19,7 @@ function px(value: string | undefined): number {
 }
 
 describe("touch target tokens", () => {
-  it("define 44 px and 160 px", () => {
+  it("define 48 px and 200 px", () => {
     const root = ruleBodies(tokens, ":root");
     expect(declared(root, "--target-min")).toBe(`${TARGET_MIN_PX}px`);
     expect(declared(root, "--ptt-size")).toBe(`${PTT_SIZE_PX}px`);
@@ -27,31 +27,31 @@ describe("touch target tokens", () => {
 
   const interactive = [".mk-button", ".mk-segment", ".mk-list-row--interactive", ".mk-toast-close", ".mk-ptt"];
   for (const selector of interactive) {
-    it(`${selector} has a min-height and min-width of at least 44 px`, () => {
+    it(`${selector} has a min-height and min-width of at least 48 px`, () => {
       const bodies = ruleBodies(components, selector);
       expect(bodies.length).toBeGreaterThan(0);
       expect(px(declared(bodies, "min-height"))).toBeGreaterThanOrEqual(TARGET_MIN_PX);
-      // List rows span the full width; every other target is at least 44 wide too.
+      // List rows span the full width; every other target is at least 48 wide too.
       if (selector !== ".mk-list-row--interactive") {
         expect(px(declared(bodies, "min-width"))).toBeGreaterThanOrEqual(TARGET_MIN_PX);
       }
     });
   }
 
-  it("the PTT button is 160 px square", () => {
+  it("the PTT button is 200 px square", () => {
     const bodies = ruleBodies(components, ".mk-ptt");
     for (const prop of ["width", "height", "min-width", "min-height"]) {
       expect(px(declared(bodies, prop))).toBe(PTT_SIZE_PX);
     }
   });
 
-  it("the icon button is exactly 44 px square", () => {
+  it("the icon button is exactly 48 px square", () => {
     const bodies = ruleBodies(components, ".mk-button--icon");
     expect(px(declared(bodies, "width"))).toBe(TARGET_MIN_PX);
     expect(px(declared(bodies, "height"))).toBe(TARGET_MIN_PX);
   });
 
-  it("no component rule lowers a min-height below 44 px", () => {
+  it("no component rule lowers a min-height below 48 px", () => {
     const clean = components.replace(/\/\*[\s\S]*?\*\//g, "");
     for (const m of clean.matchAll(/min-height:\s*([^;]+);/g)) {
       const value = px(m[1]);
@@ -60,7 +60,7 @@ describe("touch target tokens", () => {
   });
 });
 
-describe("rendered interactive primitives carry a 44 px target class", () => {
+describe("rendered interactive primitives carry a 48 px target class", () => {
   it("every button rendered by the kit uses a sized class", () => {
     render(
       createElement(

@@ -3,4 +3,4 @@
 /**
  * Member condition flags (from PRESENCE).
  */
-export type MemberFlag = "onCall" | "micLost" | "noHeadset" | "radioOff";
+export type MemberFlag = "onCall" | "micLost" | "noHeadset" | "radioOff" | "muted" | "blocked";

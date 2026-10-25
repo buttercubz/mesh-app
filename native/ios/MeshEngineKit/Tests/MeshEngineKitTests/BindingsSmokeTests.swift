@@ -11,7 +11,7 @@ final class BindingsSmokeTests: XCTestCase {
     func testVersionsComeFromTheCore() {
         XCTAssertEqual(protocolVersion(), 1)
         XCTAssertEqual(apiVersion() >> 8, EngineHost.apiMajor)
-        XCTAssertEqual(apiVersion() & 0xFF, 1, "UI contract 1.1 (DESIGN §3.7)")
+        XCTAssertEqual(apiVersion() & 0xFF, 2, "UI contract 1.2 (DESIGN §3.7)")
         XCTAssertEqual(rtAbiVersion(), 1)
     }
 

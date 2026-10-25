@@ -120,7 +120,7 @@ Design principle (from C): **a rider is never mute or deaf without knowing it, a
 | Co-leaders, member policies (force-PTT, remote mute), CRDT roster, leader-approval admission | v1.x, only if field use asks for them |
 | Helmet-button / handlebar PTT, iOS PushToTalk framework, Control Center widget, AudioRecordingIntent, Action-button latch | v1.x evaluation |
 | Android Core-Telecom "ride call" default, MEDIA_BUTTON restart receiver | Behind an off-by-default strategy flag until device-validated (§10.2) |
-| Public/open channels | v1.x |
+| Public/open channels | **Pulled into v1** (2026-10-24): channels 1-9, public HKDF-derived key, no leader, cap 2, TTL 2 (Appendix C) |
 | Per-burst Ed25519 voice signatures, MLS | v1.x/v2 |
 | Android-hosted hotspot topology | Not planned unless T1/T4 demand it |
 | convLink accounts / shared identity | v2 integration |
@@ -863,7 +863,7 @@ Why 150 ms and not the research's 250 ms: on the BLE profile the non-network par
 - **Stream-level shedding:** when a link must shed voice, it drops the **lowest-ranked burst entirely** (no further frames of that burst on that link until it ends), marks the link congested, and the next NBR advertises the lower vcap. It never drops random packets across bursts.
 - **Delay-based pacing:** a token bucket at rate `R` per link (initial L2CAP 60 kbps, GATT 40 kbps, Aware 2 Mbps, Tunnel 64 kbps; bounds [16 kbps, 4 Mbps]). Every 500 ms: `qd = srtt − min_rtt` (min over 30 s). If `qd > 40 ms` or a `WouldBlock` happened ⇒ `R ← 0.85 R`. If `qd < 15 ms` and the queue was non-empty ⇒ `R ← R + 4 kbps` (BLE) or `×1.1` (Aware). BLE is reliable at the link layer, so overload shows up as **delay**, not loss; the controller keeps OS buffers short.
 - **Node airtime budget (voice-aware):** all BLE links of a node share one radio (and the helmet's eSCO). A BLE link is a **voice link** if it carried voice in the last 2 s, otherwise **idle**. Idle links are capped at a control-only floor `R_IDLE = 8 kbps` (their `R` estimate is kept, only the grant is limited). Voice links share the rest: `Σ grant(voice links) ≤ NODE_BLE_BUDGET − Σ grant(idle links)`, with `NODE_BLE_BUDGET = 180 kbps` [TUNE: T0c]; when the sum of their `R` would exceed it, **only the voice links** are scaled, proportionally. Sizing: 3 voice links × 60 kbps = 180 kbps, i.e. the research's 60 kbps per-link budget at the link max; at the default target of 2 links no scaling ever occurs. If T0c shows the radio cannot sustain it with HFP active, Appendix B lowers the budget **and** the link max together so that `links_max × cost(2) ≤ 0.9 × NODE_BLE_BUDGET` keeps holding.
-- **Caps from pacing (with hysteresis):** `cap_pacing(L) = max{ k ∈ 1..S_MAX[kind] : cost(k, profile) ≤ 0.9 × grant(L) }`, with `cost` from §4.8 (uncoalesced, plus `C_CTRL`). For BLE16 this gives cap 2 whenever `grant ≥ 55.8 kbps` and cap 1 down to 29.6 kbps. The published cap **drops only after the raw value has been lower for 2 s** and **rises only after it has been higher for 5 s**, so a single multiplicative decrease (60 → 51 kbps, recovered by the additive increase within ~1.5 s when the queue is not building) never flaps the cap. If `grant` stays below `cost(1)` for 3 s, the relay floods `PATH_HINT{BLE12}`; origins that hear it use the 12 kbps profile for 30 s. **BLE-DRED** (27.6 kbps per stream) needs `grant ≥ 64.7 kbps` for cap 2, so it is enabled only on groups whose links' pacers sustain that (Phase 5 experiment, §7.4).
+- **Caps from pacing (with hysteresis):** `cap_pacing(L) = max{ k ∈ 1..S_MAX[kind] : cost(k, profile) ≤ 0.9 × grant(L) }`, with `cost` from §4.8 (uncoalesced, plus `C_CTRL`). For BLE16 this gives cap 2 whenever `grant ≥ 55.8 kbps` and cap 1 down to 29.6 kbps. The published cap **drops only after the raw value has been lower for 2 s** and **rises only after it has been higher for 5 s**, so a single multiplicative decrease (60 → 51 kbps, recovered by the additive increase within ~1.5 s when the queue is not building) never flaps the cap. **Voice floor (2026-10-24):** the multiplicative decrease never takes the rate below one stream of the lowest profile of the link kind (BLE12 `cost(1)/0.9` = 25 112 bps on BLE; 41 556 bps on Aware/Tunnel), a BLE12 grant counts as cap 1, and a lone admitted burst is never shed (fading is not congestion). Recovery below the initial rate needs only a period without a congestion signal (`qd ≤ 40 ms`, no `WouldBlock`); queue delay uses `min(srtt, sample)`. If `grant` stays below `cost(1)` for 3 s, the relay floods `PATH_HINT{BLE12}`; origins that hear it use the 12 kbps profile for 30 s. **BLE-DRED** (27.6 kbps per stream) needs `grant ≥ 64.7 kbps` for cap 2, so it is enabled only on groups whose links' pacers sustain that (Phase 5 experiment, §7.4).
 - **Steady-state guarantee (property test, WP-09):** with BLE16, default `R`, no loss and no queueing delay, a chain interior node (2 voice links), a 3-link hub with 3 voice links, and a 3-link node with 2 voice links + 1 idle link all keep `cap = 2` on every link for a 10 min simulated run; one injected `WouldBlock` lowers the cap for at most 2 s + recovery.
 
 ### 5.7 Link selection policy (every 2 s)
@@ -938,6 +938,7 @@ admits(L, b):
 - Equal-priority bursts never evict each other after `T_STICKY`, so a sentence is never cut mid-way by a peer.
 - Relays never forward voice of a burst outside `admits(L, b)` on L. Even if every talker ignored FLOOR_REJECT, no link would carry more than its cap.
 - **Near-talker rejection (from B):** a node that receives VOICE with `hops ≤ 1` for a burst outside the global top `group_cap` of its table (2 if any BLE link exists in the group, else 4) sends one FLOOR_REJECT{OUTRANKED} (TTL 4) per burst, so far-side conflicts are reported within 2 hops.
+- **Per-segment caps and edge links (2026-10-24, hybrid groups):** the near-talker `group_cap` is evaluated per segment: 4 for bursts heard from the Aware backbone, 2 inside BLE segments. An **edge link** (a BLE hop leaving the Aware backbone) admits purely by rank: it carries the top `cap(L)` live bursts known on it, refused or displaced bursts wait and return by rank, queue-shed bursts stay sticky but keep their rank slot. There is no `T_STICKY` first-come rule on edges and edges **shed locally without FLOOR_REJECT**. Non-edge links keep the pseudocode above.
 - Receivers mix at most 4 streams, chosen by rank.
 
 ### 6.4 Origin talk state machine (VOX and PTT)
@@ -948,7 +949,8 @@ Inputs: vad_on / vad_off | ptt_down / ptt_up (RT flag) | floor_reject(me) | slot
 
 IDLE --(VOX vad_on | PTT ptt_down)--> local_admit?
       local_admit = my prospective burst (prio, eff_start = now + h·T_TIE) ranks inside cap_local
-                    (cap of my most constrained link kind) given my table
+                    (cap of my most constrained link kind) given my table;
+                    cap_local ignores edge links and BLE fallback links to a neighbour I also reach over Aware
       yes → TALKING: new burst id, TALK{START, profile}, encode pre-roll (40 ms) + live, FIRST on first VOICE
       no  → BLOCKED (PTT: busy tone now; VOX: busy tone only after 600 ms of sustained speech)
 TALKING --VOX vad_off--> TALK{STOP} → IDLE      # vad_off is emitted by the VAD only after its 300 ms hangover (§7.3);
@@ -1023,13 +1025,13 @@ Common settings: `OPUS_APPLICATION_VOIP`, `OPUS_SIGNAL_VOICE`, 16 kHz API, VBR +
 
 | Profile (TALK id) | When | Frame | Bitrate | Bandwidth | LBRR | `PACKET_LOSS_PERC` | Complexity |
 |---|---|---|---|---|---|---|---|
-| **BLE16** (1, default) | any of my links is BLE | **40 ms** | 16 kbps | WB (NB on 8 kHz capture) | **off** | **0** | 8 |
+| **BLE16** (1, default) | any of my Up voice-egress links is BLE (BLE fallback links included) | **40 ms** | 16 kbps | WB (NB on 8 kHz capture) | **off**; **on** at the edge when smoothed loss ≥ 3 % (off after 10 s below 2 %) | 0 (LBRR off) / `clamp(smoothed_loss, 5, 25)` (LBRR on) | 8 |
 | **BLE12** (2) | PATH_HINT heard, own `cap_pacing = 1`, or thermal ≥ serious | 40 ms | 12 kbps | WB (NoLACE helps at the decoder); NB on 8 kHz capture | off | 0 | 8 (5 when thermal) |
 | **WIFI20** (3) | all my links are Aware/Tunnel and worst-neighbor smoothed loss < 3 % | 20 ms | 20 kbps | WB | off | 0 | 9 |
 | **WIFI24FEC** (4) | all Aware/Tunnel and smoothed loss ≥ 3 % (hysteresis: back below 2 % for 10 s) | 20 ms | 24 kbps | WB | **on** | `clamp(smoothed_loss, 5, 25)` | 9 |
 | BLE-DRED (5, experiment, Phase 5) | every roster member `dred_ok`, Lab shows bursty loss, LBRR off, and every own BLE link's grant ≥ 64.7 kbps (cap 2 at 27.6 kbps/stream, §5.6) | 40 ms | 20 kbps | WB | **off** | measured | 8 |
 
-Rules from the verified FEC analysis: with LBRR off the loss hint is **always 0**, because a non-zero hint lowers libopus's equivalent rate and can drop the audio bandwidth below WB. LBRR is used only at 24 kbps with ≥ 3 % smoothed loss. DRED and LBRR are never enabled together, and DRED requires the group-wide `dred_ok` capability. A **BLE-fast** profile (20 ms frames, −20 ms latency) is enabled by group policy only if T0 shows ≥ 150 kbps sustained with the headset active. One identical libopus binary runs on iOS and Android, and its capabilities travel in CAPS and PRESENCE.
+Rules from the verified FEC analysis: with LBRR off the loss hint is **always 0**, because a non-zero hint lowers libopus's equivalent rate and can drop the audio bandwidth below WB. LBRR is used at 24 kbps with ≥ 3 % smoothed loss and, since 2026-10-24, on BLE16 at the edge of range under the same 3 % / 2 % for 10 s hysteresis (Appendix C). Relays never transcode, so a Wi-Fi-profile stream may still be relayed onto a BLE edge (open issue: Aware-only origins). A burst that starts on BLE16 may downshift to BLE12 mid-burst when its link degrades. DRED and LBRR are never enabled together, and DRED requires the group-wide `dred_ok` capability. A **BLE-fast** profile (20 ms frames, −20 ms latency) is enabled by group policy only if T0 shows ≥ 150 kbps sustained with the headset active. One identical libopus binary runs on iOS and Android, and its capabilities travel in CAPS and PRESENCE.
 
 ### 7.5 Receive side: per-origin jitter buffer (NetEq-lite)
 
@@ -1147,6 +1149,7 @@ lab_tag     = SHA-256("cvic/lab" ‖ u16 lab_code)[0..2]                     # L
 - **Pattern:** `Noise_XXpsk1_25519_ChaChaPoly_SHA256` via `snow` (spec rev 34; unaudited, mitigated by fuzzing the handshake path and keeping our code minimal). The prologue binds `group_id` and `epoch`. Initiator = connection initiator (BLE central, Aware subscriber). `snow` is built without default features and driven by our own `CryptoResolver` (X25519, ChaChaPoly, SHA-256 from the pinned RustCrypto/dalek crates; randomness from the engine's injected `ChaCha20Rng`). After the handshake, `dangerously_get_raw_split()` yields the two direction keys and SEC frames are sealed with the `chacha20poly1305` crate so the AAD of §4.3 can be bound (snow's `StatelessTransportState` has no associated-data parameter). Golden vectors pin the raw-split keys and the first SEC frame of each direction.
 - **Why psk1 and not psk3:** with psk3 the PSK is mixed only after msg3, so any stranger who sends msg1 receives the responder's static X25519 key in msg2, which is a linkable identifier. With psk1 the PSK is mixed at the end of msg1, so a stranger's msg1 fails authentication and the responder rejects it before revealing anything. Neither static key is ever exposed to non-members.
 - **IDPROOF** (first SEC record each way): `Ed25519(sk, "cvic/v1/idproof" ‖ role ‖ handshake_hash)` + both public keys. This binds the per-group Ed25519 identity to the Noise-authenticated X25519 key and to this exact handshake (channel binding). Other records are rejected until both proofs verify; then the deny-list, collision and duplicate-link checks run.
+- **IDPROOF on datagram links (2026-10-24):** on Wi-Fi Aware (the only datagram link kind; Tunnel is a stream) IDPROOF may be lost or overtake msg3. While a link is in IdProof the node re-sends its IDPROOF every 250 ms (`IDPROOF_RESEND_US`, at most `IDPROOF_MAX_RESENDS` = 20; the 5 s handshake timeout still applies). An Up datagram link answers a repeated IDPROOF only if it verifies against this link's handshake hash and remote static and shows the identity already admitted, at most once per 125 ms (`IDPROOF_ANSWER_GAP_US`), at most 20 times, and only until the peer's CAPS arrives; anything else is ignored (no reply, no close, no second admission). SYNC/MESH records that arrive while the link is in IdProof are buffered (≤ 8 records / 4 KiB) and replayed after admission, never processed before it; the peer's CAPS after an answer re-runs the link-up announcements (JOIN_REQ if not in the roster, PRESENCE).
 - **Why per-link Noise instead of end-to-end group AEAD:** (1) nonce safety without persisted state; (2) all mesh metadata hidden from outsiders, which gives header protection for free; (3) membership checked per link (needed for removal); (4) per-link replay protection; (5) the same mechanism secures Wi-Fi Aware and the v2 tunnel; (6) SFrame-style group keys would not give per-sender authenticity either. **Cost:** decrypt/re-encrypt per hop (ChaCha20 on ~120 B ≈ µs) and 21 B per frame, amortized by coalescing; the §4.8 budget includes it. A handshake costs about 1.5 RTT per link (≈ 50-100 ms on BLE), negligible next to BLE connection setup. If a future end-to-end format is added (v2 tunnel optimisation), it must use per-boot random session keys and QUIC-style header protection, never persisted counters.
 - **Key lifetime:** in-band key update per direction after 12 h or 2³⁰ frames (§4.3), on the same link. There is no re-handshake and never a second link to the same peer.
 
@@ -1245,7 +1248,7 @@ Rules: no mesh data in advertisements; every hop is a connected unicast link; no
 
 - Android advertising: `ADVERTISE_MODE_BALANCED` (≈ 250 ms) while `Forming`, `LOW_POWER` (≈ 1 s) when `Stable`; `TX_POWER_HIGH`.
 - Android scanning: `ScanFilter(serviceUuid = MESH_SVC)` always (`neverForLocation`); `SCAN_MODE_LOW_LATENCY` while Forming, `BALANCED` when Stable; restart filtered scans every 9 min; never more than 5 starts per 30 s.
-- iOS scanning: `scanForPeripherals(withServices: [MESH_SVC], options: [AllowDuplicates: Forming && foreground])`. A Live Activity is started before backgrounding to keep foreground-class Bluetooth privileges (iOS 26; T3 measures whether this helps discovery).
+- iOS scanning: `scanForPeripherals(withServices: [MESH_SVC], options: [AllowDuplicates: Forming && foreground])`, refreshed every 4 s. A Live Activity is started before backgrounding to keep foreground-class Bluetooth privileges (iOS 26; T3 measures whether this helps discovery).
 
 ### 9.5 Connection management and rejoin
 
@@ -1257,9 +1260,10 @@ Rules: no mesh data in advertisements; every hop is a connected unicast link; no
 | Connection-limit backoff | `LimitReached` ⇒ that device's BLE max −1 for 10 min (floor 1) |
 | Concurrent connect attempts | 1 per transport |
 | Connect / handshake timeout | 8 s / 5 s |
-| Per-peer backoff | 5 s → 60 s (×2), reset on new token |
+| Per-peer backoff | 5 s → 60 s (×2), reset on new token; an **established** link that dies gets a 3 s settle hold without backoff growth |
+| iOS filtered-scan refresh | every 4 s (rediscovers a peer coming back into range) |
 | Android `requestConnectionPriority` | HIGH while any burst is active or in Lab; BALANCED otherwise (GATT client only) |
-| Android PHY / MTU | `setPreferredPhy(2M)`; MTU 517 requested |
+| Android PHY / MTU | `setPreferredPhy(1M)` on client and server links (1M has ~3-5 dB better sensitivity than 2M: more range; field test 2026-10-24); MTU 517 requested |
 | iOS L2CAP stream thread | dedicated `Thread` with its own `RunLoop` (NSStream needs one) |
 | Link death | 4 s without inbound frames |
 
@@ -1276,14 +1280,14 @@ Rules: no mesh data in advertisements; every hop is a connected unicast link; no
 
 **iPhone↔Android Aware:** not in v1. T4 builds an empirical per-model allow-list (Android 17 pairing APIs); `isAwarePairingSupported()` alone is not trusted. The allow-list is empty in v1.
 
-**Upgrade protocol (over the existing BLE link):** `UPGRADE{offer, transport, nonce}` → `UPGRADE{accept}` → the publisher-side peer connects Aware → fresh Noise HS + IDPROOF on the Aware link → both sides add it to the neighbor's link bundle → `UPGRADE{ready}`.
+**Upgrade protocol (over the existing BLE link):** `UPGRADE{offer, transport, nonce}` → `UPGRADE{accept}` → the publisher-side peer connects Aware → fresh Noise HS + IDPROOF on the Aware link (IDPROOF retransmitted on this datagram link, §8.4) → both sides add it to the neighbor's link bundle → `UPGRADE{ready}`.
 
 ### 9.7 Upgrade and downgrade without dropping audio
 
 - The scheduler chooses the link **per packet** from the neighbor's bundle: Aware if `q ≥ 60` and `srtt < 50 ms`, else BLE.
 - **Overlap:** for 1 s after a switch in either direction, voice is sent on both links; end-to-end dedup removes the copy, so the receiver sees no gap.
 - **Downgrade triggers:** Aware has no RX for 600 ms, or `q < 40`. The BLE link is always kept (PING 2 s) as the fallback and control path.
-- **Cap change on downgrade:** admission is re-evaluated with the BLE cap; bursts beyond it (lowest rank first) get `FLOOR_REJECT{congestion}`.
+- **Cap change on downgrade:** admission is re-evaluated with the BLE cap; bursts beyond it (lowest rank first) get `FLOOR_REJECT{congestion}`. On an **edge link** of a hybrid group the downgrade only sheds locally (by rank, no FLOOR_REJECT; §6.3).
 
 ### 9.8 v2 cellular hook (designed, not built)
 
@@ -1894,6 +1898,9 @@ Waves are computed from `dependsOn` (WORKPLAN `wave`), so every WP in a wave can
 | Roster max | 32 entries (bitmap u32) | §4.7 |
 | QR auto-hide | 60 s | §1.3 |
 | Retained epochs / old-epoch acceptance | last 4 epochs; no time limit; only non-denied roster members not yet known to hold the newest epoch | §8.6 |
+| IDPROOF resend / max / answer gap (datagram links) | 250 ms / 20 / 125 ms [TUNE] | §8.4 |
+| Established-link death retry; iOS scan refresh | 3 s settle hold; 4 s | §9.5 |
+| Pacer voice floor | one stream of the lowest profile: 25 112 bps BLE, 41 556 bps Aware/Tunnel | §5.6 |
 | Speculative link to an ahead peer | epoch_lo 1-4 ahead; ≤ 1 per 30 s; 60 s backoff | §9.3 |
 
 ## Appendix B — How bench outcomes change the design
@@ -1962,6 +1969,12 @@ Waves are computed from `dependsOn` (WORKPLAN `wave`), so every WP in a wave can
 | Review findings partly adopted (rev 2) | (1) C1 goes to 1.1 now rather than "before Phase 1": nothing was frozen yet, so Phase 0 freezes 1.1. (2) Native QR: the image is rendered natively, but a full native QR view was not built, because the image itself encodes the secret and the WebView loads only bundled content. (3) FLOOR_REJECT is not signed (see "Insider spoofing"). (4) WP-18 keeps owning the native projects; native app *builds* are verified by WP-19 instead of adding a compile flag to the project. | — | — |
 | Scope | No co-leaders, CRDT roster, member policies, Control widgets, Telecom default in v1 | Fastest path to riders talking | B and C v1 extras |
 | Min platforms | iOS 26.0 (iPhone 12+); Android minSdk 31, target 36 | Test devices; Aware/Live Activity BT privilege need iOS 26; API 31 avoids background location for BLE | iOS 17/18 support; target 37 now (ACCESS_LOCAL_NETWORK, WIU rules deferred) |
+| Pacer voice floor (2026-10-24) | Decrease stops at one stream of the lowest profile (BLE 25 112 bps); BLE12 counts as cap 1; lone burst never shed; stale reject cleared; weakSignal banner | Field test: a lone talker at the edge got "Network busy"; fading is not congestion | Unbounded decrease (cap 0 at the fringe) |
+| Range at the edge (2026-10-24) | Android LE 1M PHY on client+server; iOS scan refresh 4 s; 3 s hold after an established link dies; pacer recovery without `qd < 15 ms`, `min(srtt, sample)`; mid-burst BLE16→BLE12; LBRR on BLE16 at ≥ 3 % loss (off after 10 s < 2 %) | More sensitivity and faster rejoin at the fringe; the 30 ms iOS interval kept `srtt − min_rtt` above 15 ms forever | 2M PHY; 5→60 s backoff after walk-away; LBRR only on WIFI24FEC |
+| Open channels (2026-10-24) | Channels 1-9, public HKDF key, leaderless restricted Group, fresh identity per session, cap 2, TTL 2, local mute/block; C1 1.2 | User request; reuses the whole stack | Deferred to v1.x (rev 2 scope table) |
+| Hybrid Aware backbone + BLE edge (2026-10-24) | Per-segment near-talker cap (4 backbone, 2 BLE); edge links admit by rank without `T_STICKY`, shed locally without FLOOR_REJECT (also on downgrade); cap_local ignores edge and BLE-fallback links; BLE16 when any voice-egress link (incl. fallback) is BLE | Relays never transcode; first-come on edges inverted ranks; idle fallback wrongly bounded cap_local (S16, S16b, S16c) | BLE profiles only when a BLE link carries my voice (Android groups with fallback now stay on BLE16/BLE12; design owner accepts) |
+| IDPROOF on datagram links (2026-10-24) | Resend every 250 ms (≤ 20) in IdProof; Up link answers a valid repeat of the admitted identity (≤ 1 per 125 ms, ≤ 20, until CAPS); early SYNC/MESH records buffered (8 / 4 KiB) and replayed after admission; CAPS re-runs link-up announcements | UDP loses/reorders IDPROOF past msg3, leaving one end in IdProof | Send once; buffer early SEC ciphertext in the link layer |
+| Sim scenario parameters (2026-10-24) | S16b BLE edge at 64 kbps; S16c star with hub A1 as creator and a second `FORM_LIMIT_MS` window | Exactly 60 kbps leaves no pacer headroom for cap 2; A0-led star formation took ~60.25 s | 60 kbps edge; A0 leader |
 
 ## Appendix D — Review must-fix traceability
 

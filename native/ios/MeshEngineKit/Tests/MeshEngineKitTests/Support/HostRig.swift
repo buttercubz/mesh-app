@@ -49,6 +49,7 @@ final class RecordingEngine: MeshEngineProtocol, @unchecked Sendable {
         inner.onPromptPcm(key: key, pcm: pcm)
     }
     func setUiAttached(attached: Bool) { inner.setUiAttached(attached: attached) }
+    func takeAwarePmk(peer: UInt16) -> Data? { inner.takeAwarePmk(peer: peer) }
 
     func start(start: FfiSessionStart) throws {
         log.add("engine.start")

@@ -32,8 +32,8 @@
 mod bus;
 mod check;
 mod cmd;
-mod diag;
 pub mod demo;
+mod diag;
 mod events;
 mod inputs;
 pub mod latency;

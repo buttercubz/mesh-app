@@ -26,7 +26,7 @@ export function NameField({ value, onChange, autoFocus }: NameFieldProps) {
       </label>
       <input
         id={id}
-        className="min-h-target rounded-lg border border-border bg-card px-3 text-lg text-card-foreground"
+        className="min-h-14 rounded-2xl border border-separator bg-card px-4 text-lg text-card-foreground shadow-surface outline-none transition-shadow duration-ui focus:border-brand focus:ring-4 focus:ring-brand/20"
         value={value}
         autoComplete="nickname"
         autoCapitalize="words"

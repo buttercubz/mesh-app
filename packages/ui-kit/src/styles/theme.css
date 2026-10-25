@@ -41,6 +41,8 @@
 
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
   --color-talk-active: var(--talk-active);
   --color-talk-active-foreground: var(--talk-active-foreground);
   --color-talk-blocked: var(--talk-blocked);
@@ -65,6 +67,7 @@
   --radius-capsule: var(--capsule);
 
   --spacing-target: var(--target-min);
+  --spacing-target-ride: var(--target-ride);
   --spacing-ptt: var(--ptt-size);
 
   --shadow-surface: var(--elevation-surface);
@@ -72,6 +75,7 @@
   --shadow-panel: var(--elevation-panel);
 
   --animate-talk-pulse: mk-talk-pulse var(--duration-pulse) var(--ease-ui) infinite;
+  --animate-rise: mk-rise var(--duration-ui) var(--ease-ui-spring) both;
 }
 
 /* `duration-ui` follows the token, so reduced motion shortens it too. */

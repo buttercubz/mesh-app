@@ -195,3 +195,26 @@ fn sim_pipeline_through_jitter_buffer() {
 fn cfg_delay() -> usize {
     SimEncoder::new().lookahead()
 }
+
+#[test]
+fn mid_burst_downshift_keeps_the_ts_grid_and_refuses_a_frame_change() {
+    let codec = SimCodec::new();
+    let mut p = Packetizer::new(codec.new_encoder().unwrap());
+    let ble16 = EncoderConfig::for_profile(Profile::Ble16, 16_000, 0.0);
+    let ble12 = EncoderConfig::for_profile(Profile::Ble12, 16_000, 0.0);
+    // No burst: refused.
+    assert!(p.reconfigure(&ble12).is_err());
+    p.start_burst(3, &ble16, &PreRoll::new(), &mut |_| {})
+        .unwrap();
+    let a = collect(&mut p, &sine(440.0, -20.0, 3_200));
+    p.reconfigure(&ble12).unwrap();
+    assert_eq!(p.config().bitrate_bps, 12_000);
+    let b = collect(&mut p, &sine(440.0, -20.0, 3_200));
+    let ts: Vec<u16> = a.iter().chain(&b).map(|f| f.ts).collect();
+    let expect: Vec<u16> = (0..ts.len() as u16).map(|n| 4 * n).collect();
+    assert_eq!(ts, expect, "same burst, same 40 ms grid");
+    assert!(b.iter().all(|f| f.burst == 3));
+    // A frame-duration change would break the grid.
+    let wifi = EncoderConfig::for_profile(Profile::Wifi20, 16_000, 0.0);
+    assert!(p.reconfigure(&wifi).is_err());
+}

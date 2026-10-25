@@ -59,6 +59,9 @@ describe("RideScreen talk control", () => {
     const { plugin } = mountWith(<RideScreen params={{}} />);
     await settle();
     expect(screen.getByRole("radio", { name: "VOX" })).toHaveProperty("disabled", true);
+    // The why lives in the status chip's details, one tap away.
+    expect(screen.getByTestId("route-chip").textContent).toBe("Phone speaker");
+    fireEvent.click(screen.getByTestId("ride-status-chip"));
     expect(screen.getByText(/VOX needs a headset/)).toBeTruthy();
     expect(plugin.sent).toContainEqual({ type: "setTalkMode", mode: "ptt" });
   });
@@ -118,6 +121,22 @@ describe("RideScreen talk control", () => {
     expect(plugin.sent).toContainEqual({ type: "setBuiltinMicTx", allowed: true });
     expect(plugin.gestured).toEqual([]);
     expect(useSettingsStore.getState().builtinMicTx).toBe(true);
+  });
+
+  it("shows only the most urgent alert in full; the rest collapse into the status chip", async () => {
+    const s = ride({ mode: "ptt", live: false });
+    running({ ...s, device: { ...s.device, bluetooth: "off" } });
+    const { plugin } = mountWith(<RideScreen params={{}} />);
+    await settle();
+    const shown = () => [...document.querySelectorAll("[data-banner]")].map((b) => b.getAttribute("data-banner"));
+    expect(shown()).toEqual(["bluetoothOff"]);
+    expect(screen.getByTestId("ride-status-chip").textContent).toContain("1 more");
+    fireEvent.click(screen.getByTestId("ride-status-chip"));
+    // The details list the collapsed banner above the primary one, with its fix intact:
+    // Go live is still a ★ command issued from the tap.
+    expect(shown()).toEqual(["notLive", "bluetoothOff"]);
+    fireEvent.click(screen.getByRole("button", { name: "Go live" }));
+    expect(plugin.gestured).toContainEqual({ type: "goLive" });
   });
 
   it("lists speaking riders with their level", async () => {

@@ -53,15 +53,26 @@ export function voiceTone(voice: VoiceReach): BadgeTone {
   return VOICE_TONE[voice];
 }
 
+/**
+ * Active transport on the path to a reachable member (`member.via.wifi` when a Wi-Fi Aware
+ * link carries it, Android↔Android beta; `member.via.ble` otherwise); null for me and for
+ * members not reached now.
+ */
+export function transportKey(m: Member): string | null {
+  if (m.status !== "direct" && m.status !== "relayed") return null;
+  if (m.linkKinds.length === 0) return null;
+  return m.linkKinds.includes("aware") ? "member.via.wifi" : "member.via.ble";
+}
+
 /** `member.voice.<reach>`; a lost member's voice never reaches (whatever was last known). */
 export function voiceKey(m: Member): string {
   const reach: VoiceReach = m.status === "lost" || m.status === "unconfirmed" ? "no" : m.voice;
   return `member.voice.${reach}`;
 }
 
-/** Flags most urgent first (radio off, mic paused, on a call, no headset). */
+/** Flags most urgent first (blocked/muted by me, radio off, mic paused, on a call, no headset). */
 export function sortedFlags(flags: readonly MemberFlag[]): MemberFlag[] {
-  const order: MemberFlag[] = ["radioOff", "micLost", "onCall", "noHeadset"];
+  const order: MemberFlag[] = ["blocked", "muted", "radioOff", "micLost", "onCall", "noHeadset"];
   return order.filter((f) => flags.includes(f));
 }
 
@@ -70,6 +81,8 @@ const FLAG_TONE: Record<MemberFlag, BadgeTone> = {
   micLost: "danger",
   onCall: "warn",
   noHeadset: "warn",
+  muted: "neutral",
+  blocked: "blocked",
 };
 
 export function flagTone(flag: MemberFlag): BadgeTone {

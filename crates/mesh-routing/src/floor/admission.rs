@@ -19,6 +19,19 @@
 //! (§5.6) removes the lowest-ranked admitted burst of a link entirely: it is not
 //! re-admitted on that link until it ends. When `cap(L)` drops below the admitted count,
 //! the lowest-ranked bursts are shed the same way.
+//!
+//! **Hybrid groups (Wi-Fi backbone, BLE edge).** An *edge* link is a BLE link of a node
+//! that also carries a Wi-Fi Aware link to another neighbor (the boundary between an
+//! Aware island and its BLE-only members). On an edge link the decision is local to
+//! that link: a full edge refuses the burst *without* a FLOOR_REJECT (the burst keeps
+//! flowing on every other link). A talker is therefore never refused group-wide because
+//! a BLE edge is full; the edge simply carries its top `cap(L)` live bursts **by rank**
+//! ([`Admission::admits_at`]). Because a refused burst keeps streaming, admission on an
+//! edge is decided by rank, never by history: a burst refused or displaced there (full
+//! edge, cap dip, a leader taking the slot) waits and returns when it ranks inside
+//! `cap(L)` again, and a lower-ranked burst never takes a slot ahead of it. Only queue
+//! shedding (§5.6, the link could not drain it) stays sticky until the burst ends, and
+//! such a burst keeps its rank position, so nothing lower-ranked overtakes it either.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -51,7 +64,11 @@ impl AdmitDecision {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct LinkAdmit {
     admitted: Vec<(BurstKey, Instant)>,
+    /// Shed until the burst ends (stream-level shedding, or a cap drop on a non-edge link).
     shed: BTreeSet<BurstKey>,
+    /// Edge links only: live bursts offered here but not carried now (refused while the
+    /// edge was full, or displaced by rank); re-admitted when they rank inside `cap(L)`.
+    waiting: BTreeSet<BurstKey>,
 }
 
 /// Per-link admitted sets of one node.
@@ -87,6 +104,24 @@ impl Admission {
         cap: u8,
         congestion: bool,
     ) -> AdmitDecision {
+        self.admits_at(now, link, b, table, cap, congestion, false)
+    }
+
+    /// `admits(L, b)` with the hybrid edge rule: when `edge` is set (`L` is a BLE edge
+    /// of a Wi-Fi backbone node) `L` carries its top `cap` live bursts by rank; a refusal
+    /// carries no reject and a displaced burst stops on `L` only (returned as plain
+    /// [`AdmitDecision::Admitted`] / `Refused { reject: None }`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn admits_at(
+        &mut self,
+        now: Instant,
+        link: LinkId,
+        b: BurstKey,
+        table: &mut FloorTable,
+        cap: u8,
+        congestion: bool,
+        edge: bool,
+    ) -> AdmitDecision {
         let Some(entry) = table.get(b).copied() else {
             return AdmitDecision::Refused { reject: None };
         };
@@ -98,6 +133,9 @@ impl Admission {
         la.admitted
             .retain(|(k, _)| table.get(*k).is_some_and(|e| e.live()));
         la.shed.retain(|k| table.get(*k).is_some());
+        if edge {
+            return Self::admit_edge(la, table, now, b, cap);
+        }
         if la.shed.contains(&b) {
             return AdmitDecision::Refused { reject: None };
         }
@@ -150,6 +188,61 @@ impl Admission {
         AdmitDecision::Refused { reject }
     }
 
+    /// Admission on a BLE edge link: carry the top `cap` live bursts known on the link,
+    /// by rank. Waiting bursts (refused or displaced earlier) compete by rank whenever a
+    /// frame of any of them is offered, so a cap that recovers, or a slot that frees,
+    /// goes to the best waiting burst, never to whichever burst happens to send next.
+    /// Queue-shed bursts (`shed`) are never carried again here but keep their rank
+    /// position, so a lower-ranked burst cannot overtake them. Never rejects: the burst
+    /// keeps flowing on the other links.
+    fn admit_edge(
+        la: &mut LinkAdmit,
+        table: &FloorTable,
+        now: Instant,
+        b: BurstKey,
+        cap: u8,
+    ) -> AdmitDecision {
+        la.waiting
+            .retain(|k| table.get(*k).is_some_and(|e| e.live()));
+        let mut known: Vec<(super::rank::Rank, BurstKey)> = la
+            .admitted
+            .iter()
+            .map(|(k, _)| *k)
+            .chain(la.waiting.iter().copied())
+            .chain(la.shed.iter().copied())
+            .chain(core::iter::once(b))
+            .filter_map(|k| table.get(k).filter(|e| e.live()).map(|e| (e.rank, k)))
+            .collect();
+        known.sort();
+        known.dedup();
+        let top: Vec<BurstKey> = known
+            .iter()
+            .take(usize::from(cap))
+            .map(|(_, k)| *k)
+            .collect();
+        // Admitted bursts that no longer rank inside `cap` stop here and wait.
+        let mut displaced = Vec::new();
+        la.admitted.retain(|(k, _)| {
+            let keep = top.contains(k);
+            if !keep {
+                displaced.push(*k);
+            }
+            keep
+        });
+        la.waiting.extend(displaced);
+        if la.shed.contains(&b) || !top.contains(&b) {
+            if !la.shed.contains(&b) {
+                la.waiting.insert(b);
+            }
+            return AdmitDecision::Refused { reject: None };
+        }
+        la.waiting.remove(&b);
+        if !la.admitted.iter().any(|(k, _)| *k == b) {
+            la.admitted.push((b, now));
+        }
+        AdmitDecision::Admitted
+    }
+
     /// Sheds the lowest-ranked admitted burst over `cap` (cap decreases).
     fn enforce(la: &mut LinkAdmit, table: &FloorTable, cap: u8) {
         while la.admitted.len() > usize::from(cap) {
@@ -185,6 +278,7 @@ impl Admission {
     pub fn shed(&mut self, link: LinkId, key: BurstKey) {
         let la = self.links.entry(link).or_default();
         la.admitted.retain(|(k, _)| *k != key);
+        la.waiting.remove(&key);
         la.shed.insert(key);
     }
 
@@ -193,6 +287,7 @@ impl Admission {
         for la in self.links.values_mut() {
             la.admitted.retain(|(k, _)| *k != key);
             la.shed.remove(&key);
+            la.waiting.remove(&key);
         }
     }
 

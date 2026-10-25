@@ -15,7 +15,8 @@
           "talk": "talking",
           "ride": "riding",
           "ladder": "L0",
-          "shareDistance": true
+          "shareDistance": true,
+          "openChannel": null
         },
         "audio": {
           "route": "hfpWideband",
@@ -221,7 +222,8 @@
           "talk": "muted",
           "ride": "lobby",
           "ladder": "L2",
-          "shareDistance": false
+          "shareDistance": false,
+          "openChannel": 3
         },
         "audio": {
           "route": "builtinSpeaker",

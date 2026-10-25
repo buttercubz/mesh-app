@@ -48,4 +48,9 @@ ladder: LadderLevel,
 /**
  * Share my distance is on.
  */
-shareDistance: boolean, };
+shareDistance: boolean, 
+/**
+ * Open channel number (1-9) when this session is a public open channel, else
+ * `null` (private group).
+ */
+openChannel: number | null, };

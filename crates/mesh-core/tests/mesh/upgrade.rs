@@ -14,7 +14,7 @@ fn aware_ops(w: &World, i: usize) -> Vec<(u16, u8)> {
     w.radio(i)
         .into_iter()
         .filter_map(|c| match c {
-            RadioCommand::AwareUpgrade { peer, op } => Some((peer, op)),
+            RadioCommand::AwareUpgrade { peer, op, .. } => Some((peer, op)),
             _ => None,
         })
         .collect()
@@ -155,4 +155,38 @@ fn aware_upgrade_bundle_overlap_and_fallback() {
     w.links[aw].up = true;
     w.drop_link(aw, LinkDownReason::PeerClosed);
     assert!(aware_ops(&w, 0).contains(&(w.nodes[1].node_id, 5)));
+}
+
+/// Android↔Android: no lobby pairing needed, and both ends get the same data-path PMK
+/// with op 2 (derived from the BLE link's handshake hash); other ops carry none.
+#[test]
+fn android_upgrade_without_pairing_carries_matching_pmk() {
+    let mut w = World::build(2, 43, Platform::Android, false);
+    w.start_all();
+    for i in 0..2 {
+        w.with(i, |e, now| {
+            e.handle_event(
+                now,
+                PlatformEvent::RadioState {
+                    ble: RadioAvail::On,
+                    aware: RadioAvail::On,
+                },
+            )
+        });
+    }
+    w.connect(0, 1);
+    w.run_ms(2_500);
+    let pmk_of = |w: &World, i: usize| {
+        w.radio(i).into_iter().find_map(|c| match c {
+            RadioCommand::AwareUpgrade { op: 2, pmk, .. } => Some(pmk),
+            _ => None,
+        })
+    };
+    let (p0, p1) = (pmk_of(&w, 0), pmk_of(&w, 1));
+    assert!(p0.flatten().is_some(), "node 0 op 2 with a PMK: {p0:?}");
+    assert_eq!(p0, p1, "both ends derive the same PMK");
+    assert!(w.radio(0).into_iter().all(|c| match c {
+        RadioCommand::AwareUpgrade { op, pmk, .. } => (op == 2) == pmk.is_some(),
+        _ => true,
+    }));
 }

@@ -50,7 +50,7 @@ pub mod select;
 pub mod types;
 
 pub use airtime::{AirtimeBudget, AirtimeInput, Grant};
-pub use cap::{CapEstimator, CapUpdate};
+pub use cap::{CapEstimator, CapModels, CapUpdate};
 pub use cost::CostModel;
 pub use dedup::{Dedup, DedupVerdict};
 pub use floor::{

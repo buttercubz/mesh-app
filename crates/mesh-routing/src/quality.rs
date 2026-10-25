@@ -10,6 +10,8 @@ use crate::types::{Instant, LinkKind};
 pub struct RttEstimator {
     srtt_us: Option<u64>,
     rttvar_us: u64,
+    /// The latest sample.
+    last_us: Option<u64>,
     /// Minimum per 5 s bucket: `(bucket start, min)`; six buckets cover 30 s.
     buckets: [(u64, u64); 6],
     nbuckets: usize,
@@ -20,6 +22,7 @@ const BUCKET_US: u64 = MIN_RTT_WINDOW_US / 6;
 impl RttEstimator {
     /// Feeds one RTT sample.
     pub fn sample(&mut self, now: Instant, rtt_us: u64) {
+        self.last_us = Some(rtt_us);
         match self.srtt_us {
             None => {
                 self.srtt_us = Some(rtt_us);
@@ -64,9 +67,18 @@ impl RttEstimator {
             .min()
     }
 
-    /// Queueing delay estimate `srtt − min_rtt` (0 without samples).
+    /// Queueing delay estimate `min(srtt, latest sample) − min_rtt` (0 without
+    /// samples). A queue is building only while the latest PING also comes back late:
+    /// after a fade on a reliable BLE link (pings stuck behind retransmissions, RTT
+    /// samples of 1-2 s) the 1/8-gain `srtt` alone needed ~10 s to fall back under
+    /// `QD_HIGH`, and the pacer kept cutting a link whose queue had long drained (mesh-sim
+    /// S15). Real overload keeps every sample high, so it is still seen at once.
     pub fn queue_delay_us(&self, now: Instant) -> u64 {
-        match (self.srtt_us, self.min_rtt_us(now)) {
+        let cur = match (self.srtt_us, self.last_us) {
+            (Some(s), Some(l)) => Some(s.min(l)),
+            (s, _) => s,
+        };
+        match (cur, self.min_rtt_us(now)) {
             (Some(s), Some(m)) => s.saturating_sub(m),
             _ => 0,
         }
@@ -163,6 +175,18 @@ impl LinkQuality {
     }
 }
 
+/// `q` of one link from its raw inputs (the same formula as [`LinkQuality::q`]):
+/// smoothed loss in ppm, queueing delay `srtt − min_rtt`, RSSI (BLE only).
+pub fn q_of(kind: LinkKind, loss_ppm: u32, qd_us: u64, rssi: Option<i16>) -> u8 {
+    let one_minus = 1_000_000u64.saturating_sub(u64::from(loss_ppm));
+    let f_rssi = if kind == LinkKind::Ble {
+        f_rssi_permille(rssi)
+    } else {
+        1_000
+    };
+    q_from(one_minus, f_rtt_permille(qd_us), f_rssi)
+}
+
 fn q_from(one_minus_ppm: u64, f_rtt: u64, f_rssi: u64) -> u8 {
     // 100 · (x/1e6)² · (f_rtt/1e3) · (f_rssi/1e3), rounded to nearest.
     let sq = one_minus_ppm * one_minus_ppm / 1_000_000; // ppm
@@ -235,6 +259,16 @@ mod tests {
     }
 
     #[test]
+    fn q_of_matches_the_link_formula() {
+        assert_eq!(q_of(LinkKind::Ble, 0, 0, Some(-70)), 100);
+        assert_eq!(q_of(LinkKind::Ble, 0, 0, Some(-85)), 80);
+        assert_eq!(q_of(LinkKind::Ble, 100_000, 0, Some(-70)), 81);
+        // A fading link: 150 ms of retransmission delay halves q (below Q_GOOD).
+        assert_eq!(q_of(LinkKind::Ble, 0, 150_000, Some(-80)), 45);
+        assert_eq!(q_of(LinkKind::Aware, 0, 0, Some(-100)), 100);
+    }
+
+    #[test]
     fn rtt_factor() {
         assert_eq!(f_rtt_permille(0), 1_000);
         assert_eq!(f_rtt_permille(90_000), 750);
@@ -265,6 +299,21 @@ mod tests {
         r.sample(Instant::from_ms(500), 160_000);
         assert_eq!(r.srtt_us(), Some(90_000));
         assert_eq!(r.queue_delay_us(Instant::from_ms(500)), 10_000);
+    }
+
+    #[test]
+    fn queue_delay_follows_a_drained_queue_at_once() {
+        let mut r = RttEstimator::default();
+        r.sample(Instant::ZERO, 30_000);
+        // A fade: pings stuck behind retransmissions.
+        for i in 1..6 {
+            r.sample(Instant::from_ms(500 * i), 1_500_000);
+        }
+        assert!(r.queue_delay_us(Instant::from_ms(2_500)) > 40_000);
+        // The first fast PONG after the fade: no queue now, although srtt is still high.
+        r.sample(Instant::from_ms(3_000), 35_000);
+        assert!(r.srtt_us().unwrap() > 500_000);
+        assert_eq!(r.queue_delay_us(Instant::from_ms(3_000)), 5_000);
     }
 
     #[test]

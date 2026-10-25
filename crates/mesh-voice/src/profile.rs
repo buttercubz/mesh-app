@@ -6,6 +6,14 @@
 //! off the loss hint is always 0, because a non-zero hint lowers libopus's equivalent
 //! rate and can drop the audio bandwidth below WB. DRED and LBRR are never enabled
 //! together.
+//!
+//! Edge-of-range BLE (field test 2026-10-24, deviation from §7.4): while the worst BLE
+//! link's smoothed loss holds the same 3 % / 2 % / 10 s hysteresis as WIFI24FEC, BLE16
+//! bursts carry LBRR with the measured loss hint ([`EncoderConfig::with_edge_fec`]).
+//! The profile id and bitrate stay BLE16 (same per-stream cost, no new TALK id); libopus
+//! lowers the audio bandwidth (to NB at 16 kbps) to fit the redundancy, trading
+//! brightness for intelligibility when frames are lost. The VOICE `cfg` LBRR bit tells
+//! receivers, whose jitter buffer adds one frame of delay for it.
 
 use crate::{BLOCK_SAMPLES, BLOCK_US};
 
@@ -247,6 +255,23 @@ impl EncoderConfig {
         }
     }
 
+    /// Edge-of-range FEC on BLE16 (see the module docs): LBRR on with the loss hint
+    /// clamped to 5-25 %. No-op when `on` is false or on any other profile (BLE12 is
+    /// below libopus's LBRR rate threshold, Wi-Fi has its own FEC profile, DRED never
+    /// runs with LBRR).
+    pub fn with_edge_fec(mut self, on: bool, smoothed_loss_pct: f32) -> Self {
+        if on && self.profile == Profile::Ble16 {
+            let loss = if smoothed_loss_pct.is_finite() {
+                smoothed_loss_pct
+            } else {
+                0.0
+            };
+            self.inband_fec = true;
+            self.packet_loss_perc = loss.round().clamp(5.0, 25.0) as u8;
+        }
+        self
+    }
+
     /// Thermal state ≥ serious: BLE12 drops to complexity 5 (§7.4); other profiles unchanged.
     pub fn with_thermal(mut self, thermal_serious: bool) -> Self {
         if thermal_serious && self.profile == Profile::Ble12 {
@@ -322,5 +347,11 @@ impl ProfileSelector {
     /// Current LBRR hysteresis state.
     pub fn fec_on(&self) -> bool {
         self.fec_on
+    }
+
+    /// `true` when a BLE burst starting now should carry edge-of-range LBRR: a BLE
+    /// path and the loss hysteresis on (call after [`Self::select`]).
+    pub fn edge_fec(&self, inputs: &ProfileInputs) -> bool {
+        inputs.any_ble_link && self.fec_on
     }
 }

@@ -12,6 +12,23 @@
 //! refused side reads both: the reason reaches its group module as
 //! `LinkDownReason::PeerRejected`. `{8}` without a direct collision there means a third
 //! node's identity holds its `node_id` (it regenerates); `{5}` means it was removed.
+//!
+//! Datagram links (Wi-Fi Aware UDP, §9.6) neither order nor deliver reliably: the
+//! initiator's IDPROOF can overtake its last handshake message (the responder cannot
+//! open it yet and drops it) or be lost. On those links my IDPROOF goes out again every
+//! [`IDPROOF_RESEND_US`] while the link waits in IdProof (at most
+//! [`IDPROOF_MAX_RESENDS`] times; the handshake timeout still closes a link that never
+//! completes), and an Up link answers a repeated, valid IDPROOF of its own peer with my
+//! IDPROOF at most once per [`IDPROOF_ANSWER_GAP_US`] (half the resend period, so a
+//! periodic resender whose network delay shrinks a little is never throttled), so a peer
+//! that lost mine completes too. The answer stops once the peer's CAPS arrived (it only
+//! sends CAPS when Up) and after [`IDPROOF_MAX_RESENDS`] answers; a repeated IDPROOF
+//! never re-runs admission, and an invalid or different one is ignored (no reply, no
+//! close). What I sent while the peer still waited (JOIN_REQ, PRESENCE) was dropped
+//! there, so its CAPS re-runs my link-up announcements on that link. Records that reach
+//! me in IdProof without any loss (the peer went Up and its CAPS, JOIN_REQ or PRESENCE
+//! overtook its own IDPROOF) are kept, bounded, and replayed once the link is Up (the
+//! group module's early-record buffer).
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -26,8 +43,25 @@ use super::{EpochChoice, SecureLink, role_of};
 use crate::engine::Ctx;
 use crate::group::active::LinkRt;
 use crate::group::core::GroupCore;
-use crate::links::{LinkInfo, LinkRole, LinkSecurity, LinkState, Prio};
-use crate::{LinkId, NodeId};
+use crate::links::{LinkInfo, LinkKind, LinkRole, LinkSecurity, LinkState, LinkUnit, Prio};
+use crate::{Instant, LinkId, NodeId};
+
+/// Period of my IDPROOF retransmission on a datagram link waiting in IdProof, and the
+/// minimum gap between two answers to a repeated peer IDPROOF on an Up link (µs).
+pub const IDPROOF_RESEND_US: u64 = 250_000;
+/// Most retransmissions (and most answers) per link: 20 × 250 ms covers the 5 s
+/// handshake timeout.
+pub const IDPROOF_MAX_RESENDS: u8 = 20;
+/// Minimum gap between two answers to a repeated peer IDPROOF on an Up link (µs). Below
+/// the resend period, so jitter on a periodic resender (arrivals 250 ms ± a few ms apart)
+/// never skips an answer; the per-inbound bound, [`IDPROOF_MAX_RESENDS`] and the CAPS
+/// stop condition still bound the total.
+pub const IDPROOF_ANSWER_GAP_US: u64 = IDPROOF_RESEND_US / 2;
+
+/// `true` for links whose frames may be lost or reordered (Wi-Fi Aware UDP).
+pub(crate) fn is_datagram(kind: LinkKind) -> bool {
+    kind.unit() == LinkUnit::Datagram
+}
 
 /// Supplies the security of a new group link (`CoreModule::security_for`).
 pub fn security_for(
@@ -61,12 +95,13 @@ pub fn security_for(
     Some(Box::new(sec))
 }
 
-/// Keys are established: send my IDPROOF as the first SEC record.
+/// Keys are established: send my IDPROOF as the first SEC record. On a datagram link
+/// it goes out again while the link waits in IdProof ([`resend_idproofs`]).
 pub fn send_idproof(core: &mut GroupCore, ctx: &mut Ctx, link: LinkId) {
     let Some((g, act)) = core.active_mut() else {
         return;
     };
-    let Some(rt) = act.links.get(&link) else {
+    let Some(rt) = act.links.get_mut(&link) else {
         return;
     };
     let Some(info) = rt.slot.get() else {
@@ -75,6 +110,93 @@ pub fn send_idproof(core: &mut GroupCore, ctx: &mut Ctx, link: LinkId) {
     let proof = idproof::create(&g.identity, role_of(rt.role), &info.handshake_hash);
     ctx.links
         .send_record(link, Prio::P0, &Record::IdProof(proof), None);
+    if is_datagram(rt.kind) {
+        rt.idproof_resend = Some((ctx.now.plus_us(IDPROOF_RESEND_US), 0));
+    }
+}
+
+/// Re-sends my IDPROOF on the datagram links still waiting in IdProof (group timer).
+pub fn resend_idproofs(core: &mut GroupCore, ctx: &mut Ctx) {
+    let Some((g, act)) = core.active_mut() else {
+        return;
+    };
+    let now = ctx.now;
+    for (&link, rt) in &mut act.links {
+        let Some((at, sent)) = rt.idproof_resend else {
+            continue;
+        };
+        if ctx.links.get(link).map(|l| l.state) != Some(LinkState::IdProof) {
+            rt.idproof_resend = None;
+            continue;
+        }
+        if now < at {
+            continue;
+        }
+        let Some(info) = rt.slot.get() else {
+            rt.idproof_resend = None;
+            continue;
+        };
+        let proof = idproof::create(&g.identity, role_of(rt.role), &info.handshake_hash);
+        ctx.links
+            .send_record(link, Prio::P0, &Record::IdProof(proof), None);
+        let sent = sent.saturating_add(1);
+        rt.idproof_resend =
+            (sent < IDPROOF_MAX_RESENDS).then(|| (now.plus_us(IDPROOF_RESEND_US), sent));
+    }
+}
+
+/// Earliest IDPROOF retransmission of any link (part of the group module's timer).
+pub fn next_resend(core: &GroupCore) -> Option<Instant> {
+    core.act
+        .as_ref()?
+        .links
+        .values()
+        .filter_map(|rt| rt.idproof_resend.map(|(at, _)| at))
+        .min()
+}
+
+/// A repeated IDPROOF on an Up datagram link: its peer may still wait for mine (it was
+/// lost or overtook the handshake). Answers with my IDPROOF when the proof verifies
+/// against this link's handshake and shows the identity this link admitted, at most
+/// once per [`IDPROOF_ANSWER_GAP_US`] and [`IDPROOF_MAX_RESENDS`] times, and never once the
+/// peer's CAPS arrived (it is Up, so two Up ends never keep answering each other).
+/// Anything else is ignored: no reply, no close, no second admission.
+fn answer_repeated(core: &mut GroupCore, ctx: &mut Ctx, link: LinkId, proof: &IdProof) {
+    let Some((g, act)) = core.active_mut() else {
+        return;
+    };
+    let Some(rt) = act.links.get_mut(&link) else {
+        return;
+    };
+    if !rt.up || !is_datagram(rt.kind) || rt.peer_summary.is_some() {
+        return;
+    }
+    if rt.idproof_answers >= IDPROOF_MAX_RESENDS
+        || rt
+            .idproof_answered
+            .is_some_and(|t| ctx.now.since(t) < IDPROOF_ANSWER_GAP_US)
+    {
+        return;
+    }
+    let (Some(peer), Some(info)) = (rt.peer, rt.slot.get()) else {
+        return;
+    };
+    // The gate counts every look, valid or not: one signature check per period at most.
+    rt.idproof_answered = Some(ctx.now);
+    let shown = idproof::verify(
+        proof,
+        role_of(rt.role).peer(),
+        &info.handshake_hash,
+        &info.remote_static,
+    );
+    if shown.ok() != Some(peer) {
+        return;
+    }
+    rt.idproof_answers += 1;
+    rt.reannounce = true;
+    let mine = idproof::create(&g.identity, role_of(rt.role), &info.handshake_hash);
+    ctx.links
+        .send_record(link, Prio::P0, &Record::IdProof(mine), None);
 }
 
 /// Refuses `link` with `reason` (`CLOSE` once established, `REJECT` before), after my
@@ -85,15 +207,21 @@ fn reject(ctx: &mut Ctx, link: LinkId, reason: RejectReason) {
         .close_graceful(now, link, reason, Prio::P0, &mut ctx.fx);
 }
 
-/// The peer's IDPROOF on a link in the IdProof state. Returns the admitted identity.
+/// The peer's IDPROOF on a link in the IdProof state (admission), or a repeated one on
+/// an Up link ([`answer_repeated`]). Returns the identity admitted by this call.
 pub fn on_idproof(
     core: &mut GroupCore,
     ctx: &mut Ctx,
     link: LinkId,
     proof: &IdProof,
 ) -> Option<PublicIdentity> {
-    if ctx.links.get(link).map(|l| l.state) != Some(LinkState::IdProof) {
-        return None;
+    match ctx.links.get(link).map(|l| l.state) {
+        Some(LinkState::IdProof) => {}
+        Some(LinkState::Up) => {
+            answer_repeated(core, ctx, link, proof);
+            return None;
+        }
+        _ => return None,
     }
     let mut regenerate = false;
     let mut direct = false;
@@ -112,6 +240,11 @@ pub fn on_idproof(
             g.control.deny().check(&h)?;
             if h == g.my_id_hash() {
                 return Err(CryptoError::Invalid("peer presents my own identity"));
+            }
+            // Blocked locally (never sent): refused as a plain handshake failure, not
+            // `{5}`, which would tell the peer it was removed.
+            if act.filter.blocked_ids.contains(&h) || act.filter.blocked.contains(&peer.node_id()) {
+                return Err(CryptoError::Invalid("blocked locally"));
             }
             // A stranger (old QR, not in the roster) is refused before its node_id is
             // recorded, so it can never cause a collision verdict.

@@ -144,3 +144,23 @@ describe("Banner", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Avatar", () => {
+  it("shows up to two initials, a stable per-rider hue and is decorative", async () => {
+    const { Avatar, avatarHue, initials } = await import("../src/components/Avatar.js");
+    expect(initials("Ana María López")).toBe("AL");
+    expect(initials("ñandú")).toBe("Ñ");
+    expect(initials("  ")).toBe("?");
+    expect(avatarHue("Carla")).toBe(avatarHue(" carla "));
+    expect(avatarHue("Carla")).toBeGreaterThanOrEqual(0);
+    expect(avatarHue("Carla")).toBeLessThan(360);
+    const { container } = render(<Avatar name="Carla Ruiz" level={0.5} speaking dot="active" />);
+    const el = container.querySelector(".mk-avatar") as HTMLElement;
+    expect(el.getAttribute("aria-hidden")).toBe("true");
+    expect(el.textContent).toBe("CR");
+    expect(el.dataset["speaking"]).toBe("true");
+    expect(el.style.getPropertyValue("--mk-avatar-hue")).toBe(String(avatarHue("Carla Ruiz")));
+    expect(container.querySelector(".mk-avatar-ring-level")).not.toBeNull();
+    expect(container.querySelector('.mk-avatar-dot[data-tone="active"]')).not.toBeNull();
+  });
+});

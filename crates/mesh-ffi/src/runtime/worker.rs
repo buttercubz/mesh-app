@@ -101,6 +101,7 @@ pub fn run(shared: Arc<Shared>, rx: Receiver<Inbound>, factory: Arc<EngineFactor
     }));
     let mut fx = Dispatcher::new(shared.hooks.clone(), shared.store.clone());
     fx.set_diag(shared.diag.clone());
+    fx.set_aware_pmks(shared.aware_pmks.clone());
     fx.crashed_view = shared.crashed.load(SeqCst);
     let engine = match built {
         Ok(e) => e,

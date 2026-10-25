@@ -113,8 +113,8 @@ describe("results", () => {
 });
 
 describe("constants", () => {
-  it("API version 1.1", () => {
-    expect(API_VERSION).toBe("1.1");
+  it("API version 1.2", () => {
+    expect(API_VERSION).toBe("1.2");
     expect(`${API_VERSION_MAJOR}.${API_VERSION_MINOR}`).toBe(API_VERSION);
   });
 

@@ -8,6 +8,7 @@
 //   when no feature has registered those ids, and WP-22's registrations replace them
 //   (registerScreen replaces, whatever the feature load order).
 import { Button, ListRow, ListSection } from "@meshapp/ui-kit";
+import { ChevronRight, FlaskConical } from "lucide-react";
 
 import type { ScreenProps } from "../../app/router";
 import { SCREEN, useRouter } from "../../app/router";
@@ -20,9 +21,14 @@ export function FieldTestRow() {
   const { t } = useT("lab");
   return (
     <ListRow
+      leading={
+        <span aria-hidden="true" className="grid size-9 place-items-center rounded-xl bg-brand-soft text-brand">
+          <FlaskConical className="size-5" />
+        </span>
+      }
       title={t("entry.row")}
       subtitle={t("entry.subtitle")}
-      trailing={<span aria-hidden="true">›</span>}
+      trailing={<ChevronRight aria-hidden="true" />}
       onClick={() => useRouter.getState().push(SCREEN.fieldTest)}
     />
   );

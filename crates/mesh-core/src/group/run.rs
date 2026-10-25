@@ -40,6 +40,7 @@ impl GroupCore {
         }
         view::on_roster(&mut act.session, ctx, g);
         self.act = Some(act);
+        self.start_open(ctx);
         if self.groups.get(&id).is_some_and(|g| !g.session_runs()) {
             return;
         }
@@ -126,6 +127,22 @@ impl GroupCore {
         // Presence goes out promptly so the peer sees my state and versions.
         act.session.next_presence = act.session.next_presence.min(ctx.now);
         ctx.mark_dirty();
+        self.replay_early(ctx, link);
+    }
+
+    /// Replays the records that reached me while `link` waited in IdProof (kept by
+    /// [`GroupCore::record`]), now that the peer passed admission.
+    fn replay_early(&mut self, ctx: &mut Ctx, link: LinkId) {
+        let early = match self.act.as_mut().and_then(|a| a.links.get_mut(&link)) {
+            Some(rt) if rt.up => std::mem::take(&mut rt.early),
+            _ => return,
+        };
+        for bytes in early {
+            for rec in mesh_wire::record::RecordIter::new(&bytes) {
+                let Ok(rec) = rec else { break };
+                self.record(ctx, link, &rec);
+            }
+        }
     }
 
     pub(crate) fn link_down(
@@ -177,7 +194,9 @@ impl GroupCore {
         let Some((g, act)) = self.active_mut() else {
             return;
         };
-        if !super::core::runs(g, act) {
+        // Nobody can remove anyone from an open channel: a peer's `{5}` only closes
+        // that link.
+        if !super::core::runs(g, act) || g.open.is_some() {
             return;
         }
         act.refused = true;
@@ -200,6 +219,9 @@ impl GroupCore {
             return;
         };
         rt.peer_summary = Some(summary);
+        // The peer was still in IdProof when this link went Up here (it needed my
+        // IDPROOF again, §9.6 datagram links): it is Up now, repeat what it dropped.
+        let reannounce = std::mem::take(&mut rt.reannounce) && rt.up;
         if caps.epoch >= g.epoch()
             && let Some(p) = rt.peer
         {
@@ -207,6 +229,9 @@ impl GroupCore {
         }
         let kinds = g.control.to_push(summary);
         sync::push(ctx, act, &g.control, link, &kinds);
+        if reannounce && ctx.links.get(link).map(|l| l.state) == Some(LinkState::Up) {
+            self.link_up(ctx, link);
+        }
     }
 
     /// A record of a group link. Returns `true` when claimed.
@@ -224,7 +249,13 @@ impl GroupCore {
             return true;
         }
         if state != Some(LinkState::Up) {
-            // Nothing but IDPROOF flows before admission (§8.4).
+            // Nothing but IDPROOF is processed before admission (§8.4). On a datagram
+            // link in IdProof the peer may already be Up, and its SYNC (JOIN_REQ) or MESH
+            // (PRESENCE) records can overtake its IDPROOF without any loss: keep them,
+            // bounded, and replay them once the link is Up (`link_up`).
+            if state == Some(LinkState::IdProof) {
+                self.keep_early(link, rec);
+            }
             return true;
         }
         match rec {
@@ -239,6 +270,9 @@ impl GroupCore {
                 true
             }
             Record::Mesh(bytes) => {
+                if self.filter_mesh(ctx, bytes) {
+                    return true;
+                }
                 let delivered = self.active_mut().and_then(|(g, act)| {
                     let peer = act.links.get(&link)?.peer?.node_id();
                     flood::ingest(ctx, act, g.my_node_id(), peer, bytes)
@@ -249,6 +283,26 @@ impl GroupCore {
                 false
             }
             _ => false,
+        }
+    }
+
+    /// Keeps an early SYNC / MESH record of a datagram link in IdProof (bounded; the
+    /// overflow is dropped as before, and the peer's periodic repeats recover it).
+    fn keep_early(&mut self, link: LinkId, rec: &Record<'_>) {
+        use super::active::{EARLY_BYTES_MAX, EARLY_RECORDS_MAX};
+        if !matches!(rec, Record::Sync(_) | Record::Mesh(_)) {
+            return;
+        }
+        let Some(rt) = self.act.as_mut().and_then(|a| a.links.get_mut(&link)) else {
+            return;
+        };
+        if rt.up || !crate::secure::admit::is_datagram(rt.kind) {
+            return;
+        }
+        let Ok(bytes) = rec.encode() else { return };
+        let used: usize = rt.early.iter().map(Vec::len).sum();
+        if rt.early.len() < EARLY_RECORDS_MAX && used + bytes.len() <= EARLY_BYTES_MAX {
+            rt.early.push(bytes);
         }
     }
 
@@ -357,6 +411,12 @@ impl GroupCore {
             if !super::core::runs(g, act) {
                 return;
             }
+        }
+        crate::secure::admit::resend_idproofs(self, ctx);
+        {
+            let Some((g, act)) = self.active_mut() else {
+                return;
+            };
             let s = &mut act.session;
             if let Some(o) = presence::tick(s, ctx, view) {
                 outs.push(o);

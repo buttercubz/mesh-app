@@ -165,7 +165,8 @@ impl LabRun {
         self.audio_open = true;
         if p.audio == Audio::Full {
             ctx.fx.audio(AudioCommand::StartCapture);
-            ctx.fx.diag(mesh_lab::ridelog::DiagEvent::CaptureStart { why: "lab" });
+            ctx.fx
+                .diag(mesh_lab::ridelog::DiagEvent::CaptureStart { why: "lab" });
             self.capture_on = true;
         }
     }
@@ -174,7 +175,8 @@ impl LabRun {
     pub fn close_audio(&mut self, ctx: &mut Ctx) {
         if self.capture_on {
             ctx.fx.audio(AudioCommand::StopCapture);
-            ctx.fx.diag(mesh_lab::ridelog::DiagEvent::CaptureStop { why: "lab" });
+            ctx.fx
+                .diag(mesh_lab::ridelog::DiagEvent::CaptureStop { why: "lab" });
             self.capture_on = false;
         }
         if self.audio_open {

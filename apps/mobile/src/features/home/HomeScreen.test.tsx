@@ -51,7 +51,7 @@ describe("HomeScreen", () => {
   it("Join scans the invite and opens the confirm screen with the URL in memory", async () => {
     const { plugin } = mountWith(<HomeScreen params={{}} />);
     plugin.scanInviteQr = async () => ({ url: URL, cancelled: false });
-    fireEvent.click(screen.getByRole("button", { name: "Join group" }));
+    fireEvent.click(screen.getByRole("button", { name: "Join a ride" }));
     await settle();
     expect(useRouter.getState().stack.at(-1)).toMatchObject({ id: "join", params: { url: URL } });
   });

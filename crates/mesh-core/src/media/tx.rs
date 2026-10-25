@@ -8,7 +8,8 @@
 use mesh_api::{NoticeKey, PromptKey, PttStyle, TalkDeniedReason};
 use mesh_routing::BurstKey;
 use mesh_voice::{
-    Block, EncoderConfig, TalkEnv, TalkInput, TalkMode, TalkOutput, VadEvent, fsm::StopReason,
+    Block, EncoderConfig, Profile, TalkEnv, TalkInput, TalkMode, TalkOutput, VadEvent,
+    fsm::StopReason,
 };
 use mesh_wire::mesh::{EncoderProfile, Talk, TalkPrio, TalkState};
 use rand_chacha::ChaCha20Rng;
@@ -162,6 +163,7 @@ impl Media {
             r => r,
         };
         let cfg = EncoderConfig::for_profile(profile, rate, inputs.worst_loss_pct)
+            .with_edge_fec(self.selector.edge_fec(&inputs), inputs.worst_loss_pct)
             .with_thermal(inputs.thermal_serious);
         self.outbox.push(
             now,
@@ -243,6 +245,7 @@ impl Media {
         let Some(me) = self.identity else {
             return;
         };
+        self.edge_downshift(ctx);
         if let Some(b) = self.burst.as_mut()
             && now >= b.next_keep
         {
@@ -273,6 +276,37 @@ impl Media {
                     elapsed_10ms: s.elapsed_10ms,
                 }),
             );
+        }
+    }
+
+    /// Mid-burst BLE16 → BLE12 downshift (field test 2026-10-24): at the edge of range
+    /// the pacer rate can fall below one BLE16 stream during a burst, and a burst kept
+    /// at 16 kbps then loses frames in the link queue. The profile is chosen at burst
+    /// start (§7.4), so the running burst re-tunes its encoder to BLE12 (same 40 ms
+    /// grid, no reset) and sends a TALK KEEP at once so relays and listeners account the
+    /// lower cost. Never upshifts mid-burst (the next burst re-selects), so it cannot
+    /// flap.
+    fn edge_downshift(&mut self, ctx: &Ctx) {
+        let Some(b) = self.burst.filter(|b| b.profile == Profile::Ble16) else {
+            return;
+        };
+        let inputs = self.profile_inputs(ctx);
+        if !(inputs.any_ble_link && (inputs.cap_pacing_one || inputs.path_hint_ble12)) {
+            return;
+        }
+        let rate = match ctx.device.route.input_rate {
+            0 => mesh_voice::SAMPLE_RATE,
+            r => r,
+        };
+        let cfg = EncoderConfig::for_profile(Profile::Ble12, rate, inputs.worst_loss_pct)
+            .with_thermal(inputs.thermal_serious);
+        let ok = self
+            .packetizer
+            .as_mut()
+            .is_some_and(|p| p.burst() == b.burst && p.reconfigure(&cfg).is_ok());
+        if ok && let Some(t) = self.burst.as_mut() {
+            t.profile = Profile::Ble12;
+            t.next_keep = ctx.now;
         }
     }
 

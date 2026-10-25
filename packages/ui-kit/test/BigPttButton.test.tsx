@@ -202,7 +202,7 @@ describe("BigPttButton rendering", () => {
     expect(Number(ring.getAttribute("stroke-dashoffset"))).toBeCloseTo(0, 5);
   });
 
-  it("uses the 160 px class, blocks touch scrolling and shows the engine status", () => {
+  it("uses the 200 px class, blocks touch scrolling and shows the engine status", () => {
     const view = render(
       <BigPttButton mode="hold" onDown={() => {}} onUp={() => {}} level={0} label="Talk" status="blocked" />,
     );

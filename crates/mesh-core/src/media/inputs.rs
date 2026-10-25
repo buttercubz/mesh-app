@@ -57,23 +57,58 @@ impl Media {
         rate_bps.map(|r| CostModel::new(EncoderProfile::Ble16).cap_pacing(r, s_max))
     }
 
-    /// The profile inputs at `ctx.now`.
+    /// Up, non-Lab links.
+    fn up_links(ctx: &Ctx) -> impl Iterator<Item = &crate::links::Link> {
+        ctx.links
+            .iter()
+            .filter(|l| l.state == LinkState::Up && !l.is_lab())
+    }
+
+    /// Peers I hold an Up Wi-Fi Aware link to.
+    fn aware_peers(ctx: &Ctx) -> Vec<u16> {
+        Self::up_links(ctx)
+            .filter(|l| l.info.kind == LinkKind::WifiAware)
+            .filter_map(|l| l.peer_node.map(|p| p.0))
+            .collect()
+    }
+
+    /// A BLE link that actually carries my voice: its peer has no Aware link with me
+    /// (the link bundle sends voice to such a neighbor over Aware only, §9.7).
+    fn ble_egress(l: &crate::links::Link, aware: &[u16]) -> bool {
+        l.info.kind.is_ble() && !l.peer_node.is_some_and(|p| aware.contains(&p.0))
+    }
+
+    /// A BLE *edge* link: a BLE link while I hold an Aware link to another neighbor
+    /// (hybrid groups, the same rule as `Router::is_edge_link`).
+    fn ble_edge(l: &crate::links::Link, aware: &[u16]) -> bool {
+        l.info.kind.is_ble() && aware.iter().any(|a| l.peer_node.is_none_or(|p| p.0 != *a))
+    }
+
+    /// The profile inputs at `ctx.now` (§7.4: BLE profiles when *any* of my links is
+    /// BLE, Wi-Fi profiles only when all of them are Aware/Tunnel). A BLE fallback link
+    /// to a neighbor I also reach over Aware counts as well, even though my voice goes
+    /// to that neighbor over Aware only: relays never transcode, so a Wi-Fi-profile
+    /// stream (20 ms frames, 34.4 kbps) would cross the BLE edges of a hybrid group
+    /// whose admission is sized for BLE16 streams, and if my Aware link drops mid-burst
+    /// the fallback link would carry 20 ms frames that the BLE12 downshift cannot
+    /// re-tune. `cap_pacing_one` reads only the BLE links that carry my voice (an idle
+    /// fallback link's pacer says nothing about my egress).
     pub(super) fn profile_inputs(&self, ctx: &Ctx) -> ProfileInputs {
         let lim = ctx.cfg.limits.routing;
+        let aware = Self::aware_peers(ctx);
         let mut any_ble = false;
         let mut any_wifi = false;
         let mut cap_one = false;
-        for l in ctx.links.iter() {
-            if l.state != LinkState::Up || l.is_lab() {
+        for l in Self::up_links(ctx) {
+            if !l.info.kind.is_ble() {
+                any_wifi = true;
                 continue;
             }
-            if l.info.kind.is_ble() {
-                any_ble = true;
-                if Self::cap_pacing(l.pace.rate_bps, lim.s_max_ble).is_some_and(|c| c <= 1) {
-                    cap_one = true;
-                }
-            } else {
-                any_wifi = true;
+            any_ble = true;
+            if Self::ble_egress(l, &aware)
+                && Self::cap_pacing(l.pace.rate_bps, lim.s_max_ble).is_some_and(|c| c <= 1)
+            {
+                cap_one = true;
             }
         }
         let worst = self.loss_pct.values().copied().fold(0.0f32, f32::max);
@@ -93,13 +128,18 @@ impl Media {
         }
     }
 
-    /// `cap_local`: the cap of my most constrained link kind (§6.4); S_MAX_BLE when I
-    /// have no link yet.
+    /// `cap_local`: the cap of my most constrained voice link (§6.4); S_MAX_BLE when I
+    /// have no link yet. Two kinds of BLE link do not count: BLE edge links of a
+    /// backbone node (a full edge sheds my burst there only, it never blocks me on the
+    /// Aware backbone) and BLE fallback links to a neighbor I also reach over Aware (the
+    /// link bundle sends my voice there over Aware only, so the BLE cap never applies;
+    /// the same rule as `Router::cap_local`).
     pub(super) fn cap_local(&self, ctx: &Ctx) -> u8 {
         let lim = ctx.cfg.limits.routing;
+        let aware = Self::aware_peers(ctx);
         let mut cap: Option<u8> = None;
-        for l in ctx.links.iter() {
-            if l.state != LinkState::Up || l.is_lab() {
+        for l in Self::up_links(ctx) {
+            if Self::ble_edge(l, &aware) || (l.info.kind.is_ble() && !Self::ble_egress(l, &aware)) {
                 continue;
             }
             let kind = routing_kind(l.info.kind);
@@ -112,18 +152,17 @@ impl Media {
         cap.unwrap_or(lim.group_cap(true)).max(1)
     }
 
-    /// The near-talker `group_cap` (2 when any BLE link exists, else 4, §6.3).
-    pub(super) fn group_cap(&self, ctx: &Ctx) -> u8 {
-        let any_wifi_only = ctx
-            .links
-            .iter()
-            .filter(|l| l.state == LinkState::Up && !l.is_lab())
-            .all(|l| !l.info.kind.is_ble())
-            && ctx
-                .links
-                .iter()
-                .any(|l| l.state == LinkState::Up && !l.is_lab());
-        ctx.cfg.limits.routing.group_cap(!any_wifi_only)
+    /// The near-talker `group_cap` for VOICE received on `link`, per segment (§6.3):
+    /// 4 when the voice comes from the Wi-Fi backbone (an Aware link, or a neighbor the
+    /// mesh glue lists in `Ctx::aware_backbone`), 2 inside a BLE segment. A group-wide
+    /// "any BLE link" cap would throttle an Aware island to the BLE cap.
+    pub(super) fn near_talker_cap(&self, ctx: &Ctx, link: crate::LinkId) -> u8 {
+        let backbone = ctx.links.get(link).is_some_and(|l| {
+            l.info.kind == LinkKind::WifiAware
+                || l.peer_node
+                    .is_some_and(|p| ctx.aware_backbone.contains(&p.0))
+        });
+        ctx.cfg.limits.routing.group_cap(!backbone)
     }
 }
 

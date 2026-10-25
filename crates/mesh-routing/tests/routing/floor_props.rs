@@ -126,44 +126,82 @@ proptest! {
 
     #[test]
     fn caps_hold_even_if_talkers_ignore_rejects(seed in 1u64..u64::MAX, n in 4u16..10) {
-        let (_, edges) = random_geometric(n, 0.6, 3, seed);
-        let mut net = Net::new(n, 15_000, Limits::V1, seed);
-        for &(u, v) in &edges {
-            net.connect(u, v);
-        }
-        set_caps(&mut net, &edges, &[1, 2, 1]);
-        let t0 = net.now;
-        let mut talkers: Vec<Talker> = (1..=n.min(5))
-            .map(|i| {
-                let mut t = Talker::new(i, t0.plus_ms(u64::from(i) * 30), t0.plus_ms(2_000));
-                // Misbehaving origins: start regardless of local_admit, ignore rejects.
-                t.ignore_rejects = true;
-                t.force = true;
-                t
-            })
-            .collect();
-        run(&mut net, &mut talkers, t0.plus_ms(2_500));
-        prop_assert!(net.violations.is_empty(), "{:?}", net.violations);
-        // Per link, bursts streaming *across* any instant (a frame within 80 ms before
-        // and one within 80 ms after) never exceed the cap; churn (a burst rejected and
-        // replaced) does not count as concurrency.
-        let mut by_link: BTreeMap<(NodeId, u32), Vec<(u64, BurstKey)>> = BTreeMap::new();
-        for v in &net.voice_tx {
-            by_link.entry((v.node, v.link.0)).or_default().push((v.at.us(), v.burst));
-        }
-        for ((node, link), txs) in by_link {
-            let cap = net.routers[&node].link_cap(mesh_routing::LinkId(link));
-            for &(t, _) in &txs {
-                let bursts: BTreeSet<BurstKey> = txs.iter().map(|x| x.1).collect();
-                let across = bursts.iter().filter(|b| {
-                    let before = txs.iter().any(|&(u, k)| k == **b && u <= t && t - u <= 80_000);
-                    let after = txs.iter().any(|&(u, k)| k == **b && u >= t && u - t <= 80_000);
+        check_caps_hold_with_misbehaving_talkers(seed, n)?;
+    }
+}
+
+/// Body of `caps_hold_even_if_talkers_ignore_rejects` (shared with pinned regressions).
+fn check_caps_hold_with_misbehaving_talkers(seed: u64, n: u16) -> Result<(), TestCaseError> {
+    let (_, edges) = random_geometric(n, 0.6, 3, seed);
+    let mut net = Net::new(n, 15_000, Limits::V1, seed);
+    for &(u, v) in &edges {
+        net.connect(u, v);
+    }
+    set_caps(&mut net, &edges, &[1, 2, 1]);
+    let t0 = net.now;
+    let mut talkers: Vec<Talker> = (1..=n.min(5))
+        .map(|i| {
+            let mut t = Talker::new(i, t0.plus_ms(u64::from(i) * 30), t0.plus_ms(2_000));
+            // Misbehaving origins: start regardless of local_admit, ignore rejects.
+            t.ignore_rejects = true;
+            t.force = true;
+            t
+        })
+        .collect();
+    run(&mut net, &mut talkers, t0.plus_ms(2_500));
+    prop_assert!(net.violations.is_empty(), "{:?}", net.violations);
+    // DESIGN §6.3: no link carries more streams than its cap even if every talker ignores
+    // FLOOR_REJECT. Per link, probe the moment just after every transmission instant `t`:
+    // a burst streams across it when it sent a frame at `u ≤ t` (within 80 ms) and
+    // another strictly later (`t < u ≤ t + 80 ms`). The strict "after" matters for an
+    // eviction at `t`: a relay may forward the last frame of the admitted burst A and,
+    // in the same instant, admit an outranking burst B, evict A and send B's first
+    // frame. A then never sends again on that link, so it ends at `t` and does not
+    // overlap B; counting A's frame at `t` as both "before" and "after" would report
+    // that handover (churn) as two concurrent streams. Real overlap (both bursts
+    // sending past `t`) is still caught.
+    let mut by_link: BTreeMap<(NodeId, u32), Vec<(u64, BurstKey)>> = BTreeMap::new();
+    for v in &net.voice_tx {
+        by_link
+            .entry((v.node, v.link.0))
+            .or_default()
+            .push((v.at.us(), v.burst));
+    }
+    for ((node, link), txs) in by_link {
+        let cap = net.routers[&node].link_cap(mesh_routing::LinkId(link));
+        let bursts: BTreeSet<BurstKey> = txs.iter().map(|x| x.1).collect();
+        for &(t, _) in &txs {
+            let across = bursts
+                .iter()
+                .filter(|b| {
+                    let before = txs
+                        .iter()
+                        .any(|&(u, k)| k == **b && u <= t && t - u <= 80_000);
+                    let after = txs
+                        .iter()
+                        .any(|&(u, k)| k == **b && u > t && u - t <= 80_000);
                     before && after
-                }).count();
-                prop_assert!(across <= usize::from(cap), "link {} carried {} streams at {}", link, across, t);
-            }
+                })
+                .count();
+            prop_assert!(
+                across <= usize::from(cap),
+                "link {} carried {} streams at {}",
+                link,
+                across,
+                t
+            );
         }
     }
+    Ok(())
+}
+
+/// Regression: seed 14347263198455711262, n = 7 once failed with "link 5007 carried 2
+/// streams at 1150000". At that instant node 5 forwarded one frame of relayed burst 4/1
+/// on 5→7 (cap 1), then its own forced burst 5/1 outranked and evicted 4/1 and sent its
+/// first frame; 4/1 never sent again on that link (a handover, not concurrency).
+#[test]
+fn caps_hold_regression_seed_14347263198455711262() {
+    check_caps_hold_with_misbehaving_talkers(14_347_263_198_455_711_262, 7).expect("caps hold");
 }
 
 fn chain(n: u16) -> Net {

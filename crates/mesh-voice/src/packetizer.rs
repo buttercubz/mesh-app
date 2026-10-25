@@ -204,6 +204,18 @@ impl Packetizer {
         Ok(())
     }
 
+    /// Re-tunes the encoder of the running burst without a reset (a mid-burst
+    /// downshift, e.g. BLE16 → BLE12 when the link rate falls at the edge of range).
+    /// Opus packets are self-describing, so receivers need no signal to decode; the
+    /// VOICE `cfg` byte follows the new settings. Refused (`BadArg`) when no burst runs
+    /// or the frame duration would change (the timestamp grid is per burst).
+    pub fn reconfigure(&mut self, cfg: &EncoderConfig) -> Result<(), CodecError> {
+        if !self.active || cfg.frame != self.enc.config().frame {
+            return Err(CodecError::BadArg);
+        }
+        self.enc.configure(cfg)
+    }
+
     /// Adds one live block; emits a frame whenever one is complete.
     pub fn push_block(
         &mut self,

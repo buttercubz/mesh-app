@@ -125,6 +125,34 @@ fn direct_kinds(ctx: &Ctx, node: u16) -> Vec<UiLinkKind> {
     v
 }
 
+/// Quality of my best direct link to `node` (DESIGN §5.1 `q`: loss², queueing delay,
+/// RSSI): a weak link (edge of range, a fading null) shows fewer bars on the member
+/// row instead of a full-strength "direct". The loss is what the peer's LSTAT reports
+/// for my transmit direction. Rounded down to steps of 5 (the UI shows 0-4 bars at
+/// 30 / 60 / 85) so RTT jitter does not churn the snapshot; `None` without an Up link.
+fn direct_quality(ctx: &Ctx, node: u16) -> Option<u8> {
+    let now = ctx.now.routing();
+    ctx.links
+        .iter()
+        .filter(|l| l.state == LinkState::Up && l.peer_node.map(|p| p.0) == Some(node))
+        .map(|l| {
+            let kind = if l.info.kind.is_ble() {
+                mesh_routing::LinkKind::Ble
+            } else {
+                mesh_routing::LinkKind::Aware
+            };
+            let loss_ppm = l.peer_lstat.as_ref().map_or(0, |ls| {
+                let total = u64::from(ls.rx_frames) + u64::from(ls.gaps);
+                (u64::from(ls.gaps) * 1_000_000)
+                    .checked_div(total)
+                    .map_or(0, |x| x as u32)
+            });
+            mesh_routing::quality::q_of(kind, loss_ppm, l.rtt.queue_delay_us(now), l.rssi)
+        })
+        .max()
+        .map(|q| q / 5 * 5)
+}
+
 /// Fills the session part of the snapshot.
 pub fn fill(s: &Session, ctx: &Ctx, g: &Group, snap: &mut Snapshot) {
     let now = ctx.now.routing();
@@ -144,6 +172,7 @@ pub fn fill(s: &Session, ctx: &Ctx, g: &Group, snap: &mut Snapshot) {
         ride: s.ride,
         ladder: s.ladder,
         share_distance: s.share,
+        open_channel: None,
     });
     let hears_me = s.reach.who_hears_me(now);
     let one_way = s.reach.one_way(now);
@@ -277,7 +306,7 @@ pub fn fill(s: &Session, ctx: &Ctx, g: &Group, snap: &mut Snapshot) {
             status,
             hops: reach.map_or(0, |m| m.traversals.saturating_sub(1)),
             quality: match status {
-                MemberStatus::Direct => 100,
+                MemberStatus::Direct => direct_quality(ctx, node).unwrap_or(100),
                 MemberStatus::Relayed | MemberStatus::OneWay | MemberStatus::Unconfirmed
                     if reachable =>
                 {

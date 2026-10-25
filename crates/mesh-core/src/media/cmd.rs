@@ -8,10 +8,10 @@
 //! `audioCheck{start}`), and turns them into the [`MediaRequest`] the session module
 //! would have sent.
 
-use mesh_lab::ridelog::DiagEvent;
 use mesh_api::{
     AudioCheckOp, CommandResult, ErrorCode, TalkMode as ApiTalkMode, UiCommand, VoxSensitivity,
 };
+use mesh_lab::ridelog::DiagEvent;
 use mesh_voice::{TalkInput, TalkMode, VadSensitivity};
 
 use super::bus::MediaRequest;

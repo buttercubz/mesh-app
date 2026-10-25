@@ -157,6 +157,9 @@ export class FakeLabEngine implements EngineBackend {
       case "createGroup":
       case "joinGroup":
       case "parseInvite":
+      case "joinOpenChannel":
+      case "setMemberMuted":
+      case "setMemberBlocked":
         return err("notSupported");
       case "listGroups":
         return { ok: true, groups: [] };

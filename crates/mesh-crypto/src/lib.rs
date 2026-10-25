@@ -31,6 +31,7 @@ pub mod idproof;
 pub mod invite;
 pub mod join;
 pub mod keyring;
+pub mod open_channel;
 pub mod prim;
 pub mod rekey;
 pub mod replay;

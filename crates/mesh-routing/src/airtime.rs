@@ -6,9 +6,22 @@
 //! Voice links share the rest: `Σ grant(voice) ≤ NODE_BLE_BUDGET − Σ grant(idle)`; when
 //! the sum of their `R` would exceed it, **only the voice links** are scaled,
 //! proportionally. Non-BLE links are not in the budget (grant = `R`).
+//!
+//! Proportional scaling never squeezes a voice link below one stream: when it would
+//! leave a voice link under `min(R, one BLE12 stream)` (25.1 kbps, the pacer's voice
+//! floor), every voice link first keeps that floor and only the excess above it is
+//! scaled. A link whose own pacer sits at the floor (a fading link) then still carries
+//! one stream while its well-connected siblings give up a little probing headroom.
 
+use mesh_wire::mesh::EncoderProfile;
+
+use crate::cost::CostModel;
 use crate::limits::Limits;
 use crate::types::{LinkId, LinkKind};
+
+/// One BLE12 stream (`cost(1) / 0.9`): a voice link's grant never scales below
+/// `min(R, VOICE_FLOOR_BPS)`.
+const VOICE_FLOOR_BPS: u32 = CostModel::new(EncoderProfile::Ble12).min_grant_bps(1);
 
 /// One link's input to the budget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +76,23 @@ impl AirtimeBudget {
             .sum();
         let voice_budget = u64::from(self.node_ble_budget_bps).saturating_sub(idle_sum);
         let scale = voice_sum > voice_budget;
+        let floor = |l: &AirtimeInput| u64::from(l.rate_bps.min(VOICE_FLOOR_BPS));
+        let floor_sum: u64 = links
+            .iter()
+            .filter(|l| l.kind == LinkKind::Ble && l.voice)
+            .map(floor)
+            .sum();
+        // Proportional unless that would put some voice link under its floor (and the
+        // floors themselves fit the budget).
+        let floored = scale
+            && floor_sum <= voice_budget
+            && links.iter().any(|l| {
+                l.kind == LinkKind::Ble
+                    && l.voice
+                    && u64::from(l.rate_bps) * voice_budget / voice_sum.max(1) < floor(l)
+            });
+        let excess_sum = voice_sum - floor_sum;
+        let excess_budget = voice_budget.saturating_sub(floor_sum);
         links
             .iter()
             .map(|l| {
@@ -70,6 +100,12 @@ impl AirtimeBudget {
                     (LinkKind::Ble, false) => (
                         l.rate_bps.min(self.idle_grant_bps),
                         l.rate_bps > self.idle_grant_bps,
+                    ),
+                    (LinkKind::Ble, true) if floored => (
+                        (floor(l)
+                            + (u64::from(l.rate_bps) - floor(l)) * excess_budget
+                                / excess_sum.max(1)) as u32,
+                        true,
                     ),
                     (LinkKind::Ble, true) if scale => (
                         (u64::from(l.rate_bps) * voice_budget / voice_sum.max(1)) as u32,
@@ -159,5 +195,23 @@ mod tests {
         // An idle link whose R is below 8 kbps keeps its R.
         let g = b.grants(&[ble(1, 5_000, false)]);
         assert_eq!(g[0].grant_bps, 5_000);
+    }
+
+    #[test]
+    fn scaling_keeps_one_stream_on_a_fading_link() {
+        let b = AirtimeBudget::default();
+        // A fading link at the pacer floor next to two links probing high, plus an
+        // idle one: proportional scaling would give it 172 × 25.1 / 325.1 ≈ 13.3 kbps.
+        let g = b.grants(&[
+            ble(1, 150_000, true),
+            ble(2, 150_000, true),
+            ble(3, VOICE_FLOOR_BPS, true),
+            ble(4, 60_000, false),
+        ]);
+        assert_eq!(g[2].grant_bps, VOICE_FLOOR_BPS);
+        assert!(g[0].grant_bps >= VOICE_FLOOR_BPS && g[0].grant_bps == g[1].grant_bps);
+        let sum: u32 = g.iter().map(|x| x.grant_bps).sum();
+        assert!(sum <= 180_000, "{sum}");
+        assert_eq!(VOICE_FLOOR_BPS, 25_112);
     }
 }

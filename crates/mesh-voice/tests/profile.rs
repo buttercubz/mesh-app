@@ -221,3 +221,36 @@ proptest! {
         }
     }
 }
+
+#[test]
+fn ble_edge_fec_follows_loss_hysteresis_on_ble16_only() {
+    let mut s = ProfileSelector::new();
+    let ble = |loss| ProfileInputs {
+        any_ble_link: true,
+        worst_loss_pct: loss,
+        ..Default::default()
+    };
+    // Clean link: plain BLE16, no LBRR.
+    assert_eq!(s.select(0, &ble(1.0)), Profile::Ble16);
+    assert!(!s.edge_fec(&ble(1.0)));
+    // Edge of range: still BLE16 (same cost), LBRR on with a clamped loss hint.
+    assert_eq!(s.select(1_000_000, &ble(7.6)), Profile::Ble16);
+    assert!(s.edge_fec(&ble(7.6)));
+    let c = EncoderConfig::for_profile(Profile::Ble16, 16_000, 7.6).with_edge_fec(true, 7.6);
+    assert!(c.inband_fec);
+    assert_eq!(c.packet_loss_perc, 8);
+    assert_eq!(c.bitrate_bps, 16_000);
+    // Never on BLE12, DRED or Wi-Fi profiles, and a no-op when off.
+    for p in [Profile::Ble12, Profile::BleDred, Profile::Wifi20] {
+        let c = EncoderConfig::for_profile(p, 16_000, 7.6);
+        assert_eq!(c.with_edge_fec(true, 7.6), c, "{p:?}");
+    }
+    let c = EncoderConfig::for_profile(Profile::Ble16, 16_000, 7.6);
+    assert_eq!(c.with_edge_fec(false, 7.6), c);
+    // Off only after 10 s below 2 %.
+    assert!(s.edge_fec(&ble(1.0)));
+    s.select(2_000_000, &ble(1.0));
+    assert!(s.edge_fec(&ble(1.0)));
+    s.select(2_000_000 + FEC_OFF_HOLD_US, &ble(1.0));
+    assert!(!s.edge_fec(&ble(1.0)));
+}

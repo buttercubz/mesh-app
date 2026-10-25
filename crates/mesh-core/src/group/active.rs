@@ -48,7 +48,28 @@ pub struct LinkRt {
     /// its `REJECT{8}` / `CLOSE{8}` on this link is that direct collision, resolved by
     /// the `id_hash` rule, not a third node's report.
     pub collided: bool,
+    /// Datagram links only (§9.6): when my IDPROOF goes out again while the link waits
+    /// in IdProof, and how many times it already went out again.
+    pub idproof_resend: Option<(Instant, u8)>,
+    /// Datagram links only: last time a repeated peer IDPROOF on the Up link was looked
+    /// at (rate limit of the answer), and how many answers went out.
+    pub idproof_answered: Option<Instant>,
+    pub idproof_answers: u8,
+    /// I answered a repeated IDPROOF: the peer was still in IdProof when this link went
+    /// Up here and dropped what I sent then (JOIN_REQ, PRESENCE). Its CAPS (sent once it
+    /// is Up) re-runs my link-up announcements.
+    pub reannounce: bool,
+    /// Datagram links only: encoded SYNC / MESH records that arrived while this link
+    /// waited in IdProof (the peer is Up and its later datagrams overtook its IDPROOF).
+    /// Replayed once the link is Up; dropped with the link if admission fails. Bounded
+    /// by [`EARLY_RECORDS_MAX`] and [`EARLY_BYTES_MAX`].
+    pub early: Vec<Vec<u8>>,
 }
+
+/// Most early records kept per link in IdProof.
+pub const EARLY_RECORDS_MAX: usize = 8;
+/// Most early record bytes kept per link in IdProof.
+pub const EARLY_BYTES_MAX: usize = 4_096;
 
 impl LinkRt {
     pub fn new(slot: HsSlot, role: LinkRole, kind: LinkKind) -> Self {
@@ -63,6 +84,11 @@ impl LinkRt {
             pushed: BTreeMap::new(),
             speculative: None,
             collided: false,
+            idproof_resend: None,
+            idproof_answered: None,
+            idproof_answers: 0,
+            reannounce: false,
+            early: Vec::new(),
         }
     }
 
@@ -110,6 +136,8 @@ pub struct Active {
     pub refused: bool,
     /// What the media module was last told (posted on the bus only on change).
     pub media: MediaSync,
+    /// Local mute/block lists and the open-channel per-origin budget.
+    pub filter: super::open::LocalFilter,
 }
 
 /// The session → media state last posted on the inter-module bus.
@@ -143,6 +171,7 @@ impl Active {
             dirty_store: false,
             refused: false,
             media: MediaSync::default(),
+            filter: Default::default(),
         }
     }
 

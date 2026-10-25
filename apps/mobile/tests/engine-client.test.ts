@@ -51,12 +51,16 @@ const SAMPLE_COMMANDS: UiCommand[] = [
   { type: "labMark", label: "bridge" },
   { type: "labListRuns" },
   { type: "labDeleteRun", runId: "r1" },
+  { type: "joinOpenChannel", channel: 3, displayName: "Ana" },
+  { type: "setMemberMuted", nodeId: 9, muted: true },
+  { type: "setMemberBlocked", nodeId: 9, blocked: false },
 ];
 
 const answerFor = (cmd: UiCommand) => {
   switch (cmd.type) {
     case "createGroup":
     case "joinGroup":
+    case "joinOpenChannel":
       return { ok: true as const, groupId: "0123456789abcdef0123456789abcdef" };
     case "listGroups":
       return { ok: true as const, groups: [] };

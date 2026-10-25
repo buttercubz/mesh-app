@@ -43,6 +43,7 @@ export const sessionInfo = obj<SessionInfo>({
   ride: oneOf(RIDE_PHASES),
   ladder: oneOf(LADDER_LEVELS),
   shareDistance: bool(),
+  openChannel: nullable(u8()),
 });
 
 export const audioInfo = obj<AudioInfo>({

@@ -1,17 +1,18 @@
-// Bottom of the ride screen (WP-22, DESIGN §11.4): the 160 px PTT / Mute button (hold or
-// latch in PTT; tap toggles mute in VOX; the ring shows the input level), the talk-mode
-// segmented control (VOX is never offered on the phone loudspeaker, §1.4) and the audio
-// route chip.
+// Bottom of the ride screen (WP-22, DESIGN §11.4): the 200 px PTT / Mute button (hold or
+// latch in PTT; tap toggles mute in VOX; the ring shows the input level) and the
+// glove-sized talk-mode control (VOX is never offered on the phone loudspeaker, §1.4).
+// The audio route (and why VOX is off on the loudspeaker) lives in the ride status chip.
 import type { TalkMode } from "@meshapp/engine-api";
-import { Badge, BigPttButton, SegmentedControl } from "@meshapp/ui-kit";
+import { BigPttButton, SegmentedControl } from "@meshapp/ui-kit";
 import type { PttStatus } from "@meshapp/ui-kit";
+import { Hand, Mic, MicOff } from "lucide-react";
 
 import { useT } from "../../i18n/index";
 import { useEngineStore } from "../../store/useEngineStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useIntercomEngine, useSession } from "../group/engine";
 import { runCommand } from "../group/session";
-import { routeKey, voxAllowed } from "./model";
+import { voxAllowed } from "./model";
 
 function buzz(): void {
   if (!useSettingsStore.getState().haptics) return;
@@ -62,6 +63,7 @@ export function TalkControl() {
         level={inputLevel}
         disabled={!live}
         label={label}
+        icon={status === "blocked" ? <Hand /> : <Mic />}
         ariaLabel={t("ptt.aria")}
         onDown={() => {
           buzz();
@@ -111,29 +113,27 @@ export function TalkControl() {
             strokeDashoffset={2 * Math.PI * 46 * (1 - level)}
           />
         </svg>
-        <span className="mk-ptt-label">{muted ? t("mute.muted") : t("mute.vox")}</span>
+        <span className="mk-ptt-label">
+          <span className="mk-ptt-icon" aria-hidden="true">
+            {muted ? <MicOff /> : <Mic />}
+          </span>
+          <span>{muted ? t("mute.muted") : t("mute.vox")}</span>
+        </span>
       </button>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-3" data-testid="talk-control" data-mode={mode}>
-      <div className="flex items-center gap-2">
-        <Badge tone={route === null || route === "none" ? "out" : "neutral"} data-testid="route-chip">
-          {t(routeKey(route))}
-        </Badge>
-        {session.talk === "talking" && <Badge tone="active">{t("talk.onAir")}</Badge>}
-      </div>
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4" data-testid="talk-control" data-mode={mode}>
       {button}
       <SegmentedControl
-        className="w-full max-w-sm"
+        className="mk-segmented--ride w-full"
         label={t("mode.label")}
         options={options}
         value={mode}
         onChange={setMode}
         disabled={!live}
       />
-      {!canVox && <p className="text-center text-xs text-muted-foreground">{t("mode.voxSpeaker")}</p>}
     </div>
   );
 }

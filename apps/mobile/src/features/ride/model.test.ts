@@ -14,6 +14,7 @@ import {
   keepRideScreenOn,
   qualityBars,
   rideBanners,
+  splitBanners,
   startMode,
   voiceReach,
   voxAllowed,
@@ -105,6 +106,10 @@ describe("rideBanners", () => {
     expect(kinds(s, { at: 10_000 - BUSY_BANNER_MS - 1 })).not.toContain("busy");
     expect(kinds(s, { at: 9_900, reason: "preempted" })).toContain("preempted");
     expect(kinds(s, { at: 9_900, reason: "congestion" })).toContain("congestion");
+    // Over weak links a "congestion" refusal is the radio: weak signal, not network busy.
+    const weak: Snapshot = { ...s, members: s.members.map((m) => (m.status === "me" ? m : { ...m, quality: 45 })) };
+    expect(kinds(weak, { at: 9_900, reason: "congestion" })).toEqual(["weakSignal"]);
+    expect(kinds(weak, { at: 9_900, reason: "cap" })).toContain("busy");
     const blocked = { ...s, session: s.session === null ? null : { ...s.session, talk: "blocked" as const } };
     const busy = rideBanners({ snapshot: blocked, lastTalkDeniedAt: null, now: 0 }).find((b) => b.kind === "busy");
     expect(busy?.params).toEqual({ n: 2 });
@@ -126,5 +131,18 @@ describe("formatting", () => {
     expect(compassKey(181)).toBe("compass.s");
     expect(compassKey(-45)).toBe("compass.nw");
     expect(compassKey(359)).toBe("compass.n");
+  });
+});
+
+describe("splitBanners", () => {
+  const b = (kind: Parameters<typeof splitBanners>[0][number]["kind"]) => ({ kind, tone: "warn" as const, params: {} });
+  it("shows one banner in full, most urgent first, and collapses the rest", () => {
+    const { primary, rest } = splitBanners([b("island"), b("busy"), b("micPaused"), b("ladderL1")]);
+    expect(primary?.kind).toBe("micPaused");
+    expect(rest.map((x) => x.kind)).toEqual(["busy", "island", "ladderL1"]);
+  });
+  it("Bluetooth off outranks everything; no banners means no primary", () => {
+    expect(splitBanners([b("notLive"), b("bluetoothOff")]).primary?.kind).toBe("bluetoothOff");
+    expect(splitBanners([])).toEqual({ primary: null, rest: [] });
   });
 });

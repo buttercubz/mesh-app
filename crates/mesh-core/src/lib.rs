@@ -35,7 +35,7 @@ pub mod session;
 
 pub use config::{DeviceDescriptor, EngineConfig, Limits, Platform, SessionStart, StoredGroup};
 pub use effects::{
-    AudioCommand, AudioSessionKind, AudioSessionProfile, DiscoveryMode, Effect, LabFile,
+    AudioCommand, AudioSessionKind, AudioSessionProfile, AwarePmk, DiscoveryMode, Effect, LabFile,
     LinkPriority, LogLevel, Notification, OpenVia, PromptRequest, RadioCommand, ScanIntensity,
     Transmit,
 };

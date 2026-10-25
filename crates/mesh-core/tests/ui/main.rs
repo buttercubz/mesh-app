@@ -278,6 +278,7 @@ impl CoreModule for Probe {
                 ride: mesh_api::RidePhase::Lobby,
                 ladder: mesh_api::LadderLevel::L0,
                 share_distance: false,
+                open_channel: None,
             });
         }
     }

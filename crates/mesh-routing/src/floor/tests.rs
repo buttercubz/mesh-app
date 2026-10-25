@@ -271,3 +271,133 @@ fn local_admit_and_near_talker() {
     assert!(!t.near_talker_reject(key(6), 2, 2));
     assert!(!t.near_talker_reject(key(1), 0, 2));
 }
+
+#[test]
+fn edge_admission_sheds_locally_without_rejects() {
+    // A BLE edge of a Wi-Fi backbone node (hybrid groups): a full edge refuses without
+    // a FLOOR_REJECT and never marks the burst as rejected by me, so the same burst can
+    // still be refused with a reason on a backbone link.
+    let mut t = FloorTable::new(1, TIE, true);
+    let mut a = Admission::new(300_000);
+    let edge = LinkId(1);
+    let aware = LinkId(2);
+    let now = Instant::from_secs(10);
+    for k in 1..=5 {
+        t.on_voice(now.plus_ms(u64::from(k) * 1_000), key(k), false, 0, 0);
+    }
+    let at = now.plus_ms(6_000);
+    for k in 1..=2 {
+        assert_eq!(
+            a.admits_at(at, edge, key(k), &mut t, 2, false, true),
+            AdmitDecision::Admitted
+        );
+    }
+    assert_eq!(
+        a.admits_at(at, edge, key(3), &mut t, 2, false, true),
+        AdmitDecision::Refused { reject: None }
+    );
+    assert!(!t.get(key(3)).expect("entry").rejected_by_me);
+    // The Aware link of the same node admits up to S_MAX_AWARE.
+    for k in 1..=4 {
+        assert!(
+            a.admits_at(at, aware, key(k), &mut t, 4, false, false)
+                .admitted()
+        );
+    }
+    assert_eq!(
+        a.admits_at(at, aware, key(5), &mut t, 4, false, false),
+        AdmitDecision::Refused {
+            reject: Some(FloorRejectReason::Cap)
+        }
+    );
+    // A leader on the edge evicts the lowest-ranked burst there only: no reject, and the
+    // victim stays admitted on the Aware link.
+    t.on_voice(at, key(9), true, 0, 0);
+    assert_eq!(
+        a.admits_at(at, edge, key(9), &mut t, 2, false, true),
+        AdmitDecision::Admitted
+    );
+    assert_eq!(a.admitted(edge), vec![key(1), key(9)]);
+    assert!(a.admitted(aware).contains(&key(2)));
+    // The displaced victim waits on the edge; when a slot frees (cap 3) it returns by
+    // rank, ahead of the lower-ranked key(3) that was refused while the edge was full.
+    assert_eq!(
+        a.admits_at(at, edge, key(3), &mut t, 3, false, true),
+        AdmitDecision::Refused { reject: None }
+    );
+    assert_eq!(
+        a.admits_at(at, edge, key(2), &mut t, 3, false, true),
+        AdmitDecision::Admitted
+    );
+    assert_eq!(a.admitted(edge), vec![key(1), key(9), key(2)]);
+}
+
+/// Regression (rank inversion on BLE edges): a refused burst keeps streaming on the
+/// backbone (no FLOOR_REJECT on an edge), so after a cap dip sheds rank 2, the refused
+/// rank 3 must not take the slot when the cap recovers: the edge carries ranks 1 and 2
+/// again, whichever frame arrives first. Queue shedding stays sticky but keeps its rank
+/// position, so a lower-ranked burst cannot overtake a queue-shed one either.
+#[test]
+fn edge_cap_dip_and_recovery_restores_top_by_rank() {
+    let mut t = FloorTable::new(1, TIE, true);
+    let mut a = Admission::new(300_000);
+    let edge = LinkId(1);
+    let now = Instant::from_secs(10);
+    for k in 1..=4 {
+        t.on_voice(now.plus_ms(u64::from(k) * 1_000), key(k), false, 0, 0);
+    }
+    let at = now.plus_ms(5_000);
+    let admit = |a: &mut Admission, t: &mut FloorTable, k: u16, cap: u8| {
+        a.admits_at(at, edge, key(k), t, cap, false, true)
+    };
+    assert!(admit(&mut a, &mut t, 1, 2).admitted());
+    assert!(admit(&mut a, &mut t, 2, 2).admitted());
+    assert_eq!(
+        admit(&mut a, &mut t, 3, 2),
+        AdmitDecision::Refused { reject: None }
+    );
+    // Cap dip to 1 displaces rank 2.
+    assert!(admit(&mut a, &mut t, 1, 1).admitted());
+    assert_eq!(a.admitted(edge), vec![key(1)]);
+    // Cap back to 2: rank 3's frame arrives first and is still refused; rank 2 returns.
+    assert_eq!(
+        admit(&mut a, &mut t, 3, 2),
+        AdmitDecision::Refused { reject: None }
+    );
+    assert_eq!(admit(&mut a, &mut t, 2, 2), AdmitDecision::Admitted);
+    assert_eq!(a.admitted(edge), vec![key(1), key(2)]);
+    // Even if rank 3 slipped in while rank 2 was silent, rank 2's next frame displaces it.
+    let mut a2 = Admission::new(300_000);
+    assert!(
+        a2.admits_at(at, edge, key(1), &mut t, 2, false, true)
+            .admitted()
+    );
+    assert!(
+        a2.admits_at(at, edge, key(3), &mut t, 2, false, true)
+            .admitted()
+    );
+    assert!(
+        a2.admits_at(at, edge, key(2), &mut t, 2, false, true)
+            .admitted()
+    );
+    assert_eq!(a2.admitted(edge), vec![key(1), key(2)]);
+    assert!(
+        !a2.admits_at(at, edge, key(3), &mut t, 2, false, true)
+            .admitted()
+    );
+    // Queue shedding is sticky and keeps its rank slot: rank 3 does not overtake it.
+    a.shed(edge, key(2));
+    assert!(!admit(&mut a, &mut t, 2, 2).admitted());
+    assert!(!admit(&mut a, &mut t, 3, 2).admitted());
+    assert_eq!(a.admitted(edge), vec![key(1)]);
+    // Once the shed burst ends, rank 3 moves up and is carried.
+    a.on_burst_ended(key(2));
+    t.on_talk(
+        at,
+        key(2),
+        &talk(TalkState::Stop, 1, TalkPrio::Member, 1),
+        0,
+    );
+    assert!(admit(&mut a, &mut t, 3, 2).admitted());
+    assert_eq!(a.admitted(edge), vec![key(1), key(3)]);
+}

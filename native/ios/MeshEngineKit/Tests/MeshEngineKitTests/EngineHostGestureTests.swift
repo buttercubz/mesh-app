@@ -120,7 +120,7 @@ final class EngineHostGestureTests: XCTestCase {
         let rig = try HostRig(air: FakeAir(), seed: 18)
         let i = rig.host.info()
         XCTAssertEqual(i.engine, "full")
-        XCTAssertEqual(i.apiVersion, "1.1")
+        XCTAssertEqual(i.apiVersion, "1.2")
         XCTAssertEqual(i.protocolVersion, 1)
         XCTAssertEqual(i.status, "idle")
         XCTAssertEqual(i.appVersion, "0.1.0 (12)")

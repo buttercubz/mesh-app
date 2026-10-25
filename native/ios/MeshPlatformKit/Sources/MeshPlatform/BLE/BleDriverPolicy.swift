@@ -44,6 +44,21 @@ public struct ScanPolicy: Sendable, Equatable {
             return ScanPolicy(scan: true, allowDuplicates: foreground && hunting)
         }
     }
+
+    /// Restart period of a filtered (no-duplicates) scan. Without duplicates CoreBluetooth
+    /// reports each peripheral about once per scan session, so a peer that stays in range
+    /// stops refreshing its candidate (the core expires candidates after 10 s and treats
+    /// adverts older than 3 s as stale) and a peer that left at the range edge and came
+    /// back is never reported again. Restarting the same scan every few seconds re-reports
+    /// every peer in range (fresh RSSI, reappearance) at the filtered scan's radio cost,
+    /// like bitchat's 5 s scan duty cycle; the 100 % duty that starved links in field
+    /// test 1 stays off.
+    public static let refreshInterval: TimeInterval = 4
+
+    /// `true` when a filtered scan started at `startedAt` should be restarted at `now`.
+    public func needsRefresh(startedAt: TimeInterval, now: TimeInterval) -> Bool {
+        scan && !allowDuplicates && now - startedAt >= Self.refreshInterval
+    }
 }
 
 /// Retry schedule for OS registrations that can fail transiently (L2CAP listener, GATT

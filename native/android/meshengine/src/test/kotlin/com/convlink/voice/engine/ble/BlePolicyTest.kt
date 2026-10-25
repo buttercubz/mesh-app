@@ -190,3 +190,15 @@ class DiscoveryDutyTest {
         assertNull(DiscoveryDuty.coreIntensity(Without(1)))
     }
 }
+
+class PhyPolicyTest {
+    @Test
+    fun prefersOnly1mForRange() {
+        // Regression (field test 2026-10-24): 2M must never be in the preference mask.
+        assertEquals(android.bluetooth.BluetoothDevice.PHY_LE_1M_MASK, PhyPolicy.PREFERRED_MASK)
+        assertEquals(0, PhyPolicy.PREFERRED_MASK and android.bluetooth.BluetoothDevice.PHY_LE_2M_MASK)
+        assertEquals("1M", PhyPolicy.label(android.bluetooth.BluetoothDevice.PHY_LE_1M))
+        assertEquals("2M", PhyPolicy.label(android.bluetooth.BluetoothDevice.PHY_LE_2M))
+        assertEquals("Coded", PhyPolicy.label(android.bluetooth.BluetoothDevice.PHY_LE_CODED))
+    }
+}

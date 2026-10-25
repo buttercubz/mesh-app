@@ -3,35 +3,52 @@
 // paused, no headset, radio off), battery, platform and, when both share, distance and
 // bearing. Colour is always paired with text.
 import type { Member } from "@meshapp/engine-api";
-import { Badge, QualityBars } from "@meshapp/ui-kit";
+import type { AvatarDotTone } from "@meshapp/ui-kit";
+import { Avatar, Badge, QualityBars } from "@meshapp/ui-kit";
+import { Battery, ChevronRight, Crown, Navigation } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { INTL_LOCALE, useT } from "../../i18n/index";
 import { batteryPercent, compassKey, formatDistance, isConnected, qualityBars } from "../ride/model";
-import { flagTone, sortedFlags, statusLabel, statusTone, voiceKey, voiceTone } from "./format";
+import { flagTone, sortedFlags, statusLabel, statusTone, transportKey, voiceKey, voiceTone } from "./format";
 
 export interface MemberRowProps {
   readonly member: Member;
   /** Leader actions for this member (opens the member sheet). */
   readonly onOpen?: () => void;
+  /** Extra controls under the row (open channels: local mute / block). */
+  readonly actions?: ReactNode;
 }
 
-export function MemberRow({ member: m, onOpen }: MemberRowProps) {
+export function MemberRow({ member: m, onOpen, actions }: MemberRowProps) {
   const { t, language } = useT("group");
   const me = m.status === "me";
   const status = statusLabel(m);
+  const via = me ? null : transportKey(m);
   const battery = batteryPercent(m.battery);
   const flags = sortedFlags(m.flags);
   const bars = isConnected(m) ? qualityBars(m.quality) : 0;
   const reach = me || !isConnected(m) ? null : m.hearsMe ? t("member.hearsMe") : t("member.notHearsMe");
   const voice = me ? "kpi" : m.status === "lost" || m.status === "unconfirmed" ? "no" : m.voice;
 
+  const tone = statusTone(m.status);
+  const dot: AvatarDotTone = me ? "brand" : tone === "neutral" || tone === "blocked" ? "out" : tone;
+
   const body = (
-    <>
-      <span className="flex flex-wrap items-center gap-2">
+    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <span className="flex min-w-0 items-center gap-1.5">
         <span className="min-w-0 truncate text-lg font-semibold">{me ? t("member.you", { name: m.name }) : m.name}</span>
+        {m.role === "leader" && <Crown aria-hidden="true" className="size-4 shrink-0 text-brand" />}
+      </span>
+      <span className="flex flex-wrap items-center gap-1.5">
         {m.role === "leader" && <Badge tone="brand">{t("member.leader")}</Badge>}
         <Badge tone={statusTone(m.status)}>{t(status.key, status.params)}</Badge>
         {!me && <Badge tone={voiceTone(voice)}>{t(voiceKey(m))}</Badge>}
+        {via !== null && (
+          <Badge tone="neutral" data-transport={via}>
+            {t(via)}
+          </Badge>
+        )}
       </span>
       {flags.length > 0 && (
         <span className="flex flex-wrap gap-2">
@@ -42,39 +59,54 @@ export function MemberRow({ member: m, onOpen }: MemberRowProps) {
           ))}
         </span>
       )}
-      <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem] text-muted-foreground">
         {!me && <QualityBars bars={bars} label={t("member.quality", { n: bars })} />}
         {reach !== null && <span>{reach}</span>}
         {m.distanceM !== null && (
-          <span data-testid="member-distance">
+          <span className="inline-flex items-center gap-1">
+            <Navigation aria-hidden="true" className="size-3.5" />
+            <span data-testid="member-distance">
             {m.bearingDeg !== null
               ? t("member.distanceBearing", {
                   d: formatDistance(m.distanceM, INTL_LOCALE[language]),
                   dir: t(compassKey(m.bearingDeg)),
                 })
               : formatDistance(m.distanceM, INTL_LOCALE[language])}
+            </span>
           </span>
         )}
-        {battery !== null && <span>{t("member.battery", { p: battery })}</span>}
+        {battery !== null && (
+          <span className="inline-flex items-center gap-1">
+            <Battery aria-hidden="true" className="size-3.5" />
+            {t("member.battery", { p: battery })}
+          </span>
+        )}
         <span>{t(`member.platform.${m.platform}`)}</span>
       </span>
-    </>
+    </span>
   );
+  const avatar = <Avatar name={m.name} size={48} dot={dot} dim={m.status === "lost"} />;
 
   return (
     <li className="border-b border-separator last:border-b-0" data-member={m.name} data-status={m.status}>
       {onOpen !== undefined ? (
         <button
           type="button"
-          className="flex min-h-target w-full flex-col items-start gap-1.5 px-4 py-3 text-start active:bg-control-fill"
+          className="flex min-h-target w-full items-start gap-3 px-4 py-3.5 text-start transition-colors duration-ui active:bg-control-fill"
           onClick={onOpen}
           aria-haspopup="dialog"
         >
+          {avatar}
           {body}
+          <ChevronRight aria-hidden="true" className="mt-3 size-5 shrink-0 text-muted-foreground" />
         </button>
       ) : (
-        <div className="flex flex-col gap-1.5 px-4 py-3">{body}</div>
+        <div className="flex items-start gap-3 px-4 py-3.5">
+          {avatar}
+          {body}
+        </div>
       )}
+      {actions}
     </li>
   );
 }

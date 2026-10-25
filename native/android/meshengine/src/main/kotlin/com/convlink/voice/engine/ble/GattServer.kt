@@ -13,6 +13,7 @@ import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothStatusCodes
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import com.convlink.voice.core.FfiLinkDownReason
 import com.convlink.voice.core.FfiLinkInfo
 import com.convlink.voice.core.FfiLinkKind
@@ -84,12 +85,21 @@ class GattServer(
 
     private val callback = object : BluetoothGattServerCallback() {
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                // The central (e.g. an iPhone) picks 2M by default; ask for 1M for range.
+                server?.setPreferredPhy(device, PhyPolicy.PREFERRED_MASK, PhyPolicy.PREFERRED_MASK, PhyPolicy.OPTIONS)
+                return
+            }
             if (newState != BluetoothProfile.STATE_DISCONNECTED) return
             val link = synchronized(this@GattServer) {
                 mtus.remove(device.address)
                 links.remove(device.address)
             } ?: return
             registry.down(link.id, LinkDownMapper.disconnect(status, link.localClose))
+        }
+
+        override fun onPhyUpdate(device: BluetoothDevice, txPhy: Int, rxPhy: Int, status: Int) {
+            Log.i("BlePhy", "server ${device.address} tx=${PhyPolicy.label(txPhy)} rx=${PhyPolicy.label(rxPhy)} status=$status")
         }
 
         override fun onMtuChanged(device: BluetoothDevice, mtu: Int) {

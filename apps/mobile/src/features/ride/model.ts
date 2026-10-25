@@ -86,7 +86,8 @@ export type BannerKind =
   | "island"
   | "busy"
   | "preempted"
-  | "congestion";
+  | "congestion"
+  | "weakSignal";
 
 /**
  * The fix a banner offers. `resumeMic` / `goLive` are ★ gesture commands; `usePhoneMic`
@@ -116,6 +117,18 @@ export interface BannerInput {
   /** Why the last talk request was denied (`cap` when unknown). */
   readonly lastTalkDeniedReason?: TalkDeniedReason | null;
   readonly now: number;
+}
+
+/** Path quality below which a link is weak (`Q_GOOD`, three bars, DESIGN §5.1). */
+export const Q_GOOD = 60;
+
+/**
+ * Every member this device reaches is behind a weak link (edge of range, a fading
+ * null): a refusal then comes from the radio, not from too many talkers.
+ */
+export function weakPath(snapshot: Snapshot | null): boolean {
+  const connected = othersOf(snapshot).filter(isConnected);
+  return connected.length > 0 && connected.every((m) => m.quality < Q_GOOD);
 }
 
 /** Whether the busy banner shows ("Channel full — n talking"). */
@@ -156,6 +169,9 @@ export function rideBanners(input: BannerInput): RideBanner[] {
     // A full channel means at least the BLE cap (2) is talking somewhere on the path,
     // even when this phone hears fewer of them.
     if (reason === "cap") out.push({ kind: "busy", tone: "blocked", params: { n: Math.max(s.talkers.length, 2) } });
+    // A "congestion" refusal over weak links is the radio, not traffic (field test
+    // 2026-10-24): say "weak signal", which the rider can fix by closing the gap.
+    else if (reason === "congestion" && weakPath(s)) out.push({ kind: "weakSignal", tone: "warn", params: {} });
     else out.push({ kind: reason, tone: "blocked", params: {} });
   }
   return out;
@@ -187,4 +203,33 @@ export function qualityBars(quality: number): number {
   if (quality < 60) return 2;
   if (quality < 85) return 3;
   return 4;
+}
+
+/**
+ * Display priority of the banners (lower first). The ride screen shows only the most
+ * urgent one in full; the rest collapse into the status chip. Being mute or deaf without
+ * knowing it comes first, then refused talk (it answers the rider's own press), then the
+ * reach of the group, then a self-healing restart.
+ */
+const BANNER_PRIORITY: Readonly<Record<BannerKind, number>> = {
+  bluetoothOff: 0,
+  bluetoothDenied: 1,
+  ladderL3: 2,
+  ladderL2: 3,
+  micPaused: 4,
+  notLive: 5,
+  txMutedNoHeadset: 6,
+  busy: 7,
+  preempted: 8,
+  congestion: 9,
+  weakSignal: 10,
+  alone: 11,
+  island: 12,
+  ladderL1: 13,
+};
+
+/** The single banner shown in full and the ones that collapse (both most urgent first). */
+export function splitBanners(banners: readonly RideBanner[]): { primary: RideBanner | null; rest: RideBanner[] } {
+  const sorted = [...banners].sort((a, b) => BANNER_PRIORITY[a.kind] - BANNER_PRIORITY[b.kind]);
+  return { primary: sorted[0] ?? null, rest: sorted.slice(1) };
 }

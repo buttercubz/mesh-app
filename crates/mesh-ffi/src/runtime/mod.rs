@@ -61,6 +61,8 @@ pub struct Shared {
     pub dropped: AtomicU32,
     /// The ridelog/1 diagnostics recorder.
     pub diag: Arc<DiagHub>,
+    /// Pending Wi-Fi Aware PMKs per peer (`take_aware_pmk`).
+    pub aware_pmks: dispatch::AwarePmks,
 }
 
 /// The runtime handle.
@@ -100,6 +102,7 @@ impl Runtime {
                 generation: AtomicU32::new(0),
                 dropped: AtomicU32::new(0),
                 diag,
+                aware_pmks: Default::default(),
             }),
             tx,
             rx,

@@ -94,6 +94,10 @@ pub struct Ctx {
     /// 1 Hz by the media module while in a group session; `None` outside one. Read by
     /// the ride recorder.
     pub media_latency: Option<serde_json::Value>,
+    /// Neighbors on the Wi-Fi Aware backbone (I hold an Aware link to them, or their
+    /// latest NBR lists an Aware link), kept by the mesh glue. The media module reads
+    /// it for the per-segment near-talker cap (§6.3, hybrid groups).
+    pub aware_backbone: std::collections::BTreeSet<u16>,
     /// Diagnostics tick state (`ridelog/1`, [`crate::diag`]).
     pub diag: crate::diag::DiagTracker,
 }
@@ -424,6 +428,7 @@ impl Engine {
             rt_flags: 0,
             media_bus: Vec::new(),
             media_latency: None,
+            aware_backbone: std::collections::BTreeSet::new(),
             diag: crate::diag::DiagTracker::default(),
         };
         ctx.sess = ctx.rand_nonzero_u8();

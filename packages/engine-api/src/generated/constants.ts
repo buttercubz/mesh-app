@@ -39,9 +39,9 @@ import type { LabLinkRole } from "./LabLinkRole.js";
 import type { LabVerdict } from "./LabVerdict.js";
 
 /** UI API version (DESIGN §3.7, Appendix A). */
-export const API_VERSION = "1.1" as const;
+export const API_VERSION = "1.2" as const;
 export const API_VERSION_MAJOR = 1 as const;
-export const API_VERSION_MINOR = 1 as const;
+export const API_VERSION_MINOR = 2 as const;
 /** Invite QR auto-hide delay, ms. */
 export const QR_HIDE_AFTER_MS = 60000 as const;
 /** Display-name limit, UTF-8 bytes. */
@@ -54,7 +54,7 @@ export const NOTICE_KEYS = ["memberJoined","memberLeft","memberLost","memberBack
 /** Every `PromptKey` value, in Rust declaration order. */
 export const PROMPT_KEYS = ["intercomLive","memberJoined","memberLeft","ridersOutOfRange","alone","micPaused","micBack","headsetLost","bluetoothOff","batteryLow","talkLimit","voxLessSensitive","rideStarted","leaderChanged","demo.line1","demo.line2","demo.line3","demo.line4","demo.line5","demo.line6","demo.line7","demo.line8"] as const satisfies readonly PromptKey[];
 /** Every `CommandType` value, in Rust declaration order. */
-export const UI_COMMAND_TYPES = ["createGroup","parseInvite","joinGroup","listGroups","forgetGroup","getInvite","goLive","resumeMic","audioCheck","setTalkMode","ptt","setPttStyle","setVoxSensitivity","rideControl","setDisplayName","setVehicle","setRoutePreference","setShareDistance","setPrompts","setBuiltinMicTx","removeMember","lockGroup","closeGroup","previewAccessLoss","transferLeader","setInviteExpiry","requestSnapshot","labStart","labStop","labMark","labListRuns","labDeleteRun"] as const satisfies readonly CommandType[];
+export const UI_COMMAND_TYPES = ["createGroup","parseInvite","joinGroup","listGroups","forgetGroup","getInvite","goLive","resumeMic","audioCheck","setTalkMode","ptt","setPttStyle","setVoxSensitivity","rideControl","setDisplayName","setVehicle","setRoutePreference","setShareDistance","setPrompts","setBuiltinMicTx","removeMember","lockGroup","closeGroup","previewAccessLoss","transferLeader","setInviteExpiry","requestSnapshot","labStart","labStop","labMark","labListRuns","labDeleteRun","joinOpenChannel","setMemberMuted","setMemberBlocked"] as const satisfies readonly CommandType[];
 /** Every `EventType` value, in Rust declaration order. */
 export const UI_EVENT_TYPES = ["snapshot","talkDenied","notice","routeChanged","audioCheckSample","labProgress","labFinished","error"] as const satisfies readonly EventType[];
 /** Every `ResultKind` value, in Rust declaration order. */
@@ -102,7 +102,7 @@ export const LINK_KINDS = ["ble","aware","tunnel"] as const satisfies readonly L
 /** Every `VoiceReach` value, in Rust declaration order. */
 export const VOICE_REACHES = ["kpi","bestEffort","no"] as const satisfies readonly VoiceReach[];
 /** Every `MemberFlag` value, in Rust declaration order. */
-export const MEMBER_FLAGS = ["onCall","micLost","noHeadset","radioOff"] as const satisfies readonly MemberFlag[];
+export const MEMBER_FLAGS = ["onCall","micLost","noHeadset","radioOff","muted","blocked"] as const satisfies readonly MemberFlag[];
 /** Every `MeshProfile` value, in Rust declaration order. */
 export const MESH_PROFILES = ["ble","bleDegraded","wifi"] as const satisfies readonly MeshProfile[];
 /** Every `ThermalState` value, in Rust declaration order. */
@@ -200,6 +200,9 @@ export const COMMAND_RESULT_KINDS = {
   labMark: "done",
   labListRuns: "labRuns",
   labDeleteRun: "done",
+  joinOpenChannel: "groupId",
+  setMemberMuted: "done",
+  setMemberBlocked: "done",
 } as const satisfies Record<CommandType, ResultKind>;
 
 /** Phase 0 Lab subset of API 1.1 (frozen at Phase 0 exit). */

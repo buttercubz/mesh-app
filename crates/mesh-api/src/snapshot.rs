@@ -113,6 +113,10 @@ string_enum! {
         NoHeadset = "noHeadset",
         /// Bluetooth was off (PRESENCE `radio_off`).
         RadioOff = "radioOff",
+        /// Muted locally by this device (never sent).
+        Muted = "muted",
+        /// Blocked locally by this device (never sent).
+        Blocked = "blocked",
     }
 }
 
@@ -179,6 +183,10 @@ pub struct SessionInfo {
     pub ladder: LadderLevel,
     /// Share my distance is on.
     pub share_distance: bool,
+    /// Open channel number (1-9) when this session is a public open channel, else
+    /// `null` (private group).
+    #[serde(deserialize_with = "crate::common::nullable")]
+    pub open_channel: Option<u8>,
 }
 
 /// Local audio state.

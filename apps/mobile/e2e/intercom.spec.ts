@@ -63,8 +63,8 @@ test.describe("Intercom ride (English)", () => {
     await expect(screen(page)).toHaveAttribute("data-screen", "home");
     await expect(screen(page)).toHaveAttribute("data-engine-kind", "full");
 
-    // Create group → lobby.
-    await page.getByRole("button", { name: "Create group" }).click();
+    // Start a ride (create a group) → lobby.
+    await page.getByRole("button", { name: "Start a ride" }).click();
     await page.getByLabel("Group name").fill("Sunday ride");
     await page.getByTestId("create-confirm").click();
     await expect(screen(page)).toHaveAttribute("data-screen", "lobby", { timeout: 15_000 });
@@ -156,7 +156,7 @@ test.describe("Join a ride (Spanish)", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
 
     // The browser's "scanner" returns the simulated riders' invite.
-    await page.getByRole("button", { name: "Unirse a un grupo" }).click();
+    await page.getByRole("button", { name: "Unirse a una rodada" }).click();
     await expect(screen(page)).toHaveAttribute("data-screen", "join");
     await expect(page.getByText("¿Unirse a este grupo?")).toBeVisible();
     await expect(page.getByTestId("join-group-name")).not.toBeEmpty();
@@ -186,7 +186,7 @@ test.describe("Join a ride (Spanish)", () => {
 test.describe("First launch (English)", () => {
   test.use({ locale: "en-US" });
 
-  test("onboarding: language, name, car, permissions, distance, headset check, honest promise", async ({ page }) => {
+  test("onboarding: language + name + car, permissions + distance, headset check, honest promise", async ({ page }) => {
     test.setTimeout(60_000);
     const errors = collectErrors(page);
     await page.goto(SIM);
@@ -197,7 +197,7 @@ test.describe("First launch (English)", () => {
     await page.getByLabel("Your name").fill("Erick");
     await page.getByRole("radio", { name: "Car" }).click();
     await page.getByRole("button", { name: "Continue" }).click();
-    await page.getByRole("button", { name: "Not now" }).click();
+    // Permissions and Share my distance share one step.
     await page.getByRole("button", { name: "Not now" }).click();
 
     // Headset check: a ★ audioCheck from the tap; the browser has no engine clock

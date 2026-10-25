@@ -162,6 +162,29 @@ fn backlog_sheds_lowest_ranked_burst_entirely() {
 }
 
 #[test]
+fn backlog_of_a_lone_burst_drops_frames_not_the_burst() {
+    let now = Instant::from_secs(10);
+    let table = table_with(&[(7, 0)], now);
+    let mut q = LinkQueue::new(150_000);
+    // 25.1 kbps × 60 ms = 188 B: one 95 B record fits; a lone talker's backlog drops
+    // its oldest frames and keeps the stream (one burst cannot be "shed" in favour of
+    // nothing).
+    let mut ev = Vec::new();
+    for s in 0..2u16 {
+        ev.extend(q.push(
+            Priority::P1,
+            QueueItem::Mesh(voice(7, s, now, 0)),
+            25_112,
+            &table,
+        ));
+    }
+    let k = BurstKey::new(7, 1, 1);
+    assert_eq!(ev, vec![ShedEvent::Frame(Some(k))]);
+    assert_eq!(q.len(), 1);
+    assert!(!ev.iter().any(|e| matches!(e, ShedEvent::Burst(_))));
+}
+
+#[test]
 fn p2_limited_while_voice_waits_and_p3_last() {
     let now = Instant::from_secs(2);
     let table = table_with(&[(1, 0)], now);

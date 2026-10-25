@@ -110,6 +110,7 @@ impl CoreModule for MeshModule {
         {
             m.upgrade_link_up(ctx, p.0);
         }
+        m.refresh_backbone(ctx);
     }
 
     fn on_link_down(
@@ -122,6 +123,7 @@ impl CoreModule for MeshModule {
         self.now = ctx.now;
         if let Some(m) = self.mesh.as_mut() {
             m.link_down(ctx, link, reason);
+            m.refresh_backbone(ctx);
         }
     }
 
@@ -151,6 +153,7 @@ impl CoreModule for MeshModule {
             }
             Record::Nbr(n) => {
                 m.on_nbr(ctx, link, n);
+                m.refresh_backbone(ctx);
                 true
             }
             Record::Upgrade(u) => {

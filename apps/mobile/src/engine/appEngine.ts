@@ -6,6 +6,7 @@
 import type { EngineClient, ResultOf, UiCommand, UiEvent, Unsubscribe } from "@meshapp/engine-api";
 import { createEngineClient } from "@meshapp/engine-api";
 import type {
+  AwareStatus,
   DiagExportScope,
   DiagMarkLabel,
   DiagStatus,
@@ -73,6 +74,9 @@ export interface AppEngine {
   diagClear(): Promise<void>;
   diagSetEnabled(enabled: boolean): Promise<void>;
   diagMark(label: DiagMarkLabel): Promise<void>;
+  /** Wi-Fi Aware beta (Android, C6 1.2): device support + toggle, and the switch. */
+  awareStatus(): Promise<AwareStatus>;
+  awareSetEnabled(enabled: boolean): Promise<void>;
   /** The wrapped typed client (tests, diagnostics). */
   readonly client: EngineClient;
 }
@@ -152,6 +156,8 @@ export function createAppEngine(plugin: MeshIntercomPlugin, overrides: Partial<A
     diagClear: () => plugin.diagClear(),
     diagSetEnabled: (enabled) => plugin.diagSetEnabled({ enabled }),
     diagMark: (label) => plugin.diagMark({ label }),
+    awareStatus: () => plugin.awareStatus(),
+    awareSetEnabled: (enabled) => plugin.awareSetEnabled({ enabled }),
   };
 }
 

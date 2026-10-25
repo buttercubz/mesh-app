@@ -58,6 +58,9 @@ import com.convlink.voice.engine.notify.IntercomAction
 import com.convlink.voice.engine.notify.IntercomNotifications
 import com.convlink.voice.engine.notify.IntercomState
 import com.convlink.voice.engine.notify.NotificationCatalog
+import com.convlink.voice.engine.aware.AndroidAwareOs
+import com.convlink.voice.engine.aware.AwareDriver
+import com.convlink.voice.engine.aware.AwareSupport
 import com.convlink.voice.engine.radio.RadioStateMonitor
 import com.convlink.voice.engine.sensors.DeviceSampler
 import com.convlink.voice.engine.sensors.LocationSampler
@@ -209,8 +212,32 @@ class EngineHost private constructor(context: Context, val config: EngineHostCon
     private val radioState = RadioStateMonitor(app) { ble, _ ->
         note(DiagNote.bt(ble.name.lowercase()))
         if (ble != FfiRadioAvail.ON) radio.radioOff()
+        aware.setEnabled(awareAvail() == FfiRadioAvail.ON)
         worker.post { sampleNow() }
     }
+
+    // Wi-Fi Aware upgrade (WP-24, Android↔Android beta): its own serial thread.
+    private val awareThread by lazy { HandlerThread("meshengine-aware").apply { start() } }
+    private val aware: AwareDriver by lazy {
+        val h = Handler(awareThread.looper)
+        AwareDriver(
+            registry = registry,
+            os = AndroidAwareOs(app, h, ::log),
+            takePmk = { peer -> engine.takeAwarePmk(peer.toUShort()) },
+            post = { h.post(it) },
+            schedule = { ms, r -> h.postDelayed(r, ms) },
+            now = { android.os.SystemClock.elapsedRealtime() },
+            log = ::log,
+        )
+    }
+
+    /**
+     * Wi-Fi Aware as the core sees it: `Unsupported` unless the device has the feature and
+     * the user turned the beta on in Settings; then the OS availability (airplane mode,
+     * Aware service state).
+     */
+    private fun awareAvail(): FfiRadioAvail =
+        if (AwareSupport.enabled(app)) radioState.aware else FfiRadioAvail.UNSUPPORTED
     private val audio: PlatformAudio
     private val engine: MeshEngine
 
@@ -301,6 +328,7 @@ class EngineHost private constructor(context: Context, val config: EngineHostCon
             location.stop()
             radioState.stop()
         }
+        aware.stop()
         captureLost = false
         digest.reset()
         notifications.cancelAlerts()
@@ -495,7 +523,9 @@ class EngineHost private constructor(context: Context, val config: EngineHostCon
     // MARK: hooks
 
     private fun ports() = object : EngineHooks.Ports {
-        override fun radio(cmd: FfiRadioCommand) = radio.apply(cmd)
+        override fun radio(cmd: FfiRadioCommand) {
+            if (cmd is FfiRadioCommand.AwareUpgrade) aware.apply(cmd) else radio.apply(cmd)
+        }
 
         override fun linkSend(link: Int, bytes: ByteArray) = registry.send(link, bytes)
 
@@ -608,9 +638,10 @@ class EngineHost private constructor(context: Context, val config: EngineHostCon
             anchorLocation = FgsTypes.has(fgsActive, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION),
             anchorLiveActivity = null,
             ble = radioState.ble,
-            aware = radioState.aware,
+            aware = awareAvail(),
         )
         engine.onPlatformSample(sample)
+        aware.setEnabled(sample.aware == FfiRadioAvail.ON)
     }
 
     // MARK: diagnostics (ridelog/1, contract C6 1.x `diag*`)
@@ -625,6 +656,16 @@ class EngineHost private constructor(context: Context, val config: EngineHostCon
 
     /** A user marker from a fixed chip label (`crackle`, `cantHear`, …). */
     fun diagMark(label: String): Boolean = engine.diagMark(label)
+
+    /** Wi-Fi Aware beta (C6 1.2 `awareStatus`): device support and the user's toggle. */
+    fun awareStatus(): Pair<Boolean, Boolean> = AwareSupport.supported(app) to AwareSupport.enabled(app)
+
+    /** Turns the Wi-Fi Aware beta on/off (persisted); applies to the running session. */
+    fun awareSetEnabled(on: Boolean) {
+        AwareSupport.save(app, on && AwareSupport.supported(app))
+        aware.setEnabled(awareAvail() == FfiRadioAvail.ON)
+        worker.post { sampleNow() }
+    }
 
     /** Recording on/off (persisted; the RAM ring always records). */
     fun diagSetEnabled(on: Boolean) {

@@ -15,6 +15,7 @@ import { ContractError, parseUiCommand, requiresGesture } from "@meshapp/engine-
 import { createWebEngineBackend } from "@meshapp/engine-web";
 
 import type {
+  AwareStatus,
   DiagExportScope,
   DiagMarkLabel,
   DiagSessionSummary,
@@ -305,6 +306,16 @@ export class MeshIntercomWeb extends WebPlugin implements MeshIntercomPlugin {
       throw new IntercomError("invalidParams", "label");
     }
     this.#backend.diag?.mark(label);
+  }
+
+  /** No Wi-Fi Aware in the browser (C6 1.2). */
+  async awareStatus(): Promise<AwareStatus> {
+    return { supported: false, enabled: false };
+  }
+
+  async awareSetEnabled(opts: { enabled: boolean }): Promise<void> {
+    if (typeof opts?.enabled !== "boolean") throw new IntercomError("invalidParams", "enabled");
+    throw new IntercomError("notSupported", "wifiAware");
   }
 
   /** Stops the engine and detaches from the page (tests, hot reload). */

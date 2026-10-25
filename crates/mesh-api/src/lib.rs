@@ -46,14 +46,16 @@ pub use snapshot::{
     TalkState, Talker, ThermalState, VoiceReach,
 };
 
-/// UI API version `major.minor` (Appendix A). 1.1 is frozen: the Lab subset at Phase 0
+/// UI API version `major.minor` (Appendix A). 1.2 adds open channels
+/// (`joinOpenChannel`, `setMemberMuted`, `setMemberBlocked`, `session.openChannel`,
+/// member flags `muted`/`blocked`). 1.1 is frozen: the Lab subset at Phase 0
 /// exit, the full contract in week 1 of Phase 1; any later change bumps the minor
 /// version (and adds `frozen/api-<version>.digest`, checked by `cargo xtask gen-ts --check`).
-pub const API_VERSION: &str = "1.1";
+pub const API_VERSION: &str = "1.2";
 /// Major part of [`API_VERSION`]; the plugin refuses an engine with another major.
 pub const API_VERSION_MAJOR: u8 = 1;
 /// Minor part of [`API_VERSION`].
-pub const API_VERSION_MINOR: u8 = 1;
+pub const API_VERSION_MINOR: u8 = 2;
 
 /// [`API_VERSION`] packed as `major << 8 | minor` (UniFFI `api_version() -> u16`, §3.5).
 pub const fn api_version_u16() -> u16 {
@@ -98,8 +100,8 @@ mod tests {
             API_VERSION,
             format!("{API_VERSION_MAJOR}.{API_VERSION_MINOR}")
         );
-        assert_eq!(api_version_u16(), 0x0101);
-        assert_eq!(split_api_version(api_version_u16()), (1, 1));
+        assert_eq!(api_version_u16(), 0x0102);
+        assert_eq!(split_api_version(api_version_u16()), (1, 2));
     }
 
     #[test]

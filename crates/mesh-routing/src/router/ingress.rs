@@ -61,7 +61,7 @@ impl Router {
             .link(link)
             .map_or(0, |l| l.quality.rtt.owd_us());
         let age_now = h.age_us() + owd;
-        self.local_effects(now, &h, &payload, age_now, &mut out);
+        self.local_effects(now, link, &h, &payload, age_now, &mut out);
         if !matches!(h.ptype, PacketType::Unknown(_) | PacketType::Alert) {
             self.stats.delivered += 1;
             out.deliver = Some(h);
@@ -106,6 +106,7 @@ impl Router {
     fn local_effects(
         &mut self,
         now: Instant,
+        link: LinkId,
         h: &MeshHeader,
         payload: &MeshPayload<'_>,
         age_now: u64,
@@ -116,7 +117,7 @@ impl Router {
                 let key = BurstKey::new(h.origin, h.sess, v.burst);
                 let ev = self.floor.on_voice(now, key, h.leader, v.ts, age_now);
                 self.push_floor_events(ev, out);
-                let group_cap = self.cfg.limits.group_cap(self.group_has_ble);
+                let group_cap = self.near_talker_cap(link);
                 if h.origin != self.cfg.me && self.floor.near_talker_reject(key, h.hops, group_cap)
                 {
                     self.originate_reject(now, key, FloorRejectReason::Outranked, true, out);

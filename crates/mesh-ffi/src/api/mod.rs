@@ -162,6 +162,14 @@ impl MeshEngine {
         }
     }
 
+    /// The Wi-Fi Aware data-path PMK for `peer`, set with `AwareUpgrade{op: 2}` on
+    /// Android (`aware_pmk`, DESIGN §8.3, §9.6). Taken once: a second call returns
+    /// `None` until the next op 2. Added in C4 1.x (WP-24, additive).
+    pub fn take_aware_pmk(&self, peer: u16) -> Option<Vec<u8>> {
+        let slot = &self.rt.shared().aware_pmks;
+        slot.lock().ok()?.remove(&peer).map(|p| p.to_vec())
+    }
+
     /// The WebView is attached (foreground): gates snapshot emission.
     pub fn set_ui_attached(&self, attached: bool) {
         self.rt.set_ui_attached(attached);

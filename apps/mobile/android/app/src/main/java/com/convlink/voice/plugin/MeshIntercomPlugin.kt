@@ -345,6 +345,24 @@ class MeshIntercomPlugin : PlatformPlugin() {
         call.resolve()
     }
 
+    // MARK: Wi-Fi Aware beta (C6 1.2, WP-24)
+
+    /** Device support (FEATURE_WIFI_AWARE) and the user's beta toggle. */
+    @PluginMethod
+    fun awareStatus(call: PluginCall) {
+        val h = requireHost(call) ?: return
+        val (supported, enabled) = h.awareStatus()
+        call.resolve(JSObject().put("supported", supported).put("enabled", enabled))
+    }
+
+    @PluginMethod
+    fun awareSetEnabled(call: PluginCall) {
+        val h = requireHost(call) ?: return
+        val on = call.getBoolean("enabled") ?: return reject(call, "invalidParams", "enabled")
+        h.awareSetEnabled(on)
+        call.resolve()
+    }
+
     @PluginMethod
     fun diagMark(call: PluginCall) {
         val h = requireHost(call) ?: return

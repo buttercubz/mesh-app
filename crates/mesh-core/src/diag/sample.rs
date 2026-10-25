@@ -9,9 +9,9 @@ use mesh_api::{MemberRole, MemberStatus, Snapshot, TalkState};
 use mesh_lab::ridelog::{CoreAudio, CoreLink, CoreSample, DiagEvent, MeshCounters, QueueDepth};
 
 use super::SAMPLE_US;
+use crate::Instant;
 use crate::engine::{Ctx, Engine, EngineMode};
 use crate::links::{LinkState, Prio};
-use crate::Instant;
 
 /// What the previous tick saw (change detection).
 #[derive(Debug, Clone, Default)]
@@ -235,7 +235,10 @@ fn members(ctx: &mut Ctx, s: &Snapshot, me: u16, prev: &mut Prev) {
             leader = Some(m.node_id);
         }
     }
-    if s.session.as_ref().is_some_and(|x| x.role == MemberRole::Leader) {
+    if s.session
+        .as_ref()
+        .is_some_and(|x| x.role == MemberRole::Leader)
+    {
         leader = Some(me);
     }
     let gone: Vec<u16> = prev
