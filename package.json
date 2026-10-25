@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "node scripts/tasks.mjs dev",
     "build": "node scripts/tasks.mjs build",
+    "build:js": "node scripts/tasks.mjs build js",
     "test": "node scripts/tasks.mjs test",
     "lint": "node scripts/tasks.mjs lint",
     "ci": "node scripts/tasks.mjs ci",

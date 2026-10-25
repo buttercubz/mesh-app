@@ -24,7 +24,10 @@ const PICK_SIM = "scripts/pick-sim.sh";
 
 const usage = {
   dev: ["dev                          build workspace deps, then run the app dev server (WASM sim)"],
-  build: ["build                        pnpm -r build"],
+  build: [
+    "build                        everything: Rust (host, bindings, wasm, iOS, Android) + packages + cap sync + debug APK",
+    "build js                     pnpm -r build only",
+  ],
   test: ["test                         pnpm -r test"],
   lint: ["lint                         eslint root tooling + pnpm -r lint"],
   rust: [
@@ -156,6 +159,29 @@ const meshengineGradle = (...tasks) =>
   cmd("./gradlew", tasks.map((t) => `:meshengine:${t}`), { cwd: "native/android", needs: NEEDS.meshengine });
 const hostMeshFfi = () => cmd("cargo", ["build", "-p", "mesh-ffi", "--release"]);
 
+/**
+ * `pnpm run build`: every Rust artifact the app consumes, then every package, then
+ * `cap sync` for both platforms and the Android debug APK. Generated TS types and
+ * bindings are rewritten by their xtask commands (no-ops when up to date). The iOS
+ * xcframework needs macOS.
+ */
+export function buildAllSteps(platform = process.platform) {
+  return [
+    sourceEnv(),
+    fetchOpus(),
+    cmd("cargo", ["build", "--workspace"]),
+    xtask("gen-ts", [], NEEDS.genTs),
+    xtask("gen-bindings", [], NEEDS.bindings),
+    xtask("build-wasm", [], NEEDS.wasm),
+    ...(platform === "darwin" ? [xtask("build-ios", [], NEEDS.ios)] : []),
+    xtask("build-android", [], NEEDS.android),
+    cmd("pnpm", ["install", "--frozen-lockfile"]),
+    cmd("pnpm", ["-r", "build"]),
+    capSync(),
+    cmd("./gradlew", ["assembleDebug"], { cwd: "apps/mobile/android", needs: NEEDS.androidApp }),
+  ];
+}
+
 /** DESIGN §2.5, exactly and in order. */
 export function ciSteps() {
   return [
@@ -260,9 +286,10 @@ export function planTask(argv) {
   if (args.includes("--help") || args.includes("-h") || args[0] === "help") return { ...base, help: help(group) };
   if (allowMissing && group !== "ci") throw new Error("--allow-missing is only accepted by `ci`.");
 
-  const single = ["dev", "build", "test", "lint", "doctor", "ci"];
+  const single = ["dev", "test", "lint", "doctor", "ci"];
+  const optionalAction = ["build"];
   const action = single.includes(group) ? undefined : args.shift();
-  if (!single.includes(group) && !action) return { ...base, help: help(group) };
+  if (!single.includes(group) && !optionalAction.includes(group) && !action) return { ...base, help: help(group) };
   const platform = group === "cap" && ["ios", "android"].includes(args[0]) ? args.shift() : undefined;
   if (group !== "lab") noArgs(args, `${group}${action ? ` ${action}` : ""}`);
 
@@ -275,7 +302,9 @@ export function planTask(argv) {
       ];
       break;
     case "build":
-      steps = [cmd("pnpm", ["-r", "build"])];
+      if (action === "js") steps = [cmd("pnpm", ["-r", "build"])];
+      else if (action === undefined) steps = buildAllSteps();
+      else throw new Error(`Unknown build action: ${action}`);
       break;
     case "test":
       steps = [cmd("pnpm", ["-r", "test"])];
