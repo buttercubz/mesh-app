@@ -1,5 +1,6 @@
 // Placeholder the shell renders for a screen id no feature has registered (WP-18). In a
 // full build WP-22 registers `home`; until then this is the start screen.
+import { EngineStatusBanner } from "../components/EngineStatusBanner";
 import type { ScreenProps } from "./router";
 import { INITIAL_SCREEN, useRouter } from "./router";
 import { useT } from "../i18n/index";
@@ -13,8 +14,9 @@ export function ShellScreen(_props: ScreenProps) {
   return (
     <section
       data-testid="shell-screen"
-      className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6 py-10 text-center"
+      className="mx-auto flex h-dvh max-w-md flex-col justify-center gap-4 overflow-y-auto px-6 pt-[max(env(safe-area-inset-top),2.5rem)] pb-[max(env(safe-area-inset-bottom),2.5rem)] text-center"
     >
+      <EngineStatusBanner className="text-start" />
       <h1 className="text-3xl font-semibold tracking-tight">{t("appName")}</h1>
       <p className="text-muted-foreground">{t("shell.tagline")}</p>
       {missing && <p role="status">{t("shell.screenMissing")}</p>}

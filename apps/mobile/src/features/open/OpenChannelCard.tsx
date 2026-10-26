@@ -15,11 +15,12 @@ export function OpenChannelCard({ disabled = false }: { readonly disabled?: bool
 
   return (
     <section
-      className="flex flex-col gap-4 rounded-section border border-separator bg-card p-4 text-card-foreground shadow-surface"
+      className="@container flex flex-col gap-4 rounded-section border border-separator bg-card p-4 text-card-foreground shadow-surface"
       data-testid="open-channel"
       aria-labelledby="open-channel-title"
     >
-      <div className="flex items-center gap-4">
+      {/* Icon above the text when the card is narrow (large text), as on the Home tiles. */}
+      <div className="flex items-center gap-4 @max-[15rem]:flex-col @max-[15rem]:items-start @max-[15rem]:gap-3">
         <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
           <Globe className="size-6" />
         </span>
@@ -27,10 +28,12 @@ export function OpenChannelCard({ disabled = false }: { readonly disabled?: bool
           <h2 id="open-channel-title" className="text-base font-semibold">
             {t("open.title")}
           </h2>
-          <p className="text-sm text-muted-foreground">{t("open.hint")}</p>
+          <p className="text-sm text-pretty text-muted-foreground">{t("open.hint")}</p>
         </div>
       </div>
-      <div role="radiogroup" aria-label={t("open.pick")} className="grid grid-cols-9 gap-1.5">
+      {/* A 3 x 3 keypad on phones (about 90 px wide keys, balanced rows at any text size),
+          one row on the tablet. A fixed 9-column row shrank each key to 20-35 px. */}
+      <div role="radiogroup" aria-label={t("open.pick")} className="grid grid-cols-3 gap-2 sm:grid-cols-9">
         {OPEN_CHANNELS.map((c) => (
           <button
             key={c}

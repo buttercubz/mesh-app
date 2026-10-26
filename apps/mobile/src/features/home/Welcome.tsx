@@ -1,12 +1,10 @@
 // First-launch welcome on Home (WP-22, DESIGN §1.3 F0, §0.2): what the app is, the
-// honest range promise, and the way into onboarding (about a minute, foreground).
-import { Button } from "@meshapp/ui-kit";
+// honest range promise; the way into onboarding (about a minute, foreground) is the
+// "Get started" button HomeScreen pins in its footer.
 import type { LucideIcon } from "lucide-react";
 import { BellRing, QrCode, Smartphone } from "lucide-react";
 
-import { useRouter } from "../../app/router";
 import { useT } from "../../i18n/index";
-import { ONBOARDING_SCREEN } from "../onboarding/ids";
 
 /** The app's mark: three riders linked by voice, in the brand colour. */
 export function BrandLogo({ className = "size-8" }: { readonly className?: string }) {
@@ -70,7 +68,7 @@ export function Welcome() {
     [BellRing, t("welcome.point3")],
   ];
   return (
-    <section className="mx-auto flex max-w-md flex-col gap-7 py-4 text-center" data-testid="welcome">
+    <section className="mx-auto flex max-w-md flex-col gap-7 pt-4 text-center" data-testid="welcome">
       <WelcomeArt />
       <div className="flex flex-col gap-2">
         <h2 className="text-3xl font-bold tracking-tight text-balance">{t("welcome.title")}</h2>
@@ -82,13 +80,10 @@ export function Welcome() {
             <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
               <Icon className="size-5" />
             </span>
-            <span className="pt-2">{text}</span>
+            <span className="min-w-0 pt-2 text-pretty">{text}</span>
           </li>
         ))}
       </ul>
-      <Button variant="primary" size="lg" block onClick={() => useRouter.getState().push(ONBOARDING_SCREEN)}>
-        {t("welcome.start")}
-      </Button>
       <p className="text-xs leading-relaxed text-muted-foreground">{t("promise.short")}</p>
     </section>
   );

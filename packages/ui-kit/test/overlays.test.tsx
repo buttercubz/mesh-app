@@ -159,4 +159,34 @@ describe("Toaster", () => {
     expect(store.list().map((t) => t.title)).toEqual(["Ana joined"]);
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("shows only the newest toasts behind a '+n' pill that expands the rest", () => {
+    const store = createToaster(fakeTimers().api);
+    render(
+      <Toaster
+        toaster={store}
+        dismissLabel="Dismiss"
+        label="Notifications"
+        maxVisible={1}
+        moreLabel={(n) => `${n} more`}
+        filter={(t) => t.key !== "hidden"}
+      />,
+    );
+    act(() => {
+      store.show({ title: "a" });
+      store.show({ title: "b" });
+      store.show({ title: "dup", key: "hidden" });
+    });
+    const list = () => screen.getByRole("list", { name: "Notifications" });
+    expect(list().textContent).not.toContain("dup");
+    expect(list().textContent).toContain("b");
+    expect(list().textContent).not.toMatch(/\ba\b/);
+    fireEvent.click(screen.getByRole("button", { name: "1 more" }));
+    expect(screen.getAllByRole("button", { name: "Dismiss" }).length).toBe(2);
+    act(() => {
+      store.show({ title: "c" });
+    });
+    expect(screen.getAllByRole("button", { name: "Dismiss" }).length).toBe(1);
+    expect(screen.getByRole("button", { name: "1 more" })).toBeTruthy();
+  });
 });

@@ -1,10 +1,10 @@
 // App root (WP-18, DESIGN §11.3): the single engine event subscription, the screen stack
-// and the shell chrome (engine banners, toasts). No StrictMode: it double-invokes
-// effects that drive the native engine (convLink rule).
+// and the shell chrome (toasts). The shell engine banner lives inside each screen's frame
+// (ScreenLayout), under the title bar, so it never adds height on top of a full-viewport
+// frame. No StrictMode: it double-invokes effects that drive the native engine (convLink rule).
 import { createElement } from "react";
 
 import { AppToaster } from "../components/AppToaster";
-import { EngineStatusBanner } from "../components/EngineStatusBanner";
 import { useEngineEvents } from "../engine/client";
 import { useT } from "../i18n/index";
 import { useEngineStore } from "../store/useEngineStore";
@@ -23,14 +23,13 @@ export function App() {
   const compat = useEngineStore((s) => s.compat);
   return (
     <div
-      className="min-h-dvh bg-background text-foreground"
+      className="h-full bg-background text-foreground"
       data-screen={top?.id ?? ""}
       data-engine-platform={platform}
       data-engine-kind={engineKind}
       data-api-compat={compat}
     >
-      <EngineStatusBanner />
-      <main aria-label={t("a11y.mainContent")}>
+      <main aria-label={t("a11y.mainContent")} className="h-full">
         {top && <RouteView key={top.key} route={top} />}
       </main>
       <AppToaster />

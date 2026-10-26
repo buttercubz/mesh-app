@@ -15,6 +15,11 @@ describe("capacitor.config", () => {
     expect(config.android?.webContentsDebuggingEnabled).toBe(false);
   });
 
+  it("starts edge-to-edge with CSS insets, viewport-fit cover and light bar icons (dark default theme)", () => {
+    expect(config.plugins?.SystemBars).toEqual({ insetsHandling: "css", initialViewportFitValueHint: "cover", style: "DARK" });
+    expect(config.ios?.contentInset).toBe("never");
+  });
+
   it("is SPM only and never registers the TS-only plugin as a native package", () => {
     expect(config.ios?.packageClassList).toBeUndefined();
     const spm = read("ios/App/CapApp-SPM/Package.swift");

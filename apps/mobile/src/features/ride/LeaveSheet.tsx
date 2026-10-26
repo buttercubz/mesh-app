@@ -8,6 +8,9 @@ import { useEngineStore } from "../../store/useEngineStore";
 import { useIntercomEngine } from "../group/engine";
 import { leaveSession, runCommand } from "../group/session";
 
+/** On short screens the secondary actions drop to the 48 px target so all three fit. */
+const SHORT_SCREEN_BUTTON = "[@media(max-height:700px)]:min-h-target [@media(max-height:700px)]:py-2.5";
+
 export interface LeaveSheetProps {
   readonly open: boolean;
   readonly onClose: () => void;
@@ -39,6 +42,7 @@ export function LeaveSheet({ open, onClose }: LeaveSheetProps) {
             variant="secondary"
             size="lg"
             block
+            className={SHORT_SCREEN_BUTTON}
             onClick={() => {
               onClose();
               void runCommand(engine, { type: "rideControl", op: "end" });
@@ -47,7 +51,7 @@ export function LeaveSheet({ open, onClose }: LeaveSheetProps) {
             {t("leave.endRide")}
           </Button>
         )}
-        <Button variant="plain" size="lg" block onClick={onClose}>
+        <Button variant="plain" size="lg" block className={SHORT_SCREEN_BUTTON} onClick={onClose}>
           {tc("action.cancel")}
         </Button>
       </div>

@@ -20,6 +20,19 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     webContentsDebuggingEnabled: false,
   },
+  plugins: {
+    // Core SystemBars (Capacitor 8). Edge-to-edge with the real insets passed to CSS
+    // env(safe-area-inset-*) (ScreenLayout pads them). `cover` matches the viewport meta
+    // from the first frame, so the header and footer do not jump at launch. Light bar
+    // icons for the default dark theme; the app re-applies the style when the theme
+    // setting changes (settingsEffects.ts), which also covers iOS (where `style` here is
+    // ignored).
+    SystemBars: {
+      insetsHandling: "css",
+      initialViewportFitValueHint: "cover",
+      style: "DARK",
+    },
+  },
   // `cap sync ios` writes CapApp-SPM/Package.swift with the deployment target as
   // `.iOS(.v26)`, which needs swift-tools 6.2; the CLI default (5.9) breaks package
   // resolution ("'v26' is unavailable") and with it every iOS build.

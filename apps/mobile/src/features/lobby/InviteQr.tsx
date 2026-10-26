@@ -11,6 +11,12 @@ import { useT } from "../../i18n/index";
 import { useIntercomEngine } from "../group/engine";
 import { showError } from "../group/session";
 
+/** Scrolls the freshly shown code into the middle of the scrolling body. */
+function revealQr(img: HTMLImageElement) {
+  const reduce = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  img.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+}
+
 interface ShownQr {
   readonly png: string;
   readonly hideAfterMs: number;
@@ -68,11 +74,6 @@ export function InviteQr({ groupId }: { readonly groupId: string }) {
           </h2>
           {qr === null && <p className="text-sm text-muted-foreground">{expired ? t("lobby.qrHidden") : t("lobby.qrHint")}</p>}
         </div>
-        {qr !== null && (
-          <Button variant="plain" onClick={() => setQr(null)}>
-            {t("lobby.qrHide")}
-          </Button>
-        )}
       </div>
       {qr === null ? (
         <Button variant="secondary" size="lg" block disabled={loading} onClick={show} className="mt-4">
@@ -80,12 +81,16 @@ export function InviteQr({ groupId }: { readonly groupId: string }) {
         </Button>
       ) : (
         <div className="mt-4 flex animate-rise flex-col items-center gap-3 motion-reduce:animate-none">
+          {/* Sized by height as well as width: the whole code (quiet zone included) must fit
+              between the title bar and the pinned lobby footer, at any text size, so a
+              scanner reads it in one view. */}
           <img
             src={qr.png}
             alt={t("lobby.qrAlt")}
-            className="aspect-square w-full max-w-72 rounded-2xl bg-white p-3 shadow-chrome [image-rendering:pixelated]"
+            className="aspect-square w-[min(100%,18rem,38dvh)] rounded-2xl bg-white p-3 shadow-chrome [image-rendering:pixelated]"
             data-testid="invite-qr-image"
             draggable={false}
+            onLoad={(e) => revealQr(e.currentTarget)}
           />
           <p role="note" className="flex items-start gap-2 text-sm font-medium">
             <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ladder-warn" />
@@ -94,6 +99,9 @@ export function InviteQr({ groupId }: { readonly groupId: string }) {
           <p className="text-center text-xs text-muted-foreground">
             {t("lobby.qrAutoHide", { s: Math.round(qr.hideAfterMs / 1000) })}
           </p>
+          <Button variant="plain" block onClick={() => setQr(null)}>
+            {t("lobby.qrHide")}
+          </Button>
         </div>
       )}
     </section>

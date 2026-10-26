@@ -38,6 +38,9 @@ describe("OnboardingScreen", () => {
     const name = screen.getByLabelText("Your name");
     fireEvent.change(name, { target: { value: "Ñandú García Rodríguez Pérez" } });
     expect(new TextEncoder().encode((name as HTMLInputElement).value).length).toBeLessThanOrEqual(24);
+    // Continue is pinned in the footer but submits the profile form (keyboard Next too).
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).form).toBe((name as HTMLInputElement).form);
+    expect(name.getAttribute("enterkeyhint")).toBe("next");
     fireEvent.click(screen.getByRole("radio", { name: "Car" }));
     expect(useSettingsStore.getState()).toMatchObject({ vehicle: "car", defaultMode: "ptt", keepScreenOnMounted: true });
     expect(screen.getByText(/Car: push to talk/)).toBeTruthy();

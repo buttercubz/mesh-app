@@ -13,10 +13,15 @@ export function OpenMemberActions({ member: m }: { readonly member: Member }) {
   const muted = m.flags.includes("muted");
   const blocked = m.flags.includes("blocked");
   return (
-    <div className="flex gap-2 px-4 pb-3.5" data-testid="open-member-actions">
+    // Wraps instead of shrinking: `.mk-button`'s min-width replaces the flex min-content
+    // floor, so in a narrow row the labels would spill out of their capsules. Each button
+    // keeps its natural width (shrink-0), grows to fill its line, and drops to its own
+    // full-width line when both do not fit (small phones, large text).
+    <div className="flex flex-wrap gap-2 px-4 pb-3.5" data-testid="open-member-actions">
       <Button
         variant="secondary"
         size="md"
+        className="max-w-full shrink-0 grow"
         aria-label={t(muted ? "open.unmuteName" : "open.muteName", { name: m.name })}
         onClick={() => void setMuted(engine, m, !muted)}
       >
@@ -26,6 +31,7 @@ export function OpenMemberActions({ member: m }: { readonly member: Member }) {
       <Button
         variant={blocked ? "secondary" : "danger"}
         size="md"
+        className="max-w-full shrink-0 grow"
         aria-label={t(blocked ? "open.unblockName" : "open.blockName", { name: m.name })}
         onClick={() => void setBlocked(engine, m, !blocked)}
       >

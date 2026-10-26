@@ -48,8 +48,22 @@ const ICONS: Readonly<Record<BannerKind, LucideIcon>> = {
   weakSignal: SignalLow,
 };
 
+export interface AlertBannerProps {
+  readonly banner: RideBanner;
+  /** Title and fix only (no message). */
+  readonly compact?: boolean;
+  /**
+   * The ride's glance bar: one compact row (title clamped to two lines, the fix); tapping
+   * the text calls `onExpand`, which shows the full message in the ride details.
+   */
+  readonly bar?: boolean;
+  readonly onExpand?: () => void;
+  readonly expanded?: boolean;
+  readonly controls?: string;
+}
+
 /** One banner with its icon and fix. The ★ actions run synchronously inside the tap. */
-export function AlertBanner({ banner, compact = false }: { readonly banner: RideBanner; readonly compact?: boolean }) {
+export function AlertBanner({ banner, compact = false, bar = false, onExpand, expanded, controls }: AlertBannerProps) {
   const { t } = useT("ride");
   const engine = useIntercomEngine();
   const Icon = ICONS[banner.kind];
@@ -78,7 +92,9 @@ export function AlertBanner({ banner, compact = false }: { readonly banner: Ride
         tone={banner.tone}
         icon={<Icon aria-hidden="true" />}
         title={t(`banner.${banner.kind}.title`, banner.params)}
-        {...(compact ? {} : { message: t(`banner.${banner.kind}.message`, banner.params) })}
+        {...(compact || bar ? {} : { message: t(`banner.${banner.kind}.message`, banner.params) })}
+        {...(bar ? { variant: "bar" as const } : {})}
+        {...(onExpand !== undefined ? { onExpand, expanded, controls } : {})}
         {...(action !== undefined ? { action: { label: t(`banner.action.${action}`), onClick: () => onAction(action) } } : {})}
       />
     </div>

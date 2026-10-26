@@ -96,6 +96,38 @@ describe("Create and Join", () => {
     expect(screen.getByTestId("join-confirm")).toHaveProperty("disabled", true);
   });
 
+  it("the pinned confirm buttons submit their form, so the keyboard's Go key works", async () => {
+    // Create: the footer button belongs to the form (implicit submission from either input).
+    const { plugin } = mountWith(<CreateGroupScreen params={{}} />, (cmd: UiCommand) =>
+      cmd.type === "createGroup" ? fixtureResult("groupId createGroup") : { ok: true },
+    );
+    const groupName = screen.getByLabelText("Group name") as HTMLInputElement;
+    const create = screen.getByTestId("create-confirm") as HTMLButtonElement;
+    expect(create.type).toBe("submit");
+    expect(create.form).not.toBeNull();
+    expect(create.form).toBe(groupName.form);
+    expect(groupName.getAttribute("enterkeyhint")).toBe("go");
+    fireEvent.change(groupName, { target: { value: "Sunday ride" } });
+    fireEvent.submit(groupName.form as HTMLFormElement);
+    await settle();
+    expect(plugin.sent).toContainEqual({ type: "createGroup", name: "Sunday ride", vehicle: "moto" });
+  });
+
+  it("join confirm submits the name form", async () => {
+    const { plugin } = mountWith(<JoinScreen params={{ url: URL }} />, (cmd: UiCommand) =>
+      cmd.type === "parseInvite" ? fixtureResult("inviteInfo valid") : cmd.type === "joinGroup" ? fixtureResult("groupId joinGroup") : { ok: true },
+    );
+    await settle();
+    const name = screen.getByLabelText("Your name") as HTMLInputElement;
+    const join = screen.getByTestId("join-confirm") as HTMLButtonElement;
+    expect(join.form).not.toBeNull();
+    expect(join.form).toBe(name.form);
+    expect(name.getAttribute("enterkeyhint")).toBe("go");
+    fireEvent.submit(name.form as HTMLFormElement);
+    await settle();
+    expect(plugin.sent).toContainEqual({ type: "joinGroup", url: URL, displayName: "Ana" });
+  });
+
   it("rejects an invalid invite", async () => {
     mountWith(<JoinScreen params={{ url: URL }} />, () => fixtureResult("inviteInfo invalid"));
     await settle();

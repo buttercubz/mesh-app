@@ -11,6 +11,10 @@ import type { ReactNode } from "react";
 import { INTL_LOCALE, useT } from "../../i18n/index";
 import { batteryPercent, compassKey, formatDistance, isConnected, qualityBars } from "../ride/model";
 import { flagTone, sortedFlags, statusLabel, statusTone, transportKey, voiceKey, voiceTone } from "./format";
+import { RiderRowLayout } from "./RiderRowLayout";
+
+/** 48 px at the default text size, growing with it only up to 52 px: the name keeps the room. */
+const ROW_AVATAR = "clamp(48px, 3rem, 52px)";
 
 export interface MemberRowProps {
   readonly member: Member;
@@ -34,12 +38,16 @@ export function MemberRow({ member: m, onOpen, actions }: MemberRowProps) {
   const tone = statusTone(m.status);
   const dot: AvatarDotTone = me ? "brand" : tone === "neutral" || tone === "blocked" ? "out" : tone;
 
-  const body = (
-    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="min-w-0 truncate text-lg font-semibold">{me ? t("member.you", { name: m.name }) : m.name}</span>
-        {m.role === "leader" && <Crown aria-hidden="true" className="size-4 shrink-0 text-brand" />}
+  const name = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className="line-clamp-2 min-w-0 text-lg leading-tight font-semibold break-words">
+        {me ? t("member.you", { name: m.name }) : m.name}
       </span>
+      {m.role === "leader" && <Crown aria-hidden="true" className="size-4 shrink-0 text-brand" />}
+    </span>
+  );
+  const details = (
+    <>
       <span className="flex flex-wrap items-center gap-1.5">
         {m.role === "leader" && <Badge tone="brand">{t("member.leader")}</Badge>}
         <Badge tone={statusTone(m.status)}>{t(status.key, status.params)}</Badge>
@@ -83,27 +91,29 @@ export function MemberRow({ member: m, onOpen, actions }: MemberRowProps) {
         )}
         <span>{t(`member.platform.${m.platform}`)}</span>
       </span>
-    </span>
+    </>
   );
-  const avatar = <Avatar name={m.name} size={48} dot={dot} dim={m.status === "lost"} />;
+  const avatar = <Avatar name={m.name} size={ROW_AVATAR} dot={dot} dim={m.status === "lost"} />;
 
   return (
     <li className="border-b border-separator last:border-b-0" data-member={m.name} data-status={m.status}>
       {onOpen !== undefined ? (
         <button
           type="button"
-          className="flex min-h-target w-full items-start gap-3 px-4 py-3.5 text-start transition-colors duration-ui active:bg-control-fill"
+          className="@container flex min-h-target w-full px-4 py-3.5 text-start transition-colors duration-ui active:bg-control-fill"
           onClick={onOpen}
           aria-haspopup="dialog"
         >
-          {avatar}
-          {body}
-          <ChevronRight aria-hidden="true" className="mt-3 size-5 shrink-0 text-muted-foreground" />
+          <RiderRowLayout
+            avatar={avatar}
+            name={name}
+            details={details}
+            trailing={<ChevronRight aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />}
+          />
         </button>
       ) : (
-        <div className="flex items-start gap-3 px-4 py-3.5">
-          {avatar}
-          {body}
+        <div className="@container px-4 py-3.5">
+          <RiderRowLayout avatar={avatar} name={name} details={details} />
         </div>
       )}
       {actions}

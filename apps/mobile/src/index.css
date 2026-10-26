@@ -6,10 +6,19 @@
 /* Tailwind scans the app sources (features included); the ui-kit ships its own CSS. */
 @source "./";
 
+/* Wide landscape window (tablet in landscape, desktop): the ride footer moves beside the body. */
+@custom-variant side-footer (@media (orientation: landscape) and (min-width: 700px));
+/* Short window (phone split-screen): the ride footer puts the mode control beside the PTT. */
+@custom-variant short-window (@media (max-height: 520px));
+
+/* The document is one fixed frame (ScreenLayout): it never scrolls or rubber-bands; each
+   screen scrolls its own body. */
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   background-color: var(--background);
   color: var(--foreground);
 }

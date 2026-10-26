@@ -1,6 +1,9 @@
-// Applies persisted settings to the runtime (WP-18): UI language (+ <html lang>), theme,
-// and the spoken-prompt templates of a running engine (§7.7: re-sent when the language
-// or the spoken-prompts switch changes).
+// Applies persisted settings to the runtime (WP-18): UI language (+ <html lang>), theme
+// (also the native status/navigation bar icons, so they stay readable over the app's
+// background), and the spoken-prompt templates of a running engine (§7.7: re-sent when
+// the language or the spoken-prompts switch changes).
+import { Capacitor, SystemBars, SystemBarsStyle } from "@capacitor/core";
+import type { ThemePreference } from "@meshapp/ui-kit";
 import { applyTheme } from "@meshapp/ui-kit";
 
 import type { AppEngine } from "../engine/client";
@@ -18,6 +21,7 @@ export function installSettingsEffects(engine: Pick<AppEngine, "syncPrompts"> = 
     if (next.theme !== prev.theme) {
       stopTheme();
       stopTheme = applyTheme(next.theme);
+      applySystemBars(next.theme);
     }
     const promptsChanged = next.language !== prev.language || next.spokenPrompts !== prev.spokenPrompts;
     if (promptsChanged && useEngineStore.getState().status === "running") {
@@ -36,5 +40,20 @@ export function installSettingsEffects(engine: Pick<AppEngine, "syncPrompts"> = 
 function applyCurrent(settings: Settings): () => void {
   applyLanguage(settings.language);
   if (typeof document === "undefined") return () => {};
-  return applyTheme(settings.theme);
+  const stop = applyTheme(settings.theme);
+  applySystemBars(settings.theme);
+  return stop;
+}
+
+/**
+ * Light bar icons on the dark theme, dark icons on the light one; "system" follows the
+ * OS appearance, as the web theme does. Native only (edge-to-edge bars over the app).
+ */
+function applySystemBars(theme: ThemePreference): void {
+  if (!Capacitor.isNativePlatform()) return;
+  const style = theme === "dark" ? SystemBarsStyle.Dark : theme === "light" ? SystemBarsStyle.Light : SystemBarsStyle.Default;
+  SystemBars.setStyle({ style }).catch((e: unknown) => {
+    // Cosmetic only: the bars keep their previous style (e.g. a build without the plugin).
+    console.warn("[settings] SystemBars.setStyle failed", e);
+  });
 }

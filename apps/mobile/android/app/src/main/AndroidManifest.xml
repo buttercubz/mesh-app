@@ -7,6 +7,12 @@
   - ACCESS_LOCAL_NETWORK is NOT declared at target 36 (only when targeting 37, for Wi-Fi
     Aware sockets); the remove marker keeps any dependency from adding it.
   - Backup and data-extraction rules exclude the engine's secure store (per-group keys).
+  - Portrait only. At targetSdk 36, Android 16 ignores screenOrientation on large screens
+    (sw >= 600dp, e.g. Galaxy Tab) unless PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY is
+    set; the property stops working at target 37, so the ride layout also handles wide
+    landscape and short split-screen windows.
+  - fontScale/fontWeightAdjustment in configChanges: MainActivity re-applies the WebView
+    text zoom instead of the activity being recreated (WebView reload) mid-ride.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
@@ -24,9 +30,13 @@
         android:theme="@style/AppTheme"
         tools:targetApi="36">
 
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
+
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density|fontScale|fontWeightAdjustment"
             android:exported="true"
             android:label="@string/title_activity_main"
             android:launchMode="singleTask"

@@ -4,7 +4,7 @@
 // asks for the rider's name. Join → `joinGroup` → lobby.
 import type { OkInviteInfo } from "@meshapp/engine-api";
 import { Banner, Button } from "@meshapp/ui-kit";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import type { ScreenProps } from "../../app/router";
 import { ScreenLayout } from "../../components/ScreenLayout";
@@ -23,6 +23,7 @@ export function JoinScreen({ params }: ScreenProps) {
   const [parsed, setParsed] = useState<Parsed>(url === "" ? { state: "invalid" } : { state: "loading" });
   const [rider, setRider] = useState(useSettingsStore.getState().displayName);
   const [busy, setBusy] = useState(false);
+  const formId = useId();
 
   useEffect(() => {
     if (url === "") return;
@@ -76,7 +77,8 @@ export function JoinScreen({ params }: ScreenProps) {
       title={t("join.title")}
       footer={
         info !== null ? (
-          <Button variant="primary" size="lg" block disabled={!canJoin} onClick={() => void join()} data-testid="join-confirm">
+          // Submits the name form below (`form`), so the keyboard's Go key joins too.
+          <Button type="submit" form={formId} variant="primary" size="lg" block disabled={!canJoin} data-testid="join-confirm">
             {info.alreadyMember ? t("join.open") : info.leaderSigOk ? t("join.confirm") : t("join.confirmAnyway")}
           </Button>
         ) : undefined
@@ -95,7 +97,7 @@ export function JoinScreen({ params }: ScreenProps) {
           <>
             <div className="py-4 text-center">
               <p className="text-sm text-muted-foreground">{t("join.question")}</p>
-              <h2 className="mt-1 text-3xl font-semibold break-words" data-testid="join-group-name">
+              <h2 className="mt-1 text-3xl font-semibold text-balance break-words [overflow-wrap:anywhere]" data-testid="join-group-name">
                 {info.groupName}
               </h2>
             </div>
@@ -104,8 +106,17 @@ export function JoinScreen({ params }: ScreenProps) {
               <Banner tone="warn" title={t("join.leaderMismatchTitle")} message={t("join.leaderMismatchMessage")} />
             )}
             {info.alreadyMember && <Banner tone="info" title={t("join.alreadyTitle")} message={t("join.alreadyMessage")} />}
-            <NameField value={rider} onChange={setRider} />
-            <p className="text-xs text-muted-foreground">{t("join.privacy")}</p>
+            <form
+              id={formId}
+              className="flex flex-col gap-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (canJoin) void join();
+              }}
+            >
+              <NameField value={rider} onChange={setRider} enterKeyHint="go" />
+              <p className="text-xs text-muted-foreground">{t("join.privacy")}</p>
+            </form>
           </>
         )}
       </div>

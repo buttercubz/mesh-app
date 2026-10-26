@@ -17,18 +17,19 @@ export function BenchList({ onOpen }: { readonly onOpen: (spec: BenchSpec) => vo
             key={spec.bench}
             ariaLabel={t("bench.open", { bench: spec.bench })}
             title={
+              // The phase badge flows after the title, so the title keeps the full row
+              // width on narrow screens and large text instead of beside a trailing badge.
               <span>
                 <span className="font-semibold">{spec.bench}</span> · {t(`bench.${spec.bench}.title`)}
+                {spec.phase > 0 && (
+                  <Badge tone="brand" className="ms-1.5 align-middle">
+                    {t("bench.phase", { phase: spec.phase })}
+                  </Badge>
+                )}
               </span>
             }
             subtitle={t(`bench.${spec.bench}.criterion`, criterionParams(spec.bench))}
-            trailing={
-              spec.phase > 0 ? (
-                <Badge tone="brand">{t("bench.phase", { phase: spec.phase })}</Badge>
-              ) : (
-                <span aria-hidden="true">›</span>
-              )
-            }
+            trailing={<span aria-hidden="true">›</span>}
             onClick={() => onOpen(spec)}
           />
         ))}

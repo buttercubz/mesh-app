@@ -31,10 +31,13 @@ function ProfileHeader() {
   const vehicle = useSettingsStore((s) => s.vehicle);
   const VehicleIcon = vehicle === "car" ? Car : Bike;
   return (
-    <div className="flex items-center gap-4 px-1 pt-2" data-testid="settings-profile">
-      <Avatar name={name.trim() === "" ? "?" : name} size={64} />
-      <div className="min-w-0">
-        <p className="truncate text-2xl font-bold tracking-tight">{name}</p>
+    // The name drops under the avatar when the row beside it would be under 10 rem, so a
+    // long name at a large text size breaks between words, not inside them.
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1 pt-2" data-testid="settings-profile">
+      {/* Grows with the text size up to 80 px, so the name keeps most of a narrow row. */}
+      <Avatar name={name.trim() === "" ? "?" : name} size="clamp(64px, 4rem, 80px)" />
+      <div className="min-w-0 flex-1 basis-40">
+        <p className="line-clamp-2 text-2xl leading-tight font-bold tracking-tight break-words">{name}</p>
         <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
           <VehicleIcon aria-hidden="true" className="size-4" />
           {tc(`vehicle.${vehicle}`)}

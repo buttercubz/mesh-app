@@ -25,7 +25,7 @@ describe("touch target tokens", () => {
     expect(declared(root, "--ptt-size")).toBe(`${PTT_SIZE_PX}px`);
   });
 
-  const interactive = [".mk-button", ".mk-segment", ".mk-list-row--interactive", ".mk-toast-close", ".mk-ptt"];
+  const interactive = [".mk-button", ".mk-segment", ".mk-list-row--interactive", ".mk-toast-close", ".mk-toast-more", ".mk-ptt"];
   for (const selector of interactive) {
     it(`${selector} has a min-height and min-width of at least 48 px`, () => {
       const bodies = ruleBodies(components, selector);

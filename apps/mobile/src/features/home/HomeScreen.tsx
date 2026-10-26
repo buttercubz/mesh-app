@@ -2,7 +2,7 @@
 // i.e. create a group) with Join a ride beside it, the ride in progress (or Resume ride
 // after process death) on top when there is one, saved groups as cards, Demo ride and
 // Settings. On first launch it welcomes the rider and leads to onboarding.
-import { Avatar, Button, ListRow, ListSection } from "@meshapp/ui-kit";
+import { Avatar, Button, ListRow, ListSection, cx } from "@meshapp/ui-kit";
 import { ChevronRight, Plus, Radio, ScanLine, Settings, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ import { useGroupsStore } from "../../store/useGroupsStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useIntercomEngine, useSession } from "../group/engine";
 import { CREATE_GROUP_SCREEN } from "../group/ids";
+import { ONBOARDING_SCREEN } from "../onboarding/ids";
 import { openSession, refreshGroups, showError } from "../group/session";
 import { OpenChannelCard } from "../open/OpenChannelCard";
 import { BrandMark, Welcome } from "./Welcome";
@@ -36,7 +37,7 @@ function ActiveCard() {
           <span aria-hidden="true" className="size-2 animate-talk-pulse rounded-full bg-talk-active motion-reduce:animate-none" />
           {riding ? t("home.riding") : t("home.inLobby")}
         </p>
-        <h2 className="mt-1 mb-3 text-2xl font-bold tracking-tight">{session.groupName}</h2>
+        <h2 className="mt-1 mb-3 text-2xl font-bold tracking-tight break-words [overflow-wrap:anywhere]">{session.groupName}</h2>
         <Button
           variant="primary"
           size="lg"
@@ -55,7 +56,7 @@ function ActiveCard() {
       data-testid="home-resume"
     >
       <p className="text-sm font-semibold text-muted-foreground">{t("home.interrupted")}</p>
-      <h2 className="mt-1 mb-3 text-2xl font-bold tracking-tight">{active.name}</h2>
+      <h2 className="mt-1 mb-3 text-2xl font-bold tracking-tight break-words [overflow-wrap:anywhere]">{active.name}</h2>
       <Button
         variant="primary"
         size="lg"
@@ -72,7 +73,12 @@ function ActiveCard() {
   );
 }
 
-/** A big tappable tile: icon disc, label, one-line hint. The accessible name is the label. */
+/**
+ * A big tappable tile: icon disc, label, one-line hint. The accessible name is the label.
+ * The tile is a size container: when its content box gets narrower than 15rem (large
+ * text on a phone, or Display Zoom) the icon goes above the text and the chevron goes,
+ * so the label keeps whole words per line instead of one word per line.
+ */
 function ActionTile({
   icon,
   label,
@@ -96,25 +102,32 @@ function ActionTile({
       onClick={onClick}
       className={
         primary
-          ? "flex min-h-28 w-full items-center gap-4 rounded-section bg-linear-to-br from-brand to-brand-strong p-5 text-start text-brand-foreground shadow-[0_18px_40px_-18px_var(--brand-glow)] transition-transform duration-ui active:scale-[0.98] disabled:opacity-50"
-          : "flex min-h-20 w-full items-center gap-4 rounded-section border border-separator bg-card p-4 text-start text-card-foreground shadow-surface transition-transform duration-ui active:scale-[0.98] disabled:opacity-50"
+          ? "@container block w-full rounded-section bg-linear-to-br from-brand to-brand-strong p-5 text-start text-brand-foreground shadow-[0_18px_40px_-18px_var(--brand-glow)] transition-transform duration-ui active:scale-[0.98] disabled:opacity-50"
+          : "@container block w-full rounded-section border border-separator bg-card p-4 text-start text-card-foreground shadow-surface transition-transform duration-ui active:scale-[0.98] disabled:opacity-50"
       }
     >
       <span
-        aria-hidden="true"
-        className={
-          primary
-            ? "grid size-14 shrink-0 place-items-center rounded-full bg-white/20"
-            : "grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-brand"
-        }
+        className={cx(
+          "flex w-full items-center gap-4 @max-[15rem]:flex-col @max-[15rem]:items-start @max-[15rem]:gap-3",
+          primary ? "min-h-18" : "min-h-12",
+        )}
       >
-        {icon}
+        <span
+          aria-hidden="true"
+          className={
+            primary
+              ? "grid size-14 shrink-0 place-items-center rounded-full bg-white/20"
+              : "grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-brand"
+          }
+        >
+          {icon}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className={primary ? "text-xl font-bold tracking-tight text-balance" : "text-lg font-semibold text-balance"}>{label}</span>
+          <span className={primary ? "text-sm text-pretty opacity-85" : "text-sm text-pretty text-muted-foreground"}>{hint}</span>
+        </span>
+        <ChevronRight aria-hidden="true" className="size-5 shrink-0 opacity-70 @max-[15rem]:hidden" />
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={primary ? "text-xl font-bold tracking-tight" : "text-lg font-semibold"}>{label}</span>
-        <span className={primary ? "text-sm opacity-85" : "text-sm text-muted-foreground"}>{hint}</span>
-      </span>
-      <ChevronRight aria-hidden="true" className="size-5 shrink-0 opacity-70" />
     </button>
   );
 }
@@ -140,6 +153,7 @@ function EmptyGroups() {
 export function HomeScreen(_props: ScreenProps) {
   const { t } = useT("group");
   const { t: tc } = useT("common");
+  const { t: to } = useT("onboarding");
   const engine = useIntercomEngine();
   const onboarded = useSettingsStore((s) => s.onboardingDone);
   const displayName = useSettingsStore((s) => s.displayName);
@@ -173,6 +187,15 @@ export function HomeScreen(_props: ScreenProps) {
       back={false}
       largeTitle
       glow
+      // First launch: "Get started" is pinned under the welcome so it is on screen on the
+      // shortest phones and with large text.
+      footer={
+        onboarded ? undefined : (
+          <Button variant="primary" size="lg" block className="mx-auto max-w-md" onClick={() => useRouter.getState().push(ONBOARDING_SCREEN)}>
+            {to("welcome.start")}
+          </Button>
+        )
+      }
       action={
         <Button
           variant="plain"
@@ -190,7 +213,7 @@ export function HomeScreen(_props: ScreenProps) {
       ) : (
         <div className="mx-auto flex max-w-xl flex-col gap-6 pb-6" data-testid="home-screen">
           <div className="flex flex-col gap-1 px-1 pt-2">
-            <p className="text-3xl font-bold tracking-tight">
+            <p className="text-[clamp(1.5rem,7vw,1.875rem)] leading-tight font-bold tracking-tight text-balance break-words [overflow-wrap:anywhere]">
               {displayName.trim() === "" ? tc("appName") : t("home.greeting", { name: displayName })}
             </p>
             <p className="text-base text-muted-foreground">{t("home.subtitle")}</p>
@@ -231,14 +254,15 @@ export function HomeScreen(_props: ScreenProps) {
           ) : (
             <EmptyGroups />
           )}
-          <section className="flex flex-col gap-4 rounded-section border border-separator bg-card p-4 text-card-foreground shadow-surface">
-            <div className="flex items-center gap-4">
+          <section className="@container flex flex-col gap-4 rounded-section border border-separator bg-card p-4 text-card-foreground shadow-surface">
+            {/* Icon above the text when the card is narrow (large text), as in ActionTile. */}
+            <div className="flex items-center gap-4 @max-[15rem]:flex-col @max-[15rem]:items-start @max-[15rem]:gap-3">
               <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
                 <Sparkles className="size-6" />
               </span>
               <div className="min-w-0 flex-1">
-                <h2 className="text-base font-semibold">{t("home.demoTitle")}</h2>
-                <p className="text-sm text-muted-foreground">{t("home.demoText")}</p>
+                <h2 className="text-base font-semibold text-balance">{t("home.demoTitle")}</h2>
+                <p className="text-sm text-pretty text-muted-foreground">{t("home.demoText")}</p>
               </div>
             </div>
             <Button

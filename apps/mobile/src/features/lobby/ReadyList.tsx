@@ -8,6 +8,7 @@ import { Battery, Check as CheckIcon, Circle, Headphones } from "lucide-react";
 import { useT } from "../../i18n/index";
 import { useEngineStore } from "../../store/useEngineStore";
 import { sortMembers, statusLabel, statusTone } from "../members/format";
+import { RiderRowLayout } from "../members/RiderRowLayout";
 import { batteryPercent, isConnected, routeKey } from "../ride/model";
 
 function Check({ ok, label }: { readonly ok: boolean; readonly label: string }) {
@@ -26,41 +27,57 @@ function Check({ ok, label }: { readonly ok: boolean; readonly label: string }) 
   );
 }
 
+/** 44 px at the default text size, growing with it only up to 48 px: the name keeps the room. */
+const ROW_AVATAR = "clamp(44px, 2.75rem, 48px)";
+
 function ReadyRow({ m }: { readonly m: Member }) {
   const { t } = useT("group");
-  const { t: tr } = useT("ride");
-  const status = statusLabel(m);
-  const battery = batteryPercent(m.battery);
   const me = m.status === "me";
   const linked = me || isConnected(m);
   const ready = linked && m.ready.live && m.ready.mic;
   return (
-    <li className="flex items-start gap-3 py-3" data-member={m.name} data-status={m.status}>
-      <Avatar name={m.name} size={44} dot={ready ? "active" : linked ? "brand" : "out"} dim={!linked} />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="min-w-0 truncate text-base font-semibold">{me ? t("member.you", { name: m.name }) : m.name}</span>
-          {m.role === "leader" && <Badge tone="brand">{t("member.leader")}</Badge>}
-          <Badge tone={statusTone(m.status)}>{t(status.key, status.params)}</Badge>
-          {!me && linked && m.voice === "bestEffort" && <Badge tone="warn">{t("member.voice.bestEffort")}</Badge>}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]">
-          <Check ok={linked} label={t("lobby.check.link")} />
-          <Check ok={m.ready.live && m.ready.mic} label={t("lobby.check.mic")} />
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <Headphones aria-hidden="true" className="size-3.5" />
-            {m.ready.route === null ? t("lobby.check.noRoute") : tr(routeKey(m.ready.route))}
+    <li className="@container py-3" data-member={m.name} data-status={m.status}>
+      <RiderRowLayout
+        avatar={<Avatar name={m.name} size={ROW_AVATAR} dot={ready ? "active" : linked ? "brand" : "out"} dim={!linked} />}
+        name={
+          <span className="line-clamp-2 min-w-0 text-base leading-tight font-semibold break-words">
+            {me ? t("member.you", { name: m.name }) : m.name}
           </span>
-          {battery !== null && (
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
-              <Battery aria-hidden="true" className="size-3.5" />
-              {t("member.battery", { p: battery })}
-            </span>
-          )}
-          <span className="text-muted-foreground">{t(`member.platform.${m.platform}`)}</span>
-        </div>
-      </div>
+        }
+        details={<ReadyDetails m={m} me={me} linked={linked} />}
+      />
     </li>
+  );
+}
+
+function ReadyDetails({ m, me, linked }: { readonly m: Member; readonly me: boolean; readonly linked: boolean }) {
+  const { t } = useT("group");
+  const { t: tr } = useT("ride");
+  const status = statusLabel(m);
+  const battery = batteryPercent(m.battery);
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {m.role === "leader" && <Badge tone="brand">{t("member.leader")}</Badge>}
+        <Badge tone={statusTone(m.status)}>{t(status.key, status.params)}</Badge>
+        {!me && linked && m.voice === "bestEffort" && <Badge tone="warn">{t("member.voice.bestEffort")}</Badge>}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8125rem]">
+        <Check ok={linked} label={t("lobby.check.link")} />
+        <Check ok={m.ready.live && m.ready.mic} label={t("lobby.check.mic")} />
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          <Headphones aria-hidden="true" className="size-3.5" />
+          {m.ready.route === null ? t("lobby.check.noRoute") : tr(routeKey(m.ready.route))}
+        </span>
+        {battery !== null && (
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Battery aria-hidden="true" className="size-3.5" />
+            {t("member.battery", { p: battery })}
+          </span>
+        )}
+        <span className="text-muted-foreground">{t(`member.platform.${m.platform}`)}</span>
+      </div>
+    </>
   );
 }
 

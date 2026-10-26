@@ -12,9 +12,11 @@ export interface NameFieldProps {
   readonly value: string;
   readonly onChange: (value: string) => void;
   readonly autoFocus?: boolean;
+  /** Label of the keyboard's Return key ("go" submits the screen, "next" moves on). */
+  readonly enterKeyHint?: "go" | "next" | "done";
 }
 
-export function NameField({ value, onChange, autoFocus }: NameFieldProps) {
+export function NameField({ value, onChange, autoFocus, enterKeyHint }: NameFieldProps) {
   const { t } = useT("group");
   const id = useId();
   const hintId = useId();
@@ -30,6 +32,7 @@ export function NameField({ value, onChange, autoFocus }: NameFieldProps) {
         value={value}
         autoComplete="nickname"
         autoCapitalize="words"
+        enterKeyHint={enterKeyHint}
         // Only the onboarding name step focuses the field on open.
         autoFocus={autoFocus}
         aria-describedby={hintId}
@@ -37,8 +40,8 @@ export function NameField({ value, onChange, autoFocus }: NameFieldProps) {
         onChange={(e) => onChange(limitName(e.target.value))}
       />
       <p id={hintId} className="flex justify-between gap-2 text-xs text-muted-foreground">
-        <span>{t("name.hint")}</span>
-        <span className="tabular-nums" aria-label={t("name.bytes", { n: used, max: DISPLAY_NAME_MAX_BYTES })}>
+        <span className="min-w-0">{t("name.hint")}</span>
+        <span className="shrink-0 tabular-nums" aria-label={t("name.bytes", { n: used, max: DISPLAY_NAME_MAX_BYTES })}>
           {used}/{DISPLAY_NAME_MAX_BYTES}
         </span>
       </p>

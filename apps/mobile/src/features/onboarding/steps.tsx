@@ -5,7 +5,7 @@ import type { Vehicle } from "@meshapp/engine-api";
 import { Button, SegmentedControl, cx } from "@meshapp/ui-kit";
 import type { LucideIcon } from "lucide-react";
 import { Bell, Bike, Bluetooth, Car, Check, MapPin, Mic } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import type { IntercomPermissionStatus } from "../../engine/client";
 import type { AppLanguage } from "../../i18n/index";
@@ -13,9 +13,12 @@ import { APP_LANGUAGES, useT } from "../../i18n/index";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useIntercomEngine } from "../group/engine";
 import { NameField } from "../group/NameField";
+import type { OnboardingPosition } from "./OnboardingFrame";
+import { OnboardingFrame } from "./OnboardingFrame";
 import { ONBOARDING_PERMISSIONS } from "./permissions";
 
 export interface StepProps {
+  readonly position: OnboardingPosition;
   readonly onNext: () => void;
 }
 
@@ -47,45 +50,55 @@ function LanguagePicker() {
   );
 }
 
-export function ProfileStep({ onNext }: StepProps) {
+export function ProfileStep({ position, onNext }: StepProps) {
   const { t } = useT("onboarding");
   const { t: tc } = useT("common");
   const settings = useSettingsStore();
   const [name, setName] = useState(settings.displayName);
   const done = name.trim() !== "";
   const VehicleIcon = settings.vehicle === "moto" ? Bike : Car;
+  const formId = useId();
   return (
-    <form
-      className="flex flex-col gap-6"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!done) return;
-        useSettingsStore.getState().setDisplayName(name);
-        onNext();
-      }}
+    <OnboardingFrame
+      position={position}
+      footer={
+        // Outside the form (pinned footer), tied to it by `form`: tapping it or the
+        // keyboard's Next key submits the step.
+        <Button type="submit" form={formId} variant="primary" size="lg" block disabled={!done}>
+          {tc("action.continue")}
+        </Button>
+      }
     >
-      <LanguagePicker />
-      <NameField value={name} onChange={setName} autoFocus />
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-semibold">{t("profile.vehicle")}</span>
-        <SegmentedControl<Vehicle>
-          label={t("profile.vehicle")}
-          value={settings.vehicle}
-          onChange={(v) => useSettingsStore.getState().setVehicle(v)}
-          options={[
-            { value: "moto", label: tc("vehicle.moto") },
-            { value: "car", label: tc("vehicle.car") },
-          ]}
-        />
-        <p className="flex items-start gap-2 rounded-2xl bg-card p-3 text-sm text-muted-foreground">
-          <VehicleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-brand" />
-          {t(`profile.defaults.${settings.vehicle}`)}
-        </p>
-      </div>
-      <Button type="submit" variant="primary" size="lg" block disabled={!done}>
-        {tc("action.continue")}
-      </Button>
-    </form>
+      <form
+        id={formId}
+        className="flex flex-col gap-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!done) return;
+          useSettingsStore.getState().setDisplayName(name);
+          onNext();
+        }}
+      >
+        <LanguagePicker />
+        <NameField value={name} onChange={setName} autoFocus enterKeyHint="next" />
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-semibold">{t("profile.vehicle")}</span>
+          <SegmentedControl<Vehicle>
+            label={t("profile.vehicle")}
+            value={settings.vehicle}
+            onChange={(v) => useSettingsStore.getState().setVehicle(v)}
+            options={[
+              { value: "moto", label: tc("vehicle.moto") },
+              { value: "car", label: tc("vehicle.car") },
+            ]}
+          />
+          <p className="flex items-start gap-2 rounded-2xl bg-card p-3 text-sm text-muted-foreground">
+            <VehicleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-brand" />
+            {t(`profile.defaults.${settings.vehicle}`)}
+          </p>
+        </div>
+      </form>
+    </OnboardingFrame>
   );
 }
 
@@ -97,7 +110,7 @@ function stateText(state: string | undefined, t: (k: string) => string): string 
   return t("permissions.notAsked");
 }
 
-export function PermissionsStep({ onNext }: StepProps) {
+export function PermissionsStep({ position, onNext }: StepProps) {
   const { t: tc } = useT("common");
   const { t } = useT("onboarding");
   const engine = useIntercomEngine();
@@ -137,48 +150,54 @@ export function PermissionsStep({ onNext }: StepProps) {
 
   const anyDenied = ONBOARDING_PERMISSIONS.some((p) => status[p] === "denied");
   return (
-    <div className="flex flex-col gap-5">
-      <p className="text-base text-muted-foreground">{t("permissions.intro")}</p>
-      <ul className="flex flex-col divide-y divide-separator rounded-section border border-separator bg-card text-card-foreground shadow-surface" data-testid="permission-list">
-        {ONBOARDING_PERMISSIONS.map((p) => {
-          const Icon = PERMISSION_ICONS[p] ?? Mic;
-          const granted = status[p] === "granted";
-          return (
-            <li key={p} className="flex items-start gap-3 p-4" data-permission={p} data-state={status[p] ?? "prompt"}>
-              <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
-                <Icon className="size-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center justify-between gap-x-3">
-                  <span className="font-semibold">{t(`permissions.${p}.title`)}</span>
-                  <span className={cx("inline-flex items-center gap-1 text-sm", granted ? "text-talk-active" : "text-muted-foreground")}>
-                    {granted && <Check aria-hidden="true" className="size-4" strokeWidth={3} />}
+    <OnboardingFrame
+      position={position}
+      footer={
+        asked ? (
+          <Button variant="primary" size="lg" block onClick={onNext}>
+            {tc("action.continue")}
+          </Button>
+        ) : (
+          <>
+            <Button variant="primary" size="lg" block disabled={asking} onClick={ask}>
+              {t("permissions.allow")}
+            </Button>
+            <Button variant="plain" block onClick={onNext}>
+              {t("permissions.later")}
+            </Button>
+          </>
+        )
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <p className="text-base text-muted-foreground">{t("permissions.intro")}</p>
+        <ul className="flex flex-col divide-y divide-separator rounded-section border border-separator bg-card text-card-foreground shadow-surface" data-testid="permission-list">
+          {ONBOARDING_PERMISSIONS.map((p) => {
+            const Icon = PERMISSION_ICONS[p] ?? Mic;
+            const granted = status[p] === "granted";
+            return (
+              <li key={p} className="flex items-start gap-3 p-4" data-permission={p} data-state={status[p] ?? "prompt"}>
+                <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-brand">
+                  <Icon className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  {/* Title, state and reason each on their own line: nothing shares a row with
+                      the title, so it wraps at word boundaries at any text size. */}
+                  <span className="block font-semibold text-balance break-words">{t(`permissions.${p}.title`)}</span>
+                  <span className={cx("flex items-center gap-1 text-sm", granted ? "text-talk-active" : "text-muted-foreground")}>
+                    {granted && <Check aria-hidden="true" className="size-4 shrink-0" strokeWidth={3} />}
                     {stateText(status[p], t)}
                   </span>
+                  <p className="mt-0.5 text-sm text-muted-foreground">{t(`permissions.${p}.reason`)}</p>
                 </div>
-                <p className="mt-0.5 text-sm text-muted-foreground">{t(`permissions.${p}.reason`)}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      {anyDenied && <p className="text-sm text-muted-foreground">{t("permissions.deniedHint")}</p>}
-      <DistanceCard />
-      {asked ? (
-        <Button variant="primary" size="lg" block onClick={onNext}>
-          {tc("action.continue")}
-        </Button>
-      ) : (
-        <div className="flex flex-col gap-1">
-          <Button variant="primary" size="lg" block disabled={asking} onClick={ask}>
-            {t("permissions.allow")}
-          </Button>
-          <Button variant="plain" block onClick={onNext}>
-            {t("permissions.later")}
-          </Button>
-        </div>
-      )}
-    </div>
+              </li>
+            );
+          })}
+        </ul>
+        {anyDenied && <p className="text-sm text-muted-foreground">{t("permissions.deniedHint")}</p>}
+        <DistanceCard />
+      </div>
+    </OnboardingFrame>
   );
 }
 
@@ -215,7 +234,7 @@ function DistanceCard() {
           <MapPin className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold">{t("distance.question")}</h3>
+          <h3 className="font-semibold text-balance break-words">{t("distance.question")}</h3>
           <p className="mt-0.5 text-sm text-muted-foreground">{t("distance.what")}</p>
         </div>
       </div>

@@ -11,6 +11,12 @@ import { boot } from "./app/boot";
 
 boot();
 
+// Layout audit hook (e2e/layout.spec.ts): dev server + `?simDebug=1` only. The whole
+// branch, and with it the module, is dropped from production bundles.
+if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("simDebug") === "1") {
+  void import("./app/layoutHarness").then((m) => m.installLayoutHarness());
+}
+
 const root = document.getElementById("root");
 if (root === null) throw new Error("index.html has no #root element");
 createRoot(root).render(<App />);

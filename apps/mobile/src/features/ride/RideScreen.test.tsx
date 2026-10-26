@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Ride screen (WP-22 acceptance): keep-screen-on in PTT (and car "while mounted"), VOX
 // disabled on the loudspeaker, PTT through the plugin's fast path, the busy banner on a
-// talkDenied fixture, and Go live / Resume mic as ★ commands through gestureCommand.
+// talkDenied fixture, and Go live / Resume (mic) as ★ commands through gestureCommand.
 import type { Snapshot } from "@meshapp/engine-api";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -106,7 +106,7 @@ describe("RideScreen talk control", () => {
     running(ride({ mode: "ptt", ladder: "L2" }));
     const second = mountWith(<RideScreen params={{}} />);
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Resume mic" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
     expect(second.plugin.gestured).toContainEqual({ type: "resumeMic" });
   });
 
@@ -123,18 +123,22 @@ describe("RideScreen talk control", () => {
     expect(useSettingsStore.getState().builtinMicTx).toBe(true);
   });
 
-  it("shows only the most urgent alert in full; the rest collapse into the status chip", async () => {
+  it("shows only the most urgent alert as a bar; the chip opens every alert in full in the details sheet", async () => {
     const s = ride({ mode: "ptt", live: false });
     running({ ...s, device: { ...s.device, bluetooth: "off" } });
     const { plugin } = mountWith(<RideScreen params={{}} />);
     await settle();
     const shown = () => [...document.querySelectorAll("[data-banner]")].map((b) => b.getAttribute("data-banner"));
     expect(shown()).toEqual(["bluetoothOff"]);
+    // The bar carries the title and the fix, not the message.
+    expect(screen.queryByText(/airplane mode/)).toBeNull();
     expect(screen.getByTestId("ride-status-chip").textContent).toContain("1 more");
     fireEvent.click(screen.getByTestId("ride-status-chip"));
-    // The details list the collapsed banner above the primary one, with its fix intact:
-    // Go live is still a ★ command issued from the tap.
-    expect(shown()).toEqual(["notLive", "bluetoothOff"]);
+    // The sheet lists the primary alert in full, then the collapsed one, each with its fix
+    // intact: Go live is still a ★ command issued from the tap.
+    const details = screen.getByTestId("ride-status-details");
+    expect([...details.querySelectorAll("[data-banner]")].map((b) => b.getAttribute("data-banner"))).toEqual(["bluetoothOff", "notLive"]);
+    expect(details.textContent).toMatch(/airplane mode/);
     fireEvent.click(screen.getByRole("button", { name: "Go live" }));
     expect(plugin.gestured).toContainEqual({ type: "goLive" });
   });

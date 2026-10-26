@@ -9,6 +9,8 @@ export const PREVIEW_PORT = 4173;
 
 export default defineConfig({
   testDir: "./e2e",
+  // The layout audit has its own config (playwright.layout.config.ts, port 5174).
+  testIgnore: ["**/layout.spec.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
   retries: process.env["CI"] ? 1 : 0,

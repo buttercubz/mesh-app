@@ -55,7 +55,7 @@
   }
 
   /* ── Shared focus ring ── */
-  :where(.mk-button, .mk-segment, .mk-list-row--interactive, .mk-ptt, .mk-toast-close):focus-visible {
+  :where(.mk-button, .mk-segment, .mk-list-row--interactive, .mk-ptt, .mk-toast-close, .mk-toast-more):focus-visible {
     outline: 2px solid color-mix(in srgb, var(--ring) 70%, transparent);
     outline-offset: 2px;
   }
@@ -149,7 +149,8 @@
       var(--surface-elevated);
     color: var(--foreground);
     font: inherit;
-    font-size: 1.125rem;
+    /* Follows the button size (fluid on the ride, see .mk-ptt-fluid), never below 15 px. */
+    font-size: clamp(0.9375rem, calc(var(--ptt-size) * 0.09), 1.125rem);
     font-weight: 700;
     cursor: pointer;
     /* The gesture belongs to the button: no scroll, zoom or long-press callout. */
@@ -215,39 +216,60 @@
   .mk-ptt-label {
     position: relative;
     display: flex;
-    max-width: 72%;
+    max-width: 80%;
     flex-direction: column;
     align-items: center;
     gap: 0.375rem;
     text-align: center;
+    text-wrap: balance;
     line-height: 1.15;
   }
   .mk-ptt-icon {
     display: inline-flex;
   }
   .mk-ptt-icon > svg {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: calc(var(--ptt-size) * 0.2);
+    height: calc(var(--ptt-size) * 0.2);
+  }
+  /* Secondary line under the PTT/Mute label (e.g. "Tap to unmute"). */
+  .mk-ptt-hint {
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+  /*
+   * Fluid PTT for the ride footer: the 200 px design size on tall screens, shrinking with
+   * the viewport height (never under 128 px) so the pinned footer leaves room for the
+   * status line and who is talking on short phones. px/svh only: system text zoom must
+   * not grow it.
+   */
+  .mk-ptt-fluid {
+    --ptt-size: clamp(128px, 22svh, 200px);
   }
 
   /* ── SegmentedControl (convLink .ios-segmented) ── */
   .mk-segmented {
     display: flex;
+    flex-wrap: wrap;
     align-items: stretch;
     gap: 0.25rem;
     padding: 0.25rem;
-    border-radius: var(--capsule);
+    /* One row reads as a capsule; when the labels need two rows it becomes a rounded rect. */
+    border-radius: calc(var(--target-min) / 2 + 0.25rem);
     background: var(--control-fill);
   }
   .mk-segment {
     display: inline-flex;
     min-height: var(--target-min);
     min-width: var(--target-min);
-    flex: 1;
+    /* Content-sized basis: a label that does not fit moves to the next row (never spills). */
+    flex: 1 1 auto;
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
-    padding: 0.5rem 0.875rem;
+    padding: 0.5rem 0.625rem;
+    white-space: nowrap;
+    line-height: 1.2;
     border: 0;
     border-radius: var(--capsule);
     background: transparent;
@@ -259,10 +281,21 @@
     touch-action: manipulation;
     transition: background-color var(--duration-ui), color var(--duration-ui), box-shadow var(--duration-ui);
   }
-  /* Ride variant: glove-sized segments. */
+  /*
+   * Ride variant: one row of three equal glove-sized segments. Height follows the
+   * viewport (56 px on short phones, 64 px on taller ones), never under the 48 px target.
+   */
+  .mk-segmented--ride {
+    flex-wrap: nowrap;
+  }
   .mk-segmented--ride .mk-segment {
-    min-height: var(--target-ride);
+    min-height: clamp(56px, 8svh, var(--target-ride));
+    flex: 1 1 0;
+    padding-inline: 0.375rem;
     font-size: 1.0625rem;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.1;
   }
   .mk-segment > svg {
     width: 1.125em;
@@ -343,6 +376,7 @@
   }
   .mk-list-row-trailing {
     margin-inline-start: auto;
+    max-width: 50%;
     color: var(--muted-foreground);
   }
   .mk-list-row-text {
@@ -351,12 +385,18 @@
     flex: 1;
     flex-direction: column;
   }
+  /* Wraps (up to three lines) so names and bench titles stay distinguishable. */
   .mk-list-row-title {
+    display: -webkit-box;
     overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
     font-size: 1rem;
     font-weight: 500;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.3;
+    overflow-wrap: break-word;
+    text-wrap: pretty;
   }
   .mk-list-row-subtitle {
     color: var(--muted-foreground);
@@ -372,10 +412,14 @@
     gap: 0.25rem;
     padding: 0.1875rem 0.5625rem;
     border-radius: var(--capsule);
+    max-width: 100%;
     font-size: 0.75rem;
     font-weight: 650;
     line-height: 1.35;
-    white-space: nowrap;
+    /* Short badges stay on one line; a long status wraps (stadium) rather than overflow. */
+    white-space: normal;
+    overflow-wrap: break-word;
+    text-align: start;
     background: var(--control-fill);
     color: var(--foreground);
   }
@@ -479,6 +523,8 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
+    /* --app-keyboard-inset: on-screen keyboard height where the WebView does not resize (iOS). */
+    padding-bottom: var(--app-keyboard-inset, 0px);
     background: var(--scrim);
     animation: mk-fade-in var(--duration-ui) var(--ease-ui) both;
   }
@@ -486,7 +532,7 @@
     display: flex;
     width: 100%;
     max-width: 40rem;
-    max-height: calc(100dvh - 2rem);
+    max-height: calc(100dvh - var(--app-keyboard-inset, 0px) - max(env(safe-area-inset-top, 0px), 1rem) - 0.75rem);
     flex-direction: column;
     overflow: hidden;
     border-radius: calc(var(--radius) + 0.5rem) calc(var(--radius) + 0.5rem) 0 0;
@@ -510,11 +556,14 @@
   }
   .mk-sheet-title {
     flex: 1;
+    min-width: 0;
     margin: 0;
     font-size: 1.0625rem;
     font-weight: 650;
+    overflow-wrap: break-word;
   }
   .mk-sheet-body {
+    min-height: 0;
     overflow-y: auto;
     padding: 1rem 1.25rem 1.25rem;
     overscroll-behavior: contain;
@@ -524,6 +573,8 @@
   .mk-banner {
     --mk-banner-tone: var(--status-relayed);
     display: flex;
+    /* When icon + text + action do not fit, the action drops to its own line. */
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 0.75rem 0.75rem 0.875rem;
@@ -548,10 +599,61 @@
     color: color-mix(in oklab, var(--mk-banner-tone) 70%, var(--foreground));
   }
   .mk-banner-icon > svg { width: 1.375rem; height: 1.375rem; }
-  .mk-banner-text { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 0.125rem; }
-  .mk-banner-title { font-size: 1rem; font-weight: 700; line-height: 1.3; }
-  .mk-banner-message { color: var(--muted-foreground); font-size: 0.8125rem; line-height: 1.4; }
-  .mk-banner > .mk-button { flex-shrink: 0; }
+  /* The text column never gets narrower than ~9 rem (no one-word-per-line titles). */
+  .mk-banner-text { display: flex; min-width: 0; flex: 1 1 9rem; flex-direction: column; gap: 0.125rem; }
+  .mk-banner-title { font-size: 1rem; font-weight: 700; line-height: 1.3; text-wrap: balance; overflow-wrap: break-word; }
+  .mk-banner-message { color: var(--muted-foreground); font-size: 0.8125rem; line-height: 1.4; text-wrap: pretty; }
+  .mk-banner > .mk-button {
+    flex: 0 1 auto;
+    max-width: 100%;
+    margin-inline-start: auto;
+    white-space: normal;
+  }
+  /* Tappable text of a bar banner (opens the details); keeps the 48 px target. */
+  button.mk-banner-text {
+    min-height: var(--target-min);
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  button.mk-banner-text:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ring) 70%, transparent);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+  /*
+   * Bar variant (ride glance layout): one compact row, title clamped to two lines, the
+   * message lives in the details. About 64 px tall.
+   */
+  .mk-banner--bar {
+    gap: 0.625rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.625rem;
+  }
+  .mk-banner--bar .mk-banner-icon { width: 2rem; height: 2rem; }
+  .mk-banner--bar .mk-banner-icon > svg { width: 1.125rem; height: 1.125rem; }
+  /* One row: the action keeps its line (its label may wrap) and the text keeps >= 5 rem. */
+  .mk-banner--bar { flex-wrap: nowrap; }
+  .mk-banner--bar .mk-banner-text { flex: 1 1 0; min-width: 5rem; }
+  .mk-banner--bar > .mk-button {
+    max-width: 50%;
+    padding-inline: 0.875rem;
+    overflow-wrap: break-word;
+  }
+  .mk-banner--bar .mk-banner-title {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    font-size: 0.9375rem;
+    line-height: 1.25;
+  }
   .mk-banner[data-tone="danger"] > .mk-button,
   .mk-banner[data-tone="blocked"] > .mk-button {
     background: var(--mk-banner-tone);
@@ -574,6 +676,30 @@
     list-style: none;
     pointer-events: none;
   }
+  .mk-toast-viewport > li {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+  }
+  /* "+n": more toasts are queued behind the visible one(s); tapping shows them. */
+  .mk-toast-more {
+    display: inline-flex;
+    min-height: var(--target-min);
+    min-width: var(--target-min);
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.625rem;
+    border: 0;
+    border-radius: var(--capsule);
+    background: var(--control-fill);
+    color: var(--foreground);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
   .mk-toast {
     display: flex;
     width: 100%;
@@ -589,8 +715,18 @@
   .mk-toast[data-tone="warn"] { border-inline-start: 4px solid var(--ladder-warn); }
   .mk-toast[data-tone="danger"] { border-inline-start: 4px solid var(--danger); }
   .mk-toast-text { display: flex; min-width: 0; flex: 1; flex-direction: column; padding-block: 0.375rem; }
-  .mk-toast-title { font-size: 0.9375rem; font-weight: 600; }
-  .mk-toast-description { color: var(--muted-foreground); font-size: 0.8125rem; }
+  /* Long names (memberLost lists several) wrap anywhere; a runaway text stops at 3 lines. */
+  .mk-toast-title,
+  .mk-toast-description {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow-wrap: anywhere;
+  }
+  .mk-toast-title { font-size: 0.9375rem; font-weight: 600; line-height: 1.3; }
+  .mk-toast-description { color: var(--muted-foreground); font-size: 0.8125rem; line-height: 1.35; }
   .mk-toast-close {
     display: inline-flex;
     width: var(--target-min);

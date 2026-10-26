@@ -30,6 +30,7 @@ export function CreateGroupScreen(_props: ScreenProps) {
   const [busy, setBusy] = useState(false);
   const nameId = useId();
   const expiryId = useId();
+  const formId = useId();
 
   const groupName = name.trim().slice(0, GROUP_NAME_MAX);
   const riderName = clampDisplayName(rider);
@@ -61,12 +62,14 @@ export function CreateGroupScreen(_props: ScreenProps) {
     <ScreenLayout
       title={t("create.title")}
       footer={
-        <Button variant="primary" size="lg" block disabled={!ready} onClick={() => void create()} data-testid="create-confirm">
+        // Submits the form below (`form`), so the keyboard's Go key creates the group too.
+        <Button type="submit" form={formId} variant="primary" size="lg" block disabled={!ready} data-testid="create-confirm">
           {busy ? t("create.creating") : t("create.confirm")}
         </Button>
       }
     >
       <form
+        id={formId}
         className="mx-auto flex max-w-xl flex-col gap-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -83,6 +86,7 @@ export function CreateGroupScreen(_props: ScreenProps) {
             value={name}
             maxLength={GROUP_NAME_MAX}
             autoComplete="off"
+            enterKeyHint="go"
             placeholder={t("create.namePlaceholder")}
             onChange={(e) => setName(e.target.value)}
           />
@@ -93,7 +97,7 @@ export function CreateGroupScreen(_props: ScreenProps) {
             <ChevronDown aria-hidden="true" className="size-5 text-muted-foreground transition-transform duration-ui group-open:rotate-180" />
           </summary>
           <div className="flex flex-col gap-4 pt-2 pb-4">
-            <NameField value={rider} onChange={setRider} />
+            <NameField value={rider} onChange={setRider} enterKeyHint="go" />
             <div className="flex flex-col gap-2">
               <span className="text-sm font-semibold">{t("create.vehicle")}</span>
               <SegmentedControl
@@ -108,23 +112,23 @@ export function CreateGroupScreen(_props: ScreenProps) {
               <p className="text-xs text-muted-foreground">{t(`create.vehicleHint.${vehicle}`)}</p>
             </div>
             <div className="flex flex-col gap-2">
-            <label htmlFor={expiryId} className="text-sm">
-              {t("create.expiry")}
-            </label>
-            <select
-              id={expiryId}
-              className="min-h-target rounded-xl border border-separator bg-background px-3 text-base"
-              value={expiry === null ? "never" : String(expiry)}
-              onChange={(e) => setExpiry(e.target.value === "never" ? null : Number(e.target.value))}
-            >
-              {EXPIRY_CHOICES.map((h) => (
-                <option key={h ?? "never"} value={h === null ? "never" : String(h)}>
-                  {h === null ? t("create.expiryNever") : t("create.expiryHours", { n: h })}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">{t("create.expiryHint")}</p>
-            <p className="text-xs text-muted-foreground">{t("create.leaderPriority")}</p>
+              <label htmlFor={expiryId} className="text-sm">
+                {t("create.expiry")}
+              </label>
+              <select
+                id={expiryId}
+                className="min-h-target rounded-xl border border-separator bg-background px-3 text-base"
+                value={expiry === null ? "never" : String(expiry)}
+                onChange={(e) => setExpiry(e.target.value === "never" ? null : Number(e.target.value))}
+              >
+                {EXPIRY_CHOICES.map((h) => (
+                  <option key={h ?? "never"} value={h === null ? "never" : String(h)}>
+                    {h === null ? t("create.expiryNever") : t("create.expiryHours", { n: h })}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">{t("create.expiryHint")}</p>
+              <p className="text-xs text-muted-foreground">{t("create.leaderPriority")}</p>
             </div>
           </div>
         </details>

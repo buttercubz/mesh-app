@@ -1,7 +1,10 @@
-// Bottom of the ride screen (WP-22, DESIGN §11.4): the 200 px PTT / Mute button (hold or
-// latch in PTT; tap toggles mute in VOX; the ring shows the input level) and the
-// glove-sized talk-mode control (VOX is never offered on the phone loudspeaker, §1.4).
-// The audio route (and why VOX is off on the loudspeaker) lives in the ride status chip.
+// Bottom of the ride screen (WP-22, DESIGN §11.4): the PTT / Mute button (hold or latch in
+// PTT; tap toggles mute in VOX; the ring shows the input level) and the glove-sized
+// talk-mode control (VOX is never offered on the phone loudspeaker, §1.4). The button is
+// 200 px on tall screens and follows the viewport height on short ones (.mk-ptt-fluid,
+// never under 128 px) so the pinned footer leaves room for the glance layout above it; in
+// a short split-screen window the mode control moves beside it. The audio route (and why
+// VOX is off on the loudspeaker) lives in the ride status chip.
 import type { TalkMode } from "@meshapp/engine-api";
 import { BigPttButton, SegmentedControl } from "@meshapp/ui-kit";
 import type { PttStatus } from "@meshapp/ui-kit";
@@ -118,16 +121,21 @@ export function TalkControl() {
             {muted ? <MicOff /> : <Mic />}
           </span>
           <span>{muted ? t("mute.muted") : t("mute.vox")}</span>
+          {muted && <span className="mk-ptt-hint">{t("mute.mutedHint")}</span>}
         </span>
       </button>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4" data-testid="talk-control" data-mode={mode}>
+    <div
+      className="mk-ptt-fluid mx-auto flex w-full max-w-md flex-col items-center gap-[clamp(0.5rem,1.5svh,1rem)] short-window:flex-row"
+      data-testid="talk-control"
+      data-mode={mode}
+    >
       {button}
       <SegmentedControl
-        className="mk-segmented--ride w-full"
+        className="mk-segmented--ride w-full short-window:min-w-0 short-window:flex-1 short-window:[&_.mk-segment]:text-sm"
         label={t("mode.label")}
         options={options}
         value={mode}

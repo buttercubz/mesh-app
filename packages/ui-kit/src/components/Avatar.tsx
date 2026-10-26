@@ -8,8 +8,12 @@ export type AvatarDotTone = "active" | "relayed" | "warn" | "danger" | "brand" |
 export interface AvatarProps {
   /** Rider name: gives the initials and a stable per-rider hue. */
   readonly name: string;
-  /** Diameter in px (default 44). */
-  readonly size?: number;
+  /**
+   * Diameter: a number is CSS px at the default text size (default 44) and is emitted in
+   * rem, so the circle grows with the system text size together with its initials; a
+   * string is any CSS length used as is (e.g. "clamp(56px, 30cqh, 112px)").
+   */
+  readonly size?: number | string;
   /** Live voice level 0..1: draws a ring around the avatar when set. */
   readonly level?: number;
   /** Pulsing halo while this rider is talking (stops under reduced motion). */
@@ -45,7 +49,8 @@ export function avatarHue(name: string): number {
 
 /** Decorative rider avatar: initials on a per-rider colour. Hidden from screen readers. */
 export function Avatar({ name, size = 44, level, speaking = false, dot, dim = false, className }: AvatarProps) {
-  const style = { "--mk-avatar-size": `${size}px`, "--mk-avatar-hue": String(avatarHue(name)) } as CSSProperties;
+  const length = typeof size === "number" ? `${size / 16}rem` : size;
+  const style = { "--mk-avatar-size": length, "--mk-avatar-hue": String(avatarHue(name)) } as CSSProperties;
   return (
     <span
       className={cx("mk-avatar", className)}

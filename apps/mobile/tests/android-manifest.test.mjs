@@ -102,6 +102,25 @@ describe("Gradle wiring", () => {
     expect(activity).toMatch(/class MainActivity : BridgeActivity\(\)/);
   });
 
+  it("stays portrait on large screens and handles font-scale changes without recreating the activity", () => {
+    const [app] = elements(root, "application");
+    const props = elements(app, "property").map((p) => [androidAttr(p, "name"), androidAttr(p, "value")]);
+    expect(props).toContainEqual(["android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY", "true"]);
+    const [activity] = elements(root, "activity");
+    expect(androidAttr(activity, "screenOrientation")).toBe("portrait");
+    const changes = (androidAttr(activity, "configChanges") ?? "").split("|");
+    expect(changes).toEqual(expect.arrayContaining(["orientation", "screenSize", "uiMode", "fontScale", "fontWeightAdjustment"]));
+  });
+
+  it("MainActivity clamps the WebView text zoom to 100-130 % and re-applies it on configuration changes", () => {
+    const activity = read("android/app/src/main/java/com/convlink/voice/MainActivity.kt");
+    expect(activity).toMatch(/const val MIN_TEXT_ZOOM = 100\b/);
+    expect(activity).toMatch(/const val MAX_TEXT_ZOOM = 130\b/);
+    expect(activity).toMatch(/coerceIn\(MIN_TEXT_ZOOM, MAX_TEXT_ZOOM\)/);
+    expect(activity).toMatch(/override fun onConfigurationChanged\(newConfig: Configuration\)[\s\S]*applyTextZoom\(newConfig\)/);
+    expect(activity.indexOf("applyTextZoom(resources.configuration)")).toBeGreaterThan(activity.indexOf("super.onCreate(savedInstanceState)"));
+  });
+
   it("the Android plugin (WP-19, from the WP-18 stub) keeps the platform-only fallback and ★ gating", () => {
     const plugin = read("android/app/src/main/java/com/convlink/voice/plugin/MeshIntercomPlugin.kt");
     expect(plugin).toMatch(/@CapacitorPlugin\(\s*name = "MeshIntercom"/);
