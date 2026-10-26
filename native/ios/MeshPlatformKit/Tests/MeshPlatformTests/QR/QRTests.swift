@@ -39,23 +39,25 @@ final class InviteScannerTests: XCTestCase {
 
     func testFirstAcceptedPayloadFinishesOnce() {
         let s = InviteScanner()
-        var results: [InviteScanResult] = []
-        s.completion = { results.append($0) }
+        // Results go to a Recorder, not a captured `var`: Swift 6.3.3 (CI's Xcode 26.6)
+        // crashes in MandatoryAllocBoxToStack on this file's captured mutable locals.
+        let results = Recorder<InviteScanResult>()
+        s.completion = { results.add($0) }
         s.consider(["https://menu.example", "convlinkvoice://join?v=1#first", "convlinkvoice://join?v=1#second"])
         s.consider(["convlinkvoice://join?v=1#late"])
         s.cancel()
-        XCTAssertEqual(results, [.payload("convlinkvoice://join?v=1#first")])
+        XCTAssertEqual(results.values, [.payload("convlinkvoice://join?v=1#first")])
     }
 
     func testSimulatorHasNoScannerSoPresentReportsUnsupported() {
         // DataScannerViewController needs a camera and the Neural Engine.
         let s = InviteScanner()
-        var result: InviteScanResult?
-        s.present(from: UIViewController()) { result = $0 }
+        let result = Recorder<InviteScanResult>()
+        s.present(from: UIViewController()) { result.add($0) }
         if InviteScanner.isSupported {
-            XCTAssertNotEqual(result, .unsupported)
+            XCTAssertNotEqual(result.values.first, .unsupported)
         } else {
-            XCTAssertEqual(result, .unsupported)
+            XCTAssertEqual(result.values, [.unsupported])
         }
     }
 }
@@ -66,8 +68,8 @@ final class InviteScannerHostTests: XCTestCase {
     /// inside VisionKit's scanner do not receive taps (field report 2026-10-25).
     func testCloseButtonIsOnTopOfTheScannerAndCloses() throws {
         let content = UIViewController()
-        var closes = 0
-        let host = InviteScannerHost(content: content, closeLabel: "Cancelar") { closes += 1 }
+        let closes = Recorder<Int>()
+        let host = InviteScannerHost(content: content, closeLabel: "Cancelar") { closes.add(1) }
         host.loadViewIfNeeded()
         let button = try XCTUnwrap(host.closeButton)
         XCTAssertTrue(button.superview === host.view)
@@ -77,9 +79,9 @@ final class InviteScannerHostTests: XCTestCase {
         XCTAssertEqual(button.accessibilityLabel, "Cancelar")
         XCTAssertEqual(host.modalPresentationStyle, .fullScreen)
         button.sendActions(for: .primaryActionTriggered)
-        XCTAssertEqual(closes, 1)
+        XCTAssertEqual(closes.values.count, 1)
         XCTAssertTrue(host.accessibilityPerformEscape())
-        XCTAssertEqual(closes, 2)
+        XCTAssertEqual(closes.values.count, 2)
     }
 
     /// A tap at the button's centre hit-tests to the button, not to the scanner's views.
