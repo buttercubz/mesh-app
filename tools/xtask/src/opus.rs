@@ -531,8 +531,16 @@ fn download(url: &str, dest: &Path) -> util::Result {
         "--location",
         "--silent",
         "--show-error",
+        // Retry every failure, not only curl's "transient" ones: a TLS handshake reset
+        // (exit 35) from downloads.xiph.org failed a CI bootstrap (2026-10-26). The
+        // SHA-256 check after the download still guards the content.
         "--retry",
+        "5",
+        "--retry-all-errors",
+        "--retry-delay",
         "3",
+        "--connect-timeout",
+        "30",
         "--proto",
         "=https,file",
         "--proto-redir",

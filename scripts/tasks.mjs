@@ -118,6 +118,7 @@ const NEEDS = {
   size: [xtaskImpl("ios", "WP-12"), xtaskImpl("android", "WP-12")],
   mobile: [file("apps/mobile/package.json", "WP-18")],
   playwright: [file("apps/mobile/playwright.config.ts", "WP-18")],
+  layout: [file("apps/mobile/playwright.layout.config.ts", "WP-18")],
   capSync: [file("apps/mobile/capacitor.config.ts", "WP-18")],
   platformKit: [file("native/ios/MeshPlatformKit/Package.swift", "WP-14")],
   engineKit: [file("native/ios/MeshEngineKit/Package.swift", "WP-15"), xtaskImpl("ios", "WP-12")],
@@ -203,6 +204,10 @@ export function ciSteps() {
     cmd("pnpm", ["-r", "test"]),
     cmd("pnpm", ["-r", "lint"]),
     cmd("pnpm", ["--filter", "@meshapp/mobile", "exec", "playwright", "test"], { needs: NEEDS.playwright }),
+    // Layout regression subset (no scroll, no clipping, safe areas) on small and big phones.
+    cmd("pnpm", ["--filter", "@meshapp/mobile", "exec", "playwright", "test", "-c", "playwright.layout.config.ts"], {
+      needs: NEEDS.layout,
+    }),
     xcodeTest("MeshPlatformKit", "MeshPlatformKit-Package", NEEDS.platformKit),
     xcodeTest("MeshEngineKit", "MeshEngineKit-Package", NEEDS.engineKit),
     capSync(),

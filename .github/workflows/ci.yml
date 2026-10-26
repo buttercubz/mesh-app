@@ -31,7 +31,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Skipped under nektos/act on a developer Mac (`-P macos-26=-self-hosted`): it needs
+      # sudo and would change the machine's selected Xcode; local runs use the current one.
       - name: Select the newest Xcode
+        if: ${{ !env.ACT }}
         run: |
           xcode="$(ls -d /Applications/Xcode*.app | sort -V | tail -n1)"
           sudo xcode-select -s "$xcode/Contents/Developer"
@@ -41,10 +44,15 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Enable pnpm (packageManager pin)
-        run: |
-          corepack enable
-          pnpm --version
+      # pnpm at the package.json `packageManager` pin. Not corepack: Node >= 25 (.nvmrc
+      # is 26) no longer ships it, so `corepack enable` only worked where the runner image
+      # happened to have a global corepack (it failed under nektos/act on a Mac).
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: pnpm version
+        run: pnpm --version
 
       - uses: actions/setup-java@v4
         with:
